@@ -5,7 +5,7 @@ import { SparePiece } from "react-chessboard";
 import type { Piece } from "react-chessboard/dist/chessboard/types";
 
 interface PieceReserveProps {
-  pieces: { type: string; count: number }[];
+  pieces: { type: string; count: number; color: string }[]; // Add color to the interface
   boardWidth: number;
   side: "left" | "right";
 }
@@ -17,7 +17,9 @@ export const PieceReserve = observer(
     const renderPieceColumn = (color: "w" | "b") => (
       <div className="flex flex-col justify-evenly w-16 h-full">
         {standardPieceOrder.map((pieceType) => {
-          const piece = pieces.find((p) => p.type === pieceType.toLowerCase());
+          const piece = pieces.find(
+            (p) => p.type === pieceType.toLowerCase() && p.color === color
+          );
           const count = piece?.count || 0;
           const pieceId = `${color}${pieceType}` as Piece;
 

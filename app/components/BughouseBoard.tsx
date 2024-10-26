@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Chess, Move, Square } from "chess.js";
 import { PieceReserve } from "./PieceReserve";
 import dynamic from "next/dynamic";
-import { gameStore } from "../stores/gameStore";
 
 // Dynamically import ChessboardDnDProvider with SSR disabled
 const DynamicChessboardDnDProvider = dynamic(
@@ -28,6 +27,12 @@ interface SquareStyles {
   [square: string]: SquareStyle;
 }
 
+interface CapturedPiece {
+  type: string;
+  color: "w" | "b";
+  count: number;
+}
+
 const BughouseBoard = observer(() => {
   // Reduce the board width for a more compact layout
   const [boardWidth, setBoardWidth] = useState(400);
@@ -40,6 +45,9 @@ const BughouseBoard = observer(() => {
 
   const [positionA, setPositionA] = useState(boardA.fen());
   const [positionB, setPositionB] = useState(boardB.fen());
+
+  const [teamAHolding, setTeamAHolding] = useState<CapturedPiece[]>([]);
+  const [teamBHolding, setTeamBHolding] = useState<CapturedPiece[]>([]);
 
   // Click-to-move state
   const [moveFromA, setMoveFromA] = useState<Square | "">("");
@@ -148,18 +156,108 @@ const BughouseBoard = observer(() => {
     }
   };
 
+  const handleCapture = (board: Chess, move: Move, isTeamA: boolean) => {
+    if (!move.captured) return;
+
+    const capturedPiece: CapturedPiece = {
+      type: move.captured.toLowerCase(),
+      color: move.color === "w" ? "b" : ("w" as "w" | "b"),
+      count: 1,
+    };
+
+    // If on board A, pieces go to board B's reserves and vice versa
+    const targetHolding = isTeamA ? teamBHolding : teamAHolding;
+    const setTargetHolding = isTeamA ? setTeamBHolding : setTeamAHolding;
+
+    const newHolding = [...targetHolding];
+    const existingPiece = newHolding.find(
+      (p) => p.type === capturedPiece.type && p.color === capturedPiece.color
+    );
+
+    if (existingPiece) {
+      existingPiece.count++;
+    } else {
+      newHolding.push(capturedPiece);
+    }
+
+    setTargetHolding(newHolding);
+  };
+
+  const removePieceFromHolding = (piece: string, isTeamA: boolean) => {
+    const holding = isTeamA ? teamAHolding : teamBHolding;
+    const setHolding = isTeamA ? setTeamAHolding : setTeamBHolding;
+
+    const newHolding = [...holding];
+    const existingPiece = newHolding.find((p) => p.type === piece);
+
+    if (existingPiece && existingPiece.count > 0) {
+      existingPiece.count--;
+      if (existingPiece.count === 0) {
+        const index = newHolding.indexOf(existingPiece);
+        newHolding.splice(index, 1);
+      }
+      setHolding(newHolding);
+    }
+  };
+
+  const isValidDrop = (
+    piece: string,
+    square: Square,
+    board: Chess
+  ): boolean => {
+    // Prevent pawn drops on first and last ranks
+    if (piece.toLowerCase() === "p") {
+      const rank = square[1];
+      if (rank === "1" || rank === "8") {
+        console.log("Cannot drop pawns on first or last rank");
+        return false;
+      }
+    }
+
+    // Check if square is empty
+    return !board.get(square);
+  };
+
   const onPieceDrop1 = (
     sourceSquare: string,
     targetSquare: string,
     piece: string
   ) => {
-    // If dropped outside the board, return false immediately
     if (!targetSquare) {
-      console.log(`Piece dropped outside board A`);
+      console.log("Piece dropped outside board A");
       return false;
     }
 
     try {
+      // Handle drops from piece reserve
+      if (sourceSquare === "spare") {
+        const pieceType = piece.toLowerCase()[1];
+        const isWhitePiece = piece[0] === "w";
+        const holding = isWhitePiece ? teamAHolding : teamBHolding;
+
+        // Check if piece is available in holdings
+        if (!holding.find((p) => p.type === pieceType && p.count > 0)) {
+          console.log("Piece not available in holdings");
+          return false;
+        }
+
+        // Validate drop
+        if (!isValidDrop(pieceType, targetSquare as Square, boardA)) {
+          return false;
+        }
+
+        const move = `${pieceType}@${targetSquare}`;
+        const result = boardA.move(move);
+
+        if (result) {
+          setPositionA(boardA.fen());
+          removePieceFromHolding(pieceType, isWhitePiece);
+          return true;
+        }
+        return false;
+      }
+
+      // Handle regular moves
       const move = {
         from: sourceSquare,
         to: targetSquare,
@@ -167,18 +265,14 @@ const BughouseBoard = observer(() => {
       };
 
       const result = boardA.move(move);
-      if (result !== null) {
+      if (result) {
         setPositionA(boardA.fen());
+        handleCapture(boardA, result, true);
         return true;
       }
-      console.log(
-        `Illegal move attempted on board A: ${sourceSquare} → ${targetSquare}`
-      );
       return false;
-    } catch {
-      console.log(
-        `Illegal move attempted on board A: ${sourceSquare} → ${targetSquare}`
-      );
+    } catch (e) {
+      console.log("Invalid move attempted on board A", e);
       return false;
     }
   };
@@ -188,13 +282,42 @@ const BughouseBoard = observer(() => {
     targetSquare: string,
     piece: string
   ) => {
-    // If dropped outside the board, return false immediately
+    // Similar implementation for board B with proper types
     if (!targetSquare) {
       console.log(`Piece dropped outside board B`);
       return false;
     }
 
     try {
+      // Handle drops from piece reserve
+      if (sourceSquare === "spare") {
+        const pieceType = piece.toLowerCase()[1];
+        const isWhitePiece = piece[0] === "w";
+        const holding = isWhitePiece ? teamBHolding : teamBHolding;
+
+        // Check if piece is available in holdings
+        if (!holding.find((p) => p.type === pieceType && p.count > 0)) {
+          console.log("Piece not available in holdings");
+          return false;
+        }
+
+        // Validate drop
+        if (!isValidDrop(pieceType, targetSquare as Square, boardB)) {
+          return false;
+        }
+
+        const move = `${pieceType}@${targetSquare}`;
+        const result = boardB.move(move);
+
+        if (result) {
+          setPositionB(boardB.fen());
+          removePieceFromHolding(pieceType, isWhitePiece);
+          return true;
+        }
+        return false;
+      }
+
+      // Handle regular moves
       const move = {
         from: sourceSquare,
         to: targetSquare,
@@ -202,18 +325,14 @@ const BughouseBoard = observer(() => {
       };
 
       const result = boardB.move(move);
-      if (result !== null) {
+      if (result) {
         setPositionB(boardB.fen());
+        handleCapture(boardB, result, false);
         return true;
       }
-      console.log(
-        `Illegal move attempted on board B: ${sourceSquare} → ${targetSquare}`
-      );
       return false;
-    } catch {
-      console.log(
-        `Illegal move attempted on board B: ${sourceSquare} → ${targetSquare}`
-      );
+    } catch (e) {
+      console.log("Invalid move attempted on board B", e);
       return false;
     }
   };
@@ -243,15 +362,7 @@ const BughouseBoard = observer(() => {
               <div className="grid grid-cols-[auto_400px] gap-2">
                 <PieceReserve
                   side="left"
-                  pieces={gameStore.capturedPiecesTeam1.reduce((acc, piece) => {
-                    const existing = acc.find((p) => p.type === piece.type);
-                    if (existing) {
-                      existing.count++;
-                    } else {
-                      acc.push({ type: piece.type, count: 1 });
-                    }
-                    return acc;
-                  }, [] as { type: string; count: number }[])}
+                  pieces={teamAHolding}
                   boardWidth={boardWidth}
                 />
 
@@ -297,15 +408,7 @@ const BughouseBoard = observer(() => {
 
                 <PieceReserve
                   side="right"
-                  pieces={gameStore.capturedPiecesTeam2.reduce((acc, piece) => {
-                    const existing = acc.find((p) => p.type === piece.type);
-                    if (existing) {
-                      existing.count++;
-                    } else {
-                      acc.push({ type: piece.type, count: 1 });
-                    }
-                    return acc;
-                  }, [] as { type: string; count: number }[])}
+                  pieces={teamBHolding}
                   boardWidth={boardWidth}
                 />
               </div>

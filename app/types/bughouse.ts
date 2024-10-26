@@ -16,6 +16,7 @@ export interface BughouseMove {
 
 export interface CapturedPiece {
   type: string;
+  color: "w" | "b"; // Add the color property
   count: number;
 }
 

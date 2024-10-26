@@ -57,7 +57,11 @@ export class BughouseStore {
     if (existingPiece) {
       existingPiece.count++;
     } else {
-      holding.push({ type: capturedPiece, count: 1 });
+      holding.push({
+        type: capturedPiece,
+        count: 1,
+        color: move.color, // Add the color property
+      });
     }
   }
 
