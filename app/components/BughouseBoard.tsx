@@ -23,6 +23,9 @@ const BughouseBoard = observer(() => {
   // Reduce the board width for a more compact layout
   const [boardWidth, setBoardWidth] = useState(400);
 
+  // Add state for board orientation
+  const [isFlipped, setIsFlipped] = useState(false);
+
   const onPieceDrop1 = (sourceSquare: string, targetSquare: string) => {
     return gameStore.makeMove1(sourceSquare, targetSquare);
   };
@@ -48,10 +51,10 @@ const BughouseBoard = observer(() => {
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 flex items-center">
-      <div className="max-w-[1600px] mx-auto w-full">
+      <div className="mx-auto w-full">
         <DynamicChessboardDnDProvider>
           <div className="flex flex-col items-center gap-4">
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-12">
               {/* Left group */}
               <div className="grid grid-cols-[auto_400px] gap-2">
                 <PieceReserve
@@ -75,6 +78,7 @@ const BughouseBoard = observer(() => {
                       position={gameStore.getFen1()}
                       onPieceDrop={onPieceDrop1}
                       onBoardWidthChange={setBoardWidth}
+                      boardOrientation={isFlipped ? "black" : "white"}
                       customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
                       customLightSquareStyle={
                         boardCustomStyles.lightSquareStyle
@@ -93,6 +97,7 @@ const BughouseBoard = observer(() => {
                       id="board2"
                       position={gameStore.getFen2()}
                       onPieceDrop={onPieceDrop2}
+                      boardOrientation={isFlipped ? "white" : "black"}
                       customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
                       customLightSquareStyle={
                         boardCustomStyles.lightSquareStyle
@@ -155,6 +160,13 @@ const BughouseBoard = observer(() => {
                 title="Last move"
               >
                 <span>⏭</span>
+              </button>
+              <button
+                onClick={() => setIsFlipped(!isFlipped)}
+                className={navigationButtonClasses}
+                title="Flip boards"
+              >
+                <span>⟲</span>
               </button>
             </div>
           </div>
