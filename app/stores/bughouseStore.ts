@@ -1,6 +1,12 @@
 import { makeAutoObservable } from "mobx";
 import { Chess } from "chess.js";
-import { BughouseGameState, BughouseMove, BoardId } from "../types/bughouse";
+import {
+  BughouseGameState,
+  BughouseMove,
+  BoardId,
+  ChessMove,
+  TeamHolding,
+} from "../types/bughouse";
 
 export class BughouseStore {
   private gameState: BughouseGameState = {
@@ -38,12 +44,12 @@ export class BughouseStore {
     };
   }
 
-  private handleCapture(boardId: BoardId, move: any) {
+  private handleCapture(boardId: BoardId, move: ChessMove): void {
     if (!move.captured) return;
 
-    // In Bughouse, captured pieces go to the opposite team on the other board
     const capturedPiece = move.captured.toLowerCase();
-    const targetTeamHolding = boardId === "A" ? "teamBHolding" : "teamAHolding";
+    const targetTeamHolding: TeamHolding =
+      boardId === "A" ? "teamBHolding" : "teamAHolding";
 
     const holding = this.gameState.capturedPieces[targetTeamHolding];
     const existingPiece = holding.find((p) => p.type === capturedPiece);
@@ -56,9 +62,9 @@ export class BughouseStore {
   }
 
   private removePieceFromHolding(
-    teamHolding: "teamAHolding" | "teamBHolding",
+    teamHolding: TeamHolding,
     pieceType: string
-  ) {
+  ): void {
     const holding = this.gameState.capturedPieces[teamHolding];
     const piece = holding.find((p) => p.type === pieceType);
     if (piece && piece.count > 0) {
@@ -72,13 +78,13 @@ export class BughouseStore {
 
   makeMove(boardId: BoardId, move: string): boolean {
     const board = boardId === "A" ? this.boardA : this.boardB;
-    const color = board.turn() === "w" ? "w" : "b";
+    const color = board.turn();
 
     try {
       // Handle drops
       if (move.includes("@")) {
         const pieceType = move[0].toLowerCase();
-        const teamHolding =
+        const teamHolding: TeamHolding =
           boardId === "A"
             ? color === "w"
               ? "teamAHolding"
@@ -87,24 +93,20 @@ export class BughouseStore {
             ? "teamBHolding"
             : "teamAHolding";
 
-        // Check if the team has the piece to drop
         const holding = this.gameState.capturedPieces[teamHolding];
         if (!holding.find((p) => p.type === pieceType && p.count > 0)) {
           return false;
         }
       }
 
-      // Attempt to make the move
-      const result = board.move(move);
+      const result = board.move(move) as ChessMove | null;
       if (!result) return false;
 
-      // Handle captures and update holdings
       this.handleCapture(boardId, result);
 
-      // If it was a drop, remove the piece from holdings
       if (move.includes("@")) {
         const pieceType = move[0].toLowerCase();
-        const teamHolding =
+        const teamHolding: TeamHolding =
           boardId === "A"
             ? color === "w"
               ? "teamAHolding"
@@ -115,7 +117,6 @@ export class BughouseStore {
         this.removePieceFromHolding(teamHolding, pieceType);
       }
 
-      // Create and store the move
       const bughouseMove: BughouseMove = {
         boardId,
         color,
@@ -127,7 +128,6 @@ export class BughouseStore {
         isDrop: move.includes("@"),
       };
 
-      // If we're not at the end of the move list, truncate future moves
       if (
         this.moveIndex !== -1 &&
         this.moveIndex < this.gameState.moves.length - 1

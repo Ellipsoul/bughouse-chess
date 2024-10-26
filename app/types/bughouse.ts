@@ -1,26 +1,44 @@
+import { Square } from "chess.js";
+
 export type BoardId = "A" | "B";
-export type Color = "w" | "b";
+export type TeamHolding = "teamAHolding" | "teamBHolding";
 
 export interface BughouseMove {
   boardId: BoardId;
-  color: Color;
+  color: "w" | "b";
   moveNumber: number;
-  san: string; // Standard Algebraic Notation
-  fen: string; // Position after move
-  isCheck?: boolean;
-  isCheckmate?: boolean;
-  isDrop?: boolean;
+  san: string;
+  fen: string;
+  isCheck: boolean;
+  isCheckmate: boolean;
+  isDrop: boolean;
+}
+
+export interface CapturedPiece {
+  type: string;
+  count: number;
 }
 
 export interface BughouseGameState {
   currentMoveNumber: number;
   currentPosition: {
-    A: string; // FEN for board A
-    B: string; // FEN for board B
+    A: string;
+    B: string;
   };
   moves: BughouseMove[];
   capturedPieces: {
-    teamAHolding: { type: string; count: number }[];
-    teamBHolding: { type: string; count: number }[];
+    teamAHolding: CapturedPiece[];
+    teamBHolding: CapturedPiece[];
   };
+}
+
+export interface ChessMove {
+  color: "w" | "b";
+  from: Square;
+  to: Square;
+  flags: string;
+  piece: string;
+  san: string;
+  captured?: string;
+  promotion?: string;
 }
