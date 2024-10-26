@@ -2,7 +2,7 @@
 
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import { Chess } from "chess.js";
+import { Chess, Move, Square } from "chess.js";
 import { PieceReserve } from "./PieceReserve";
 import dynamic from "next/dynamic";
 import { gameStore } from "../stores/gameStore";
@@ -19,6 +19,15 @@ const DynamicChessboard = dynamic(
   { ssr: false }
 );
 
+interface SquareStyle {
+  background: string;
+  borderRadius?: string;
+}
+
+interface SquareStyles {
+  [square: string]: SquareStyle;
+}
+
 const BughouseBoard = observer(() => {
   // Reduce the board width for a more compact layout
   const [boardWidth, setBoardWidth] = useState(400);
@@ -32,17 +41,129 @@ const BughouseBoard = observer(() => {
   const [positionA, setPositionA] = useState(boardA.fen());
   const [positionB, setPositionB] = useState(boardB.fen());
 
+  // Click-to-move state
+  const [moveFromA, setMoveFromA] = useState<Square | "">("");
+  const [moveFromB, setMoveFromB] = useState<Square | "">("");
+  const [optionSquaresA, setOptionSquaresA] = useState<SquareStyles>({});
+  const [optionSquaresB, setOptionSquaresB] = useState<SquareStyles>({});
+
+  const getMoveOptions = (
+    square: Square,
+    board: Chess,
+    setOptionSquares: (squares: SquareStyles) => void
+  ): boolean => {
+    const moves = board.moves({ square, verbose: true }) as Move[];
+    if (moves.length === 0) {
+      setOptionSquares({});
+      return false;
+    }
+
+    const newSquares: SquareStyles = {};
+    moves.forEach((move) => {
+      const piece = board.get(square);
+      const targetPiece = board.get(move.to as Square);
+
+      newSquares[move.to] = {
+        background:
+          targetPiece && targetPiece.color !== piece?.color
+            ? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)"
+            : "radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)",
+        borderRadius: "50%",
+      };
+    });
+
+    newSquares[square] = {
+      background: "rgba(255, 255, 0, 0.4)",
+    };
+
+    setOptionSquares(newSquares);
+    return true;
+  };
+
+  const onSquareClickA = (square: Square) => {
+    // from square
+    if (!moveFromA) {
+      const hasMoveOptions = getMoveOptions(square, boardA, setOptionSquaresA);
+      if (hasMoveOptions) setMoveFromA(square);
+      return;
+    }
+
+    // to square
+    try {
+      const result = boardA.move({
+        from: moveFromA,
+        to: square,
+        promotion: "q",
+      });
+
+      if (result) {
+        setPositionA(boardA.fen());
+        setMoveFromA("");
+        setOptionSquaresA({});
+      } else {
+        // Check if clicked on a new piece
+        const hasMoveOptions = getMoveOptions(
+          square,
+          boardA,
+          setOptionSquaresA
+        );
+        setMoveFromA(hasMoveOptions ? square : "");
+      }
+    } catch {
+      const hasMoveOptions = getMoveOptions(square, boardA, setOptionSquaresA);
+      setMoveFromA(hasMoveOptions ? square : "");
+    }
+  };
+
+  const onSquareClickB = (square: Square) => {
+    // Similar implementation for board B with proper types
+    if (!moveFromB) {
+      const hasMoveOptions = getMoveOptions(square, boardB, setOptionSquaresB);
+      if (hasMoveOptions) setMoveFromB(square);
+      return;
+    }
+
+    try {
+      const result = boardB.move({
+        from: moveFromB,
+        to: square,
+        promotion: "q",
+      });
+
+      if (result) {
+        setPositionB(boardB.fen());
+        setMoveFromB("");
+        setOptionSquaresB({});
+      } else {
+        const hasMoveOptions = getMoveOptions(
+          square,
+          boardB,
+          setOptionSquaresB
+        );
+        setMoveFromB(hasMoveOptions ? square : "");
+      }
+    } catch {
+      const hasMoveOptions = getMoveOptions(square, boardB, setOptionSquaresB);
+      setMoveFromB(hasMoveOptions ? square : "");
+    }
+  };
+
   const onPieceDrop1 = (
     sourceSquare: string,
     targetSquare: string,
     piece: string
   ) => {
+    // If dropped outside the board, return false immediately
+    if (!targetSquare) {
+      console.log(`Piece dropped outside board A`);
+      return false;
+    }
+
     try {
-      // Handle regular moves
       const move = {
         from: sourceSquare,
         to: targetSquare,
-        promotion: "q", // Always promote to queen for now
+        promotion: "q",
       };
 
       const result = boardA.move(move);
@@ -50,9 +171,14 @@ const BughouseBoard = observer(() => {
         setPositionA(boardA.fen());
         return true;
       }
+      console.log(
+        `Illegal move attempted on board A: ${sourceSquare} → ${targetSquare}`
+      );
       return false;
-    } catch (e) {
-      console.error("Invalid move:", e);
+    } catch {
+      console.log(
+        `Illegal move attempted on board A: ${sourceSquare} → ${targetSquare}`
+      );
       return false;
     }
   };
@@ -62,11 +188,17 @@ const BughouseBoard = observer(() => {
     targetSquare: string,
     piece: string
   ) => {
+    // If dropped outside the board, return false immediately
+    if (!targetSquare) {
+      console.log(`Piece dropped outside board B`);
+      return false;
+    }
+
     try {
       const move = {
         from: sourceSquare,
         to: targetSquare,
-        promotion: "q", // Always promote to queen for now
+        promotion: "q",
       };
 
       const result = boardB.move(move);
@@ -74,9 +206,14 @@ const BughouseBoard = observer(() => {
         setPositionB(boardB.fen());
         return true;
       }
+      console.log(
+        `Illegal move attempted on board B: ${sourceSquare} → ${targetSquare}`
+      );
       return false;
-    } catch (e) {
-      console.error("Invalid move:", e);
+    } catch {
+      console.log(
+        `Illegal move attempted on board B: ${sourceSquare} → ${targetSquare}`
+      );
       return false;
     }
   };
@@ -124,6 +261,7 @@ const BughouseBoard = observer(() => {
                       id="board1"
                       position={positionA}
                       onPieceDrop={onPieceDrop1}
+                      onSquareClick={onSquareClickA}
                       onBoardWidthChange={setBoardWidth}
                       boardOrientation={isFlipped ? "black" : "white"}
                       customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
@@ -131,6 +269,7 @@ const BughouseBoard = observer(() => {
                         boardCustomStyles.lightSquareStyle
                       }
                       customBoardStyle={boardCustomStyles.boardStyle}
+                      customSquareStyles={optionSquaresA}
                     />
                   </div>
                 </div>
@@ -144,12 +283,14 @@ const BughouseBoard = observer(() => {
                       id="board2"
                       position={positionB}
                       onPieceDrop={onPieceDrop2}
+                      onSquareClick={onSquareClickB}
                       boardOrientation={isFlipped ? "white" : "black"}
                       customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
                       customLightSquareStyle={
                         boardCustomStyles.lightSquareStyle
                       }
                       customBoardStyle={boardCustomStyles.boardStyle}
+                      customSquareStyles={optionSquaresB}
                     />
                   </div>
                 </div>
