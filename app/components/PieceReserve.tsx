@@ -3,15 +3,16 @@
 import { observer } from "mobx-react-lite";
 import { SparePiece } from "react-chessboard";
 import type { Piece } from "react-chessboard/dist/chessboard/types";
+import { CapturedPiece } from "../types/bughouse";
 
 interface PieceReserveProps {
-  pieces: { type: string; count: number; color: string }[]; // Add color to the interface
-  boardWidth: number;
   side: "left" | "right";
+  pieces: CapturedPiece[];
+  boardWidth: number;
 }
 
 export const PieceReserve = observer(
-  ({ pieces, boardWidth, side }: PieceReserveProps) => {
+  ({ pieces, boardWidth }: PieceReserveProps) => {
     const standardPieceOrder = ["P", "N", "B", "R", "Q"];
 
     const renderPieceColumn = (color: "w" | "b") => (
