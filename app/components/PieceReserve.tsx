@@ -51,7 +51,7 @@ export const PieceReserve = observer(
     );
 
     return (
-      <div className="bg-gray-800 p-2 rounded-lg shadow-lg h-[400px]">
+      <div className="bg-gray-800 p-2 rounded-lg shadow-lg h-full">
         <h2 className="text-sm font-semibold text-white mb-2 text-center">
           {side === "left" ? "Board 1" : "Board 2"} Reserve
         </h2>

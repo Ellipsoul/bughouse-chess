@@ -31,86 +31,90 @@ const BughouseBoard = observer(() => {
     return gameStore.makeMove2(sourceSquare, targetSquare);
   };
 
+  // Common CSS classes
+  const boardContainerClasses = "bg-gray-800 p-3 rounded-lg shadow-lg";
+  const boardWrapperClasses = "w-128 aspect-square";
+  const boardHeaderClasses = "text-lg font-semibold text-white mb-2";
+  const boardCustomStyles = {
+    darkSquareStyle: { backgroundColor: "#374151" },
+    lightSquareStyle: { backgroundColor: "#4B5563" },
+    boardStyle: {
+      borderRadius: "4px",
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-4">
       <div className="max-w-[1600px] mx-auto">
         <h1 className="text-2xl font-bold text-white mb-4">Bughouse Chess</h1>
 
         <DynamicChessboardDnDProvider>
-          <div className="flex justify-center gap-2">
-            {/* Left Reserve */}
-            <PieceReserve
-              side="left"
-              pieces={gameStore.capturedPiecesTeam1.reduce((acc, piece) => {
-                const existing = acc.find((p) => p.type === piece.type);
-                if (existing) {
-                  existing.count++;
-                } else {
-                  acc.push({ type: piece.type, count: 1 });
-                }
-                return acc;
-              }, [] as { type: string; count: number }[])}
-              boardWidth={boardWidth}
-            />
+          <div className="flex justify-center gap-4">
+            {/* Left group */}
+            <div className="grid grid-cols-[auto_400px] gap-2">
+              <PieceReserve
+                side="left"
+                pieces={gameStore.capturedPiecesTeam1.reduce((acc, piece) => {
+                  const existing = acc.find((p) => p.type === piece.type);
+                  if (existing) {
+                    existing.count++;
+                  } else {
+                    acc.push({ type: piece.type, count: 1 });
+                  }
+                  return acc;
+                }, [] as { type: string; count: number }[])}
+                boardWidth={boardWidth}
+              />
 
-            {/* Boards Container */}
-            <div className="flex gap-2">
               {/* Board 1 */}
-              <div className="bg-gray-800 p-3 rounded-lg shadow-lg">
-                <h2 className="text-lg font-semibold text-white mb-2">
-                  Board 1
-                </h2>
-                <div className="aspect-square w-[400px]">
+              <div className={boardContainerClasses}>
+                <h2 className={boardHeaderClasses}>Board 1</h2>
+                <div className={boardWrapperClasses}>
                   <DynamicChessboard
                     id="board1"
                     position={gameStore.getFen1()}
                     onPieceDrop={onPieceDrop1}
                     onBoardWidthChange={setBoardWidth}
-                    customDarkSquareStyle={{ backgroundColor: "#374151" }} // gray-700
-                    customLightSquareStyle={{ backgroundColor: "#4B5563" }} // gray-600
-                    customBoardStyle={{
-                      borderRadius: "4px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Board 2 */}
-              <div className="bg-gray-800 p-3 rounded-lg shadow-lg">
-                <h2 className="text-lg font-semibold text-white mb-2">
-                  Board 2
-                </h2>
-                <div className="aspect-square w-[400px]">
-                  <DynamicChessboard
-                    id="board2"
-                    position={gameStore.getFen2()}
-                    onPieceDrop={onPieceDrop2}
-                    customDarkSquareStyle={{ backgroundColor: "#374151" }} // gray-700
-                    customLightSquareStyle={{ backgroundColor: "#4B5563" }} // gray-600
-                    customBoardStyle={{
-                      borderRadius: "4px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    }}
+                    customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
+                    customLightSquareStyle={boardCustomStyles.lightSquareStyle}
+                    customBoardStyle={boardCustomStyles.boardStyle}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Right Reserve */}
-            <PieceReserve
-              side="right"
-              pieces={gameStore.capturedPiecesTeam2.reduce((acc, piece) => {
-                const existing = acc.find((p) => p.type === piece.type);
-                if (existing) {
-                  existing.count++;
-                } else {
-                  acc.push({ type: piece.type, count: 1 });
-                }
-                return acc;
-              }, [] as { type: string; count: number }[])}
-              boardWidth={boardWidth}
-            />
+            {/* Right group */}
+            <div className="grid grid-cols-[400px_auto] gap-2">
+              {/* Board 2 */}
+              <div className={boardContainerClasses}>
+                <h2 className={boardHeaderClasses}>Board 2</h2>
+                <div className={boardWrapperClasses}>
+                  <DynamicChessboard
+                    id="board2"
+                    position={gameStore.getFen2()}
+                    onPieceDrop={onPieceDrop2}
+                    customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
+                    customLightSquareStyle={boardCustomStyles.lightSquareStyle}
+                    customBoardStyle={boardCustomStyles.boardStyle}
+                  />
+                </div>
+              </div>
+
+              <PieceReserve
+                side="right"
+                pieces={gameStore.capturedPiecesTeam2.reduce((acc, piece) => {
+                  const existing = acc.find((p) => p.type === piece.type);
+                  if (existing) {
+                    existing.count++;
+                  } else {
+                    acc.push({ type: piece.type, count: 1 });
+                  }
+                  return acc;
+                }, [] as { type: string; count: number }[])}
+                boardWidth={boardWidth}
+              />
+            </div>
           </div>
         </DynamicChessboardDnDProvider>
 
