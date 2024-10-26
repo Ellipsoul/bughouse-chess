@@ -6,7 +6,7 @@ import {
   BoardId,
   ChessMove,
   TeamHolding,
-} from "../types/bughouse";
+} from "../types/bughouseStore.types";
 
 export class BughouseStore {
   private gameState: BughouseGameState = {

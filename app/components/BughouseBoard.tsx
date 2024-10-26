@@ -2,9 +2,13 @@
 
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import { Chess, Move, Square } from "chess.js";
-import { PieceReserve } from "./PieceReserve";
 import dynamic from "next/dynamic";
+
+import { Chess, Move, Square } from "chess.js";
+
+import { PieceReserve } from "./PieceReserve";
+import { CapturedPiece } from "../types/bughouseStore.types";
+import { SquareStyles } from "../types/bughouseBoard.types";
 
 // Dynamically import ChessboardDnDProvider with SSR disabled
 const DynamicChessboardDnDProvider = dynamic(
@@ -17,21 +21,6 @@ const DynamicChessboard = dynamic(
   () => import("react-chessboard").then((mod) => mod.Chessboard),
   { ssr: false }
 );
-
-interface SquareStyle {
-  background: string;
-  borderRadius?: string;
-}
-
-interface SquareStyles {
-  [square: string]: SquareStyle;
-}
-
-interface CapturedPiece {
-  type: string;
-  color: "w" | "b";
-  count: number;
-}
 
 const BughouseBoard = observer(() => {
   // Reduce the board width for a more compact layout

@@ -1,14 +1,11 @@
-import "./mobxConfig"; // Import this first
+import "./mobxConfig";
+
 import { makeAutoObservable } from "mobx";
+
 import { Chess } from "chess.js";
 
-type PieceType = "p" | "n" | "b" | "r" | "q" | "k";
-type PieceColor = "w" | "b";
-
-interface CapturedPiece {
-  type: PieceType;
-  color: PieceColor;
-}
+import { CapturedPiece } from "../types/bughouseStore.types";
+import { PieceType } from "../types/gameStore.types";
 
 export class GameStore {
   // Two chess instances for the two boards
@@ -34,6 +31,7 @@ export class GameStore {
         this.capturedPiecesTeam2.push({
           type: move.captured as PieceType,
           color: move.color === "w" ? "b" : "w",
+          count: 0,
         });
       }
       return true;
@@ -52,6 +50,7 @@ export class GameStore {
         this.capturedPiecesTeam1.push({
           type: move.captured as PieceType,
           color: move.color === "w" ? "b" : "w",
+          count: 1,
         });
       }
       return true;

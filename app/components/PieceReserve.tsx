@@ -1,15 +1,11 @@
 "use client";
 
 import { observer } from "mobx-react-lite";
+
 import { SparePiece } from "react-chessboard";
 import type { Piece } from "react-chessboard/dist/chessboard/types";
-import { CapturedPiece } from "../types/bughouse";
 
-interface PieceReserveProps {
-  side: "left" | "right";
-  pieces: CapturedPiece[];
-  boardWidth: number;
-}
+import { PieceReserveProps } from "../types/pieceReserve.types";
 
 export const PieceReserve = observer(
   ({ pieces, boardWidth }: PieceReserveProps) => {
