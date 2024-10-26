@@ -62,16 +62,16 @@ export class GameStore {
   }
 
   // Drop a piece from reserves onto board 1
-  dropPiece1(piece: CapturedPiece, square: string) {
-    // Implementation for dropping pieces on board 1
-    // This will need to be implemented according to bughouse rules
-  }
+  // dropPiece1(piece: CapturedPiece, square: string) {
+  //   // Implementation for dropping pieces on board 1
+  //   // This will need to be implemented according to bughouse rules
+  // }
 
   // Drop a piece from reserves onto board 2
-  dropPiece2(piece: CapturedPiece, square: string) {
-    // Implementation for dropping pieces on board 2
-    // This will need to be implemented according to bughouse rules
-  }
+  // dropPiece2(piece: CapturedPiece, square: string) {
+  //   // Implementation for dropping pieces on board 2
+  //   // This will need to be implemented according to bughouse rules
+  // }
 
   // Get the current FEN for board 1
   getFen1() {
