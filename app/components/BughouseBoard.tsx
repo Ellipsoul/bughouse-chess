@@ -1,11 +1,11 @@
 "use client";
 
-import "../stores/mobxConfig";
 import { observer } from "mobx-react-lite";
+import { useState } from "react";
+import { Chess } from "chess.js";
+import { PieceReserve } from "./PieceReserve";
 import dynamic from "next/dynamic";
 import { gameStore } from "../stores/gameStore";
-import { PieceReserve } from "./PieceReserve";
-import { useState } from "react";
 
 // Dynamically import ChessboardDnDProvider with SSR disabled
 const DynamicChessboardDnDProvider = dynamic(
@@ -26,12 +26,59 @@ const BughouseBoard = observer(() => {
   // Add state for board orientation
   const [isFlipped, setIsFlipped] = useState(false);
 
-  const onPieceDrop1 = (sourceSquare: string, targetSquare: string) => {
-    return gameStore.makeMove1(sourceSquare, targetSquare);
+  const [boardA] = useState(new Chess());
+  const [boardB] = useState(new Chess());
+
+  const [positionA, setPositionA] = useState(boardA.fen());
+  const [positionB, setPositionB] = useState(boardB.fen());
+
+  const onPieceDrop1 = (
+    sourceSquare: string,
+    targetSquare: string,
+    piece: string
+  ) => {
+    try {
+      // Handle regular moves
+      const move = {
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q", // Always promote to queen for now
+      };
+
+      const result = boardA.move(move);
+      if (result !== null) {
+        setPositionA(boardA.fen());
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Invalid move:", e);
+      return false;
+    }
   };
 
-  const onPieceDrop2 = (sourceSquare: string, targetSquare: string) => {
-    return gameStore.makeMove2(sourceSquare, targetSquare);
+  const onPieceDrop2 = (
+    sourceSquare: string,
+    targetSquare: string,
+    piece: string
+  ) => {
+    try {
+      const move = {
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q", // Always promote to queen for now
+      };
+
+      const result = boardB.move(move);
+      if (result !== null) {
+        setPositionB(boardB.fen());
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Invalid move:", e);
+      return false;
+    }
   };
 
   // Common CSS classes
@@ -75,7 +122,7 @@ const BughouseBoard = observer(() => {
                   <div className={boardWrapperClasses}>
                     <DynamicChessboard
                       id="board1"
-                      position={gameStore.getFen1()}
+                      position={positionA}
                       onPieceDrop={onPieceDrop1}
                       onBoardWidthChange={setBoardWidth}
                       boardOrientation={isFlipped ? "black" : "white"}
@@ -95,7 +142,7 @@ const BughouseBoard = observer(() => {
                   <div className={boardWrapperClasses}>
                     <DynamicChessboard
                       id="board2"
-                      position={gameStore.getFen2()}
+                      position={positionB}
                       onPieceDrop={onPieceDrop2}
                       boardOrientation={isFlipped ? "white" : "black"}
                       customDarkSquareStyle={boardCustomStyles.darkSquareStyle}
