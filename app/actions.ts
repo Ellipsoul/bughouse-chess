@@ -1,11 +1,22 @@
 "use server";
 
-interface ChessGame {
+export interface ChessGame {
   game: {
     moveList: string;
     type: string;
     partnerGameId?: string;
-    // Add other properties as needed
+    white: {
+      username: string;
+      rating: number;
+    };
+    black: {
+      username: string;
+      rating: number;
+    };
+    timeControl: string;
+    startTime: number;
+    endTime: number;
+    status: string;
   };
 }
 

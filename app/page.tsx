@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { fetchChessGame, findPartnerGameId } from "./actions";
+import { ChessGame, fetchChessGame, findPartnerGameId } from "./actions";
 
 export default function Home() {
   const [gameId, setGameId] = useState("");
   const [gameData, setGameData] = useState<
     {
-      original: any;
-      partner: any;
+      original: ChessGame;
+      partner: ChessGame | null;
       partnerId: string | null;
     } | null
   >(null);
