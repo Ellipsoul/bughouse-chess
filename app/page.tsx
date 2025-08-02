@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { ChessGame, fetchChessGame, findPartnerGameId } from "./actions";
 import { parseChessComCompressedMovelist } from "./chesscom_movelist_parse";
+import BughouseReplay from "./components/BughouseReplay";
 
 interface GameCardProps {
   title: string;
@@ -249,14 +250,9 @@ export default function Home() {
       )}
 
       {gameData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <GameCard 
-            title={`Original Game (${gameId})`}
-            game={gameData.original}
-          />
-          <GameCard 
-            title={`Partner Game ${gameData.partnerId ? `(${gameData.partnerId})` : ""}`}
-            game={gameData.partner}
+        <div className="space-y-6">
+          <BughouseReplay 
+            gameData={gameData}
           />
         </div>
       )}
