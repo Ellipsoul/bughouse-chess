@@ -13,7 +13,13 @@ export function processGameData(originalGame: ChessGame, partnerGame: ChessGame 
       moves: [],
       timestamps: []
     },
-    combinedMoves: []
+    combinedMoves: [],
+    players: {
+      aWhite: originalGame.white?.username || 'Unknown',
+      aBlack: originalGame.black?.username || 'Unknown',
+      bWhite: partnerGame?.white?.username || 'Unknown',
+      bBlack: partnerGame?.black?.username || 'Unknown'
+    }
   };
 
   // Process original game

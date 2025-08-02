@@ -10,12 +10,26 @@ export interface BughouseMove {
 }
 
 export interface BughouseGameState {
-  boardA: string; // FEN string
-  boardB: string; // FEN string
-  currentMoveIndex: number;
-  moves: BughouseMove[];
-  isPlaying: boolean;
-  speed: number; // playback speed multiplier
+  boardA: {
+    fen: string;
+    moves: string[];
+    currentMoveIndex: number;
+    isPlaying: boolean;
+    speed: number;
+  };
+  boardB: {
+    fen: string;
+    moves: string[];
+    currentMoveIndex: number;
+    isPlaying: boolean;
+    speed: number;
+  };
+  players: {
+    aWhite: string;
+    aBlack: string;
+    bWhite: string;
+    bBlack: string;
+  };
 }
 
 export interface ProcessedGameData {
@@ -28,4 +42,21 @@ export interface ProcessedGameData {
     timestamps: number[];
   };
   combinedMoves: BughouseMove[];
+  players: {
+    aWhite: string;
+    aBlack: string;
+    bWhite: string;
+    bBlack: string;
+  };
+}
+
+export interface PieceReserves {
+  A: {
+    white: { [piece: string]: number };
+    black: { [piece: string]: number };
+  };
+  B: {
+    white: { [piece: string]: number };
+    black: { [piece: string]: number };
+  };
 }

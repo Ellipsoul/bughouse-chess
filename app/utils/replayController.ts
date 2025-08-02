@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { BughouseMove, BughouseGameState, ProcessedGameData } from '../types/bughouse';
+import { BughouseMove, BughouseGameState, ProcessedGameData, PieceReserves } from '../types/bughouse';
 import { validateAndConvertMove } from './moveConverter';
 
 export class BughouseReplayController {
@@ -7,14 +7,24 @@ export class BughouseReplayController {
   private boardB: Chess;
   private combinedMoves: BughouseMove[];
   private currentMoveIndex: number = -1;
-  private pieceReserves: { A: string[], B: string[] };
+  private pieceReserves: PieceReserves;
+  private players: {
+    aWhite: string;
+    aBlack: string;
+    bWhite: string;
+    bBlack: string;
+  };
   private gameState: BughouseGameState;
 
   constructor(processedData: ProcessedGameData) {
     this.boardA = new Chess();
     this.boardB = new Chess();
     this.combinedMoves = processedData.combinedMoves;
-    this.pieceReserves = { A: [], B: [] };
+    this.pieceReserves = {
+      A: { white: {}, black: {} },
+      B: { white: {}, black: {} }
+    };
+    this.players = processedData.players;
     this.gameState = {
       boardA: {
         fen: this.boardA.fen(),
@@ -29,7 +39,8 @@ export class BughouseReplayController {
         currentMoveIndex: 0,
         isPlaying: false,
         speed: 1
-      }
+      },
+      players: this.players
     };
   }
 
@@ -47,8 +58,8 @@ export class BughouseReplayController {
     };
   }
 
-  public getCurrentPieceReserves(): { A: string[], B: string[] } {
-    return { ...this.pieceReserves };
+  public getCurrentPieceReserves(): PieceReserves {
+    return JSON.parse(JSON.stringify(this.pieceReserves));
   }
 
   public canMoveForward(): boolean {
@@ -120,7 +131,12 @@ export class BughouseReplayController {
           if (result.captured) {
             const partnerBoard = move.board === 'A' ? 'B' : 'A';
             const capturedPiece = result.captured;
-            this.pieceReserves[partnerBoard].push(capturedPiece);
+            const receivingColor = move.side; // The side that captured gets the piece
+            
+            if (!this.pieceReserves[partnerBoard][receivingColor][capturedPiece]) {
+              this.pieceReserves[partnerBoard][receivingColor][capturedPiece] = 0;
+            }
+            this.pieceReserves[partnerBoard][receivingColor][capturedPiece]++;
           }
           
           // Update game state
@@ -199,28 +215,6 @@ export class BughouseReplayController {
     }
   }
 
-  public reset(): void {
-    this.boardA.reset();
-    this.boardB.reset();
-    this.currentMoveIndex = 0;
-    this.pieceReserves = { A: [], B: [] };
-    this.gameState = {
-      boardA: {
-        fen: this.boardA.fen(),
-        moves: [],
-        currentMoveIndex: 0,
-        isPlaying: false,
-        speed: 1
-      },
-      boardB: {
-        fen: this.boardB.fen(),
-        moves: [],
-        currentMoveIndex: 0,
-        isPlaying: false,
-        speed: 1
-      }
-    };
-  }
 
   public getCurrentMoveIndex(): number {
     return this.currentMoveIndex;
@@ -235,5 +229,22 @@ export class BughouseReplayController {
       return this.combinedMoves[this.currentMoveIndex];
     }
     return null;
+  }
+
+  public getDebugInfo(): string {
+    let debugInfo = `BPGN (Bughouse Portable Game Notation)\n`;
+    debugInfo += `Players: ${this.players.aWhite} & ${this.players.bBlack} vs ${this.players.aBlack} & ${this.players.bWhite}\n\n`;
+    debugInfo += `Move Order by Timestamp:\n`;
+    
+    this.combinedMoves.forEach((move, index) => {
+      const moveStr = `${index + 1}. Board ${move.board} (${move.side}): ${move.move} [${move.timestamp.toFixed(3)}s]`;
+      if (index === this.currentMoveIndex) {
+        debugInfo += `> ${moveStr} < CURRENT\n`;
+      } else {
+        debugInfo += `  ${moveStr}\n`;
+      }
+    });
+    
+    return debugInfo;
   }
 }
