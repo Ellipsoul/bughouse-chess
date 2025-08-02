@@ -2,21 +2,82 @@
 
 export interface ChessGame {
   game: {
+    id: number;
+    uuid: string;
     moveList: string;
     type: string;
-    partnerGameId?: string;
-    white: {
+    typeName: string;
+    partnerGameId?: number;
+    plyCount: number;
+    isFinished: boolean;
+    isRated: boolean;
+    colorOfWinner?: string;
+    gameEndReason?: string;
+    resultMessage?: string;
+    endTime?: number;
+    turnColor: string;
+    ratingChangeWhite?: number;
+    ratingChangeBlack?: number;
+    pgnHeaders: {
+      Event: string;
+      Site: string;
+      Date: string;
+      White: string;
+      Black: string;
+      Result: string;
+      ECO?: string;
+      WhiteElo: number;
+      BlackElo: number;
+      TimeControl: string;
+      EndTime?: string;
+      Termination?: string;
+      SetUp?: string;
+      FEN?: string;
+      Variant?: string;
+    };
+    moveTimestamps?: string;
+    baseTime1: number;
+    timeIncrement1: number;
+  };
+  players: {
+    top: {
+      id: number;
       username: string;
       rating: number;
+      color: string;
+      avatarUrl?: string;
+      countryName?: string;
+      chessTitle?: string;
+      membershipCode?: string;
+      isOnline?: boolean;
+      flair?: {
+        id: string;
+        images: {
+          png: string;
+          svg: string;
+          lottie: string;
+        };
+      };
     };
-    black: {
+    bottom: {
+      id: number;
       username: string;
       rating: number;
+      color: string;
+      avatarUrl?: string;
+      countryName?: string;
+      chessTitle?: string;
+      membershipCode?: string;
+      isOnline?: boolean;
+      flair?: {
+        id: string;
+        images: {
+          png: string;
+          svg: string;
+          lottie: string;
+        };
+      };
     };
-    timeControl: string;
-    startTime: number;
-    endTime: number;
-    status: string;
   };
 }
 
@@ -49,42 +110,40 @@ export async function fetchChessGame(gameId: string): Promise<ChessGame> {
 export async function findPartnerGameId(
   originalGameId: string,
 ): Promise<string | null> {
-  // First try to get the partner game ID from the original game
-  const originalGame = await fetchChessGame(originalGameId);
+  try {
+    // Fetch the original game
+    const originalGame = await fetchChessGame(originalGameId);
 
-  if (originalGame?.game?.partnerGameId) {
-    console.log(
-      "Partner game ID provided by chess.com:",
-      originalGame.game.partnerGameId,
-    );
-    return originalGame.game.partnerGameId;
-  }
-
-  // If no partner ID provided, try adjacent games
-  const gameIdNum = parseInt(originalGameId);
-
-  // Check adjacent IDs (typically the partner game is within a few IDs)
-  const adjacentIds = [
-    gameIdNum - 1,
-    gameIdNum + 1,
-    gameIdNum - 2,
-    gameIdNum + 2,
-  ];
-
-  for (const id of adjacentIds) {
-    try {
-      const game = await fetchChessGame(id.toString());
-      // Check if the game exists and is a bughouse game
-      if (game?.game?.type === "bughouse") {
-        console.log("Found partner game at ID:", id);
-        return id.toString();
-      }
-    } catch {
-      // Game doesn't exist or failed to fetch, try next ID
-      continue;
+    // Directly use the partner game ID if available
+    if (originalGame?.game?.partnerGameId) {
+      console.log("Using partnerGameId from response:", originalGame.game.partnerGameId);
+      return originalGame.game.partnerGameId.toString();
     }
-  }
 
-  console.log("No partner game found");
-  return null;
+    // Fallback: search adjacent game IDs
+    const candidateIds = [
+      parseInt(originalGameId) - 1,
+      parseInt(originalGameId) + 1,
+      parseInt(originalGameId) - 2,
+      parseInt(originalGameId) + 2,
+    ];
+
+    for (const id of candidateIds) {
+      try {
+        const candidateGame = await fetchChessGame(id.toString());
+        if (candidateGame?.game?.type === "bughouse") {
+          console.log("Found partner game in adjacent ID:", id);
+          return id.toString();
+        }
+      } catch {
+        // Log errors or continue silently
+      }
+    }
+
+    console.log("No partner game found in adjacent IDs.");
+    return null;
+  } catch (error) {
+    console.error("Error finding partner game:", error);
+    return null;
+  }
 }
