@@ -11,7 +11,7 @@ interface ChessBoardProps {
 }
 
 export default function ChessBoard(
-  { fen, boardName, size = 400, flip = false }: ChessBoardProps,
+  { fen, size = 400, flip = false }: ChessBoardProps,
 ) {
   const [chess] = useState(new Chess());
   const [currentFen, setCurrentFen] = useState(fen || chess.fen());
