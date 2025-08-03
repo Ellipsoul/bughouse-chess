@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { Chess } from 'chess.js';
+import { useEffect, useState } from "react";
+import { Chess } from "chess.js";
 
 interface ChessBoardProps {
   fen?: string;
@@ -10,7 +10,9 @@ interface ChessBoardProps {
   flip?: boolean;
 }
 
-export default function ChessBoard({ fen, boardName, size = 400, flip = false }: ChessBoardProps) {
+export default function ChessBoard(
+  { fen, boardName, size = 400, flip = false }: ChessBoardProps,
+) {
   const [chess] = useState(new Chess());
   const [currentFen, setCurrentFen] = useState(fen || chess.fen());
 
@@ -20,7 +22,7 @@ export default function ChessBoard({ fen, boardName, size = 400, flip = false }:
         chess.load(fen);
         setCurrentFen(fen);
       } catch (error) {
-        console.error('Invalid FEN:', error);
+        console.error("Invalid FEN:", error);
       }
     }
   }, [fen, chess]);
@@ -29,20 +31,52 @@ export default function ChessBoard({ fen, boardName, size = 400, flip = false }:
     const board = chess.board();
     const squares = [];
 
-    for (let rank = 0; rank < 8; rank++) {
-      for (let file = 0; file < 8; file++) {
-        const actualRank = flip ? rank : 7 - rank;
-        const actualFile = flip ? 7 - file : file;
-        const square = board[actualRank][actualFile];
-        const isLight = (rank + file) % 2 === 0;
-        const squareId = String.fromCharCode(97 + actualFile) + (actualRank + 1);
+    // Clear mapping:
+    // chess.board()[0] = rank 1 (a1, b1, c1, ..., h1)
+    // chess.board()[7] = rank 8 (a8, b8, c8, ..., h8)
+    //
+    // Our display grid goes from top-left to bottom-right
+    // We want:
+    // - flip=false: rank 8 at top, rank 1 at bottom (White perspective)
+    // - flip=true: rank 1 at top, rank 8 at bottom (Black perspective)
+
+    for (let displayRow = 0; displayRow < 8; displayRow++) {
+      for (let displayCol = 0; displayCol < 8; displayCol++) {
+        // Map display position to chess board position
+        let chessRank, chessFile;
+
+        if (flip) {
+          // Black perspective: rank 1 at top, rank 8 at bottom
+          chessRank = displayRow; // displayRow 0 -> rank 1 (board[0])
+          chessFile = 7 - displayCol; // displayCol 0 -> file h (index 7)
+        } else {
+          // White perspective: rank 8 at top, rank 1 at bottom
+          chessRank = 7 - displayRow; // displayRow 0 -> rank 8 (board[7])
+          chessFile = displayCol; // displayCol 0 -> file a (index 0)
+        }
+
+        const square = board[chessRank][chessFile];
+        const isLight = (displayRow + displayCol) % 2 === 0;
+        const squareId = String.fromCharCode(97 + chessFile) + (chessRank + 1);
+
+        // Debug: log corner squares to verify mapping
+        if (
+          (displayRow === 0 || displayRow === 7) &&
+          (displayCol === 0 || displayCol === 7)
+        ) {
+          console.log(
+            `${
+              flip ? "FLIPPED" : "NORMAL"
+            } Display (${displayRow},${displayCol}) -> Chess (${chessRank},${chessFile}) -> Square ${squareId} -> Piece: ${square?.type}${square?.color}`,
+          );
+        }
 
         squares.push(
           <div
-            key={`${rank}-${file}`}
+            key={`${displayRow}-${displayCol}`}
             className={`
               relative flex items-center justify-center text-2xl font-bold
-              ${isLight ? 'bg-amber-100' : 'bg-amber-800'}
+              ${isLight ? "bg-amber-100" : "bg-amber-800"}
               border border-gray-400
             `}
             style={{
@@ -52,23 +86,27 @@ export default function ChessBoard({ fen, boardName, size = 400, flip = false }:
             data-square={squareId}
           >
             {square && (
-              <span className={square.color === 'w' ? 'text-black drop-shadow-md' : 'text-white drop-shadow-md'}>
+              <span
+                className={square.color === "w"
+                  ? "text-black drop-shadow-md"
+                  : "text-white drop-shadow-md"}
+              >
                 {getPieceSymbol(square.type, square.color)}
               </span>
             )}
-            
+
             {/* Coordinates */}
-            {file === 0 && (
+            {displayCol === 0 && (
               <span className="absolute top-0.5 left-0.5 text-xs font-semibold text-gray-600">
-                {actualRank + 1}
+                {chessRank + 1}
               </span>
             )}
-            {rank === 7 && (
+            {displayRow === 7 && (
               <span className="absolute bottom-0.5 right-0.5 text-xs font-semibold text-gray-600">
-                {String.fromCharCode(97 + actualFile)}
+                {String.fromCharCode(97 + chessFile)}
               </span>
             )}
-          </div>
+          </div>,
         );
       }
     }
@@ -78,30 +116,24 @@ export default function ChessBoard({ fen, boardName, size = 400, flip = false }:
 
   const getPieceSymbol = (type: string, color: string): string => {
     const pieces: Record<string, Record<string, string>> = {
-      w: { p: '♙', r: '♖', n: '♘', b: '♗', q: '♕', k: '♔' },
-      b: { p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚' }
+      w: { p: "♙", r: "♖", n: "♘", b: "♗", q: "♕", k: "♔" },
+      b: { p: "♟", r: "♜", n: "♞", b: "♝", q: "♛", k: "♚" },
     };
-    return pieces[color][type] || '';
+    return pieces[color][type] || "";
   };
 
   return (
     <div className="flex flex-col items-center">
-      <div className="mb-2">
-        <h3 className="text-lg font-semibold text-white text-center">
-          Board {boardName}
-        </h3>
-      </div>
-      
-      <div 
+      <div
         className="grid grid-cols-8 border-2 border-gray-600 shadow-lg"
         style={{ width: size, height: size }}
       >
         {renderBoard()}
       </div>
-      
+
       <div className="mt-2 text-xs text-gray-400 text-center">
-        <div>FEN: {currentFen.split(' ')[0]}</div>
-        <div>Turn: {chess.turn() === 'w' ? 'White' : 'Black'}</div>
+        <div>FEN: {currentFen.split(" ")[0]}</div>
+        <div>Turn: {chess.turn() === "w" ? "White" : "Black"}</div>
       </div>
     </div>
   );
