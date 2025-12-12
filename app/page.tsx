@@ -41,52 +41,60 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="w-full px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="font-serif text-4xl font-bold text-white mb-4">
-            Bughouse Chess Viewer
-          </h1>
-          <p className="text-gray-300 max-w-2xl mx-auto">
-            Enter a Chess.com game ID to view both the original game and its
-            partner game in the bughouse format.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-8">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              placeholder="Enter Chess.com game ID"
-              className="flex-1 px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-2 focus:ring-mariner-500/20 outline-none transition-all"
-              disabled={isPending}
-            />
-            <button
-              type="submit"
-              disabled={isPending || !gameId}
-              className="px-6 py-3 bg-mariner-600 text-white rounded-lg font-medium hover:bg-mariner-700 focus:ring-2 focus:ring-mariner-500/20 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            >
-              {isPending ? "Loading..." : "Fetch Game"}
-            </button>
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Top Navigation Bar */}
+      <header className="w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
+        <div className="max-w-[1600px] mx-auto flex items-center gap-6">
+          {/* Logo Placeholder */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-mariner-600 rounded flex items-center justify-center text-white font-bold text-xl">
+              B
+            </div>
           </div>
-        </form>
 
+          {/* Search Input */}
+          <form onSubmit={handleSubmit} className="flex-1 max-w-lg">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={gameId}
+                onChange={(e) => setGameId(e.target.value)}
+                placeholder="Enter Chess.com game ID"
+                className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
+                disabled={isPending}
+              />
+              <button
+                type="submit"
+                disabled={isPending || !gameId}
+                className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium hover:bg-mariner-700 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+              >
+                {isPending ? "Loading..." : "Fetch"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-[1600px] mx-auto p-4">
         {error && (
-          <div className="max-w-2xl mx-auto p-4 mb-8 text-red-300 bg-red-900/20 rounded-lg border border-red-800">
+          <div className="w-full p-4 mb-6 text-red-300 bg-red-900/20 rounded-lg border border-red-800 text-center">
             {error}
           </div>
         )}
 
-        {gameData && (
-          <div className="space-y-6">
-            <BughouseReplay
-              gameData={gameData}
-            />
+        {!gameData && !error && !isPending && (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+            <p className="text-lg">Enter a game ID above to get started</p>
           </div>
         )}
-      </div>
+
+        {gameData && (
+          <BughouseReplay
+            gameData={gameData}
+          />
+        )}
+      </main>
     </div>
   );
 }

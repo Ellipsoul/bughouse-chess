@@ -102,10 +102,6 @@ export default function ChessBoard(
         id={boardId}
         style={{ width: size }}
       />
-       {/* Debug Info */}
-      <div className="mt-2 text-xs text-gray-400 text-center">
-        {boardName} Board
-      </div>
     </div>
   );
 }

@@ -93,91 +93,96 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   }, [handleNextMove, handlePreviousMove, handleStart, handleEnd]);
 
   return (
-    <div className="p-6 bg-gray-900 min-h-screen">
-      <div className="w-full mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-6 text-center">
-          Bughouse Chess Replay
-        </h1>
+    <div className="w-full mx-auto">
+      <div className="flex justify-center gap-8 h-[600px]">
+        {/* Boards Container with Reserves */}
+        <div className="flex gap-4 grow justify-center items-center">
+          {/* Left Reserves (Board A) */}
+          <div className="flex flex-col justify-center">
+            <PieceReserveVertical
+              whiteReserves={pieceReserves.A.white}
+              blackReserves={pieceReserves.A.black}
+              bottomColor="white"
+              height={400}
+            />
+          </div>
 
-        <div className="flex justify-center gap-8 h-[600px]">
-          {/* Boards Container with Reserves */}
-          <div className="flex gap-4 grow justify-center items-center">
-            {/* Left Reserves (Board A) */}
-            <div className="flex flex-col justify-center">
-              <PieceReserveVertical
-                whiteReserves={pieceReserves.A.white}
-                blackReserves={pieceReserves.A.black}
-                bottomColor="white"
-                height={400}
-              />
-            </div>
-
-            {/* Board A - White at bottom */}
-            <div className="flex flex-col items-center">
-              <div className="mb-2 text-center">
-                <h3 className="text-lg font-semibold text-white">Board A</h3>
-                <p className="text-sm text-gray-400">
-                  {gameState.players.aBlack} (Black)
-                </p>
+          {/* Board A - White at bottom */}
+          <div className="flex flex-col items-center">
+            <div className="mb-3 text-center">
+              <div className="text-xl font-bold text-white tracking-wide">
+                {gameState.players.aBlack}
               </div>
-              <ChessBoard
-                fen={gameState.boardA.fen}
-                boardName="A"
-                size={400}
-                flip={false}
-              />
-              <div className="mt-2 text-center">
-                <p className="text-sm text-gray-400">
-                  {gameState.players.aWhite} (White)
-                </p>
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                Black
               </div>
             </div>
-
-            {/* Board B - Black at bottom (flipped) */}
-            <div className="flex flex-col items-center">
-              <div className="mb-2 text-center">
-                <h3 className="text-lg font-semibold text-white">Board B</h3>
-                <p className="text-sm text-gray-400">
-                  {gameState.players.bWhite} (White)
-                </p>
+            <ChessBoard
+              fen={gameState.boardA.fen}
+              boardName="A"
+              size={400}
+              flip={false}
+            />
+            <div className="mt-3 text-center">
+              <div className="text-xl font-bold text-white tracking-wide">
+                {gameState.players.aWhite}
               </div>
-              <ChessBoard
-                fen={gameState.boardB.fen}
-                boardName="B"
-                size={400}
-                flip={true}
-              />
-              <div className="mt-2 text-center">
-                <p className="text-sm text-gray-400">
-                  {gameState.players.bBlack} (Black)
-                </p>
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                White
               </div>
-            </div>
-
-            {/* Right Reserves (Board B) */}
-            <div className="flex flex-col justify-center">
-              <PieceReserveVertical
-                whiteReserves={pieceReserves.B.white}
-                blackReserves={pieceReserves.B.black}
-                bottomColor="black"
-                height={400}
-              />
             </div>
           </div>
 
-          {/* Move List */}
-          <div className="flex-1 min-w-[350px] max-w-[25%]">
-            <MoveList
-              moves={replayController.getCombinedMoves()}
-              currentMoveIndex={currentMoveIndex}
-              players={gameState.players}
-              onMoveClick={handleJumpToMove}
+          {/* Board B - Black at bottom (flipped) */}
+          <div className="flex flex-col items-center">
+            <div className="mb-3 text-center">
+              <div className="text-xl font-bold text-white tracking-wide">
+                {gameState.players.bWhite}
+              </div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                White
+              </div>
+            </div>
+            <ChessBoard
+              fen={gameState.boardB.fen}
+              boardName="B"
+              size={400}
+              flip={true}
+            />
+            <div className="mt-3 text-center">
+              <div className="text-xl font-bold text-white tracking-wide">
+                {gameState.players.bBlack}
+              </div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                Black
+              </div>
+            </div>
+          </div>
+
+          {/* Right Reserves (Board B) */}
+          <div className="flex flex-col justify-center">
+            <PieceReserveVertical
+              whiteReserves={pieceReserves.B.white}
+              blackReserves={pieceReserves.B.black}
+              bottomColor="black"
+              height={400}
             />
           </div>
         </div>
 
-        {/* Board Controls */}
-        <div className="mt-8 flex flex-col items-center space-y-4">
+        {/* Move List */}
+        <div className="flex-1 min-w-[350px] max-w-[25%]">
+          <MoveList
+            moves={replayController.getCombinedMoves()}
+            currentMoveIndex={currentMoveIndex}
+            players={gameState.players}
+            onMoveClick={handleJumpToMove}
+          />
+        </div>
+      </div>
+
+      {/* Board Controls */}
+      <div className="mt-8 flex flex-col items-center space-y-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={handleStart}
@@ -221,7 +226,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             Use arrow keys to navigate (Up/Down for Start/End)
           </div>
         </div>
-      </div>
     </div>
   );
 };
