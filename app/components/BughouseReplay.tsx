@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  SkipBack,
+  SkipForward,
+  StepBack,
+  StepForward,
+} from "lucide-react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
@@ -237,7 +243,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               aria-label="Jump to start"
               type="button"
             >
-              <span className="text-lg leading-none">«</span>
+            <SkipBack aria-hidden className="h-5 w-5" />
             </button>
             <button
               onClick={handlePreviousMove}
@@ -247,7 +253,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               aria-label="Previous move"
               type="button"
             >
-              <span className="text-lg leading-none">‹</span>
+            <StepBack aria-hidden className="h-5 w-5" />
             </button>
             <button
               onClick={handleNextMove}
@@ -257,7 +263,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               aria-label="Next move"
               type="button"
             >
-              <span className="text-lg leading-none">›</span>
+            <StepForward aria-hidden className="h-5 w-5" />
             </button>
             <button
               onClick={handleEnd}
@@ -267,7 +273,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               aria-label="Jump to end"
               type="button"
             >
-              <span className="text-lg leading-none">»</span>
+            <SkipForward aria-hidden className="h-5 w-5" />
             </button>
           </div>
         </div>
