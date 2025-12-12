@@ -76,24 +76,26 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-[1600px] mx-auto p-4">
-        {error && (
-          <div className="w-full p-4 mb-6 text-red-300 bg-red-900/20 rounded-lg border border-red-800 text-center">
-            {error}
-          </div>
-        )}
+      <main className="flex-1 w-full flex">
+        <div className="flex flex-col justify-center flex-1 max-w-[1600px] mx-auto p-4">
+          {error && (
+            <div className="w-full p-4 mb-6 text-red-300 bg-red-900/20 rounded-lg border border-red-800 text-center">
+              {error}
+            </div>
+          )}
 
-        {!gameData && !error && !isPending && (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-            <p className="text-lg">Enter a game ID above to get started</p>
-          </div>
-        )}
+          {!gameData && !error && !isPending && (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+              <p className="text-lg">Enter a game ID above to get started</p>
+            </div>
+          )}
 
-        {gameData && (
-          <BughouseReplay
-            gameData={gameData}
-          />
-        )}
+          {gameData && (
+            <BughouseReplay
+              gameData={gameData}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
