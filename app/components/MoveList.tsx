@@ -44,22 +44,29 @@ const MoveList: React.FC<MoveListProps> = ({
   return (
     <div className="flex flex-col h-full bg-gray-800 rounded-lg overflow-hidden border border-gray-700 w-full">
       {/* Header */}
-      <div className="grid grid-cols-4 text-xs font-semibold border-b border-gray-700">
-        <div className="p-2 text-center bg-white text-black border-r border-dashed border-gray-400 flex flex-col justify-center h-full">
-          <div className="uppercase tracking-wider text-[10px] text-gray-500 mb-1">Board A White</div>
-          <div className="truncate font-bold" title={players.aWhite}>{players.aWhite}</div>
+      <div className="flex flex-col text-xs font-semibold border-b border-gray-700">
+        {/* Row 1: Labels */}
+        <div className="grid grid-cols-4 text-[10px] uppercase tracking-wider text-center font-medium h-7">
+            <div className="bg-white text-gray-500 flex items-center justify-center border-r border-dashed border-gray-400">Board A White</div>
+            <div className="bg-black text-gray-400 flex items-center justify-center border-r-4 border-gray-600">Board A Black</div>
+            <div className="bg-white text-gray-500 flex items-center justify-center border-r border-dashed border-gray-400">Board B White</div>
+            <div className="bg-black text-gray-400 flex items-center justify-center">Board B Black</div>
         </div>
-        <div className="p-2 text-center bg-black text-white border-r-4 border-gray-600 flex flex-col justify-center h-full">
-          <div className="uppercase tracking-wider text-[10px] text-gray-400 mb-1">Board A Black</div>
-          <div className="truncate font-bold" title={players.aBlack}>{players.aBlack}</div>
-        </div>
-        <div className="p-2 text-center bg-white text-black border-r border-dashed border-gray-400 flex flex-col justify-center h-full">
-          <div className="uppercase tracking-wider text-[10px] text-gray-500 mb-1">Board B White</div>
-          <div className="truncate font-bold" title={players.bWhite}>{players.bWhite}</div>
-        </div>
-        <div className="p-2 text-center bg-black text-white flex flex-col justify-center h-full">
-          <div className="uppercase tracking-wider text-[10px] text-gray-400 mb-1">Board B Black</div>
-          <div className="truncate font-bold" title={players.bBlack}>{players.bBlack}</div>
+        
+        {/* Row 2: Player Names */}
+        <div className="grid grid-cols-4 text-xs font-bold text-center h-8">
+            <div className="bg-white text-black flex items-center justify-center px-2 border-r border-dashed border-gray-400 border-t border-dotted border-gray-400">
+                <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
+            </div>
+            <div className="bg-black text-white flex items-center justify-center px-2 border-r-4 border-gray-600 border-t border-dotted border-gray-600">
+                <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
+            </div>
+            <div className="bg-white text-black flex items-center justify-center px-2 border-r border-dashed border-gray-400 border-t border-dotted border-gray-400">
+                <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
+            </div>
+            <div className="bg-black text-white flex items-center justify-center px-2 border-t border-dotted border-gray-600">
+                <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
+            </div>
         </div>
       </div>
 
@@ -87,7 +94,7 @@ const MoveList: React.FC<MoveListProps> = ({
                   ref={isCurrent ? activeMoveRef : null}
                   onClick={() => onMoveClick(index)}
                   className={`
-                    cursor-pointer transition-colors border-b border-gray-800/50
+                    cursor-pointer transition-colors border-b border-gray-700/30
                     ${isCurrent ? "bg-mariner-900/50 hover:bg-mariner-900/60" : "hover:bg-gray-700/50"}
                   `}
                 >
