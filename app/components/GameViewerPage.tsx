@@ -29,10 +29,18 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   const searchParams = useSearchParams();
   const pathGameId = initialGameId?.trim();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
-  const normalizedInitialGameId =
-    pathGameId ?? queryGameId?.trim() ?? "159878252255";
+  const autoLoadGameId = pathGameId ?? queryGameId?.trim();
+  const defaultSampleGameId = "159878252255";
+  const shouldSeedWithSample = !autoLoadGameId;
 
-  const [gameId, setGameId] = useState(normalizedInitialGameId);
+  /**
+   * Seed the input with a sample game only when no path/query ID preloads data.
+   * When a game is already being auto-loaded from the URL, keep the input empty
+   * so we do not repopulate the sample ID unnecessarily.
+   */
+  const [gameId, setGameId] = useState(
+    shouldSeedWithSample ? defaultSampleGameId : "",
+  );
   const [gameData, setGameData] = useState<
     {
       original: ChessGame;
@@ -110,24 +118,23 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   );
 
   useEffect(() => {
-    const autoLoadId = pathGameId ?? queryGameId?.trim();
-    if (!autoLoadId) {
+    if (!autoLoadGameId) {
       return;
     }
 
-    if (lastAutoLoadedIdRef.current === autoLoadId) {
+    if (lastAutoLoadedIdRef.current === autoLoadGameId) {
       return;
     }
 
-    lastAutoLoadedIdRef.current = autoLoadId;
+    lastAutoLoadedIdRef.current = autoLoadGameId;
     const timeoutId = window.setTimeout(() => {
-      void loadGame(autoLoadId, { skipConfirm: true, clearInput: false });
+      void loadGame(autoLoadGameId, { skipConfirm: true, clearInput: true });
     }, 0);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [pathGameId, queryGameId, loadGame]);
+  }, [autoLoadGameId, loadGame]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
