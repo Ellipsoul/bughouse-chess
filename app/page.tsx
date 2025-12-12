@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { ChessGame, fetchChessGame, findPartnerGameId } from "./actions";
 import BughouseReplay from "./components/BughouseReplay";
@@ -45,11 +46,16 @@ export default function Home() {
       {/* Top Navigation Bar */}
       <header className="w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
         <div className="max-w-[1600px] mx-auto flex items-center gap-6">
-          {/* Logo Placeholder */}
+          {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-mariner-600 rounded flex items-center justify-center text-white font-bold text-xl">
-              B
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Bughouse Chess logo"
+              width={40}
+              height={40}
+              priority
+              className="h-10 w-10 rounded"
+            />
           </div>
 
           {/* Search Input */}
