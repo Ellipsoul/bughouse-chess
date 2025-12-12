@@ -75,25 +75,25 @@ const MoveList: React.FC<MoveListProps> = ({
               </th>
             </tr>
             {/* Row 2: Player Names */}
-            <tr className="h-7 text-[10px] font-semibold">
+            <tr className="h-7 text-[8px] font-semibold">
               <th className="bg-white text-black px-1 border-r border-dashed border-gray-400 w-1/4">
                 <div className="flex items-center justify-center">
-                   <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
+                  <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
                 </div>
               </th>
               <th className="bg-black text-white px-1 border-r-4 border-gray-600 w-1/4">
                 <div className="flex items-center justify-center">
-                   <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
+                  <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
                 </div>
               </th>
               <th className="bg-white text-black px-1 border-r border-dashed border-gray-400 w-1/4">
                 <div className="flex items-center justify-center">
-                   <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
+                  <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
                 </div>
               </th>
               <th className="bg-black text-white px-1 w-1/4">
                 <div className="flex items-center justify-center">
-                   <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
+                  <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
                 </div>
               </th>
             </tr>
