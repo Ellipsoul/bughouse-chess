@@ -51,6 +51,67 @@ export class BughouseReplayController {
       },
       players: this.players
     };
+
+    this.sanitizeMoves();
+  }
+
+  private sanitizeMoves() {
+    const tempBoardA = new Chess();
+    const tempBoardB = new Chess();
+
+    for (const move of this.combinedMoves) {
+      const board = move.board === 'A' ? tempBoardA : tempBoardB;
+
+      if (this.isDropMove(move.move)) {
+        this.applyDropMoveOnBoard(board, move);
+      } else if (this.isCastleMove(move.move)) {
+        try {
+          const normalized = move.move.replace(/0/g, 'O');
+          const result = board.move(normalized);
+          if (result) {
+            move.move = result.san;
+          }
+        } catch (e) {
+          console.error('Sanitize castle error', e);
+        }
+      } else {
+        try {
+          // Use validateAndConvertMove to handle potential format issues
+          // It returns a string that board.move() will accept
+          const validStr = validateAndConvertMove(move.move, board);
+          if (validStr) {
+            const result = board.move(validStr);
+            if (result) {
+              move.move = result.san;
+            }
+          }
+        } catch (e) {
+          console.error(`Error sanitizing move ${move.move}`, e);
+        }
+      }
+    }
+  }
+
+  private applyDropMoveOnBoard(board: Chess, move: BughouseMove) {
+    const parts = move.move.split('@');
+    if (parts.length !== 2) return;
+    
+    const pieceChar = parts[0];
+    const square = parts[1];
+    const pieceType = pieceChar.toLowerCase();
+    const color = move.side === 'white' ? 'w' : 'b';
+
+    try {
+      board.put({ type: pieceType as PieceSymbol, color: color as Color }, square as Square);
+      
+      const fen = board.fen();
+      const fenParts = fen.split(' ');
+      fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w'; 
+      fenParts[3] = '-'; 
+      board.load(fenParts.join(' '));
+    } catch (e) {
+      console.error('Error applying drop move during sanitization', e);
+    }
   }
 
   public getCurrentGameState(): BughouseGameState {
@@ -168,7 +229,7 @@ export class BughouseReplayController {
             // We would need to track promotion history to do this perfectly,
             // but for now we'll use the captured type.
 
-            const receivingColor = move.side; // The side that captured gets the piece
+            const receivingColor = move.side === 'white' ? 'black' : 'white';
 
             if (!this.pieceReserves[partnerBoard][receivingColor][capturedPiece]) {
               this.pieceReserves[partnerBoard][receivingColor][capturedPiece] = 0;

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
+import PieceReserveVertical from "./PieceReserveVertical";
 import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState } from "../types/bughouse";
@@ -91,40 +92,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleNextMove, handlePreviousMove, handleStart, handleEnd]);
 
-  // Helper to render piece reserves
-  const renderReserves = (
-    reserves: { [piece: string]: number },
-    isWhite: boolean,
-  ) => {
-    const pieceTypes = ["p", "r", "n", "b", "q"];
-    return pieceTypes.map((piece) => {
-      const count = reserves[piece] || 0;
-      return (
-        <div
-          key={piece}
-          className={`relative inline-block m-1 ${
-            count > 0 ? "opacity-100" : "opacity-30"
-          }`}
-        >
-          <span
-            className={`px-2 py-1 rounded text-sm ${
-              isWhite
-                ? "bg-white text-black"
-                : "bg-gray-800 text-white border border-gray-400"
-            }`}
-          >
-            {piece.toUpperCase()}
-          </span>
-          {count > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-              {count}
-            </span>
-          )}
-        </div>
-      );
-    });
-  };
-
   return (
     <div className="p-6 bg-gray-900 min-h-screen">
       <div className="w-full mx-auto">
@@ -133,8 +100,18 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
         </h1>
 
         <div className="flex justify-center gap-8 h-[600px]">
-          {/* Boards Container */}
-          <div className="flex gap-4 grow justify-center">
+          {/* Boards Container with Reserves */}
+          <div className="flex gap-4 grow justify-center items-center">
+            {/* Left Reserves (Board A) */}
+            <div className="flex flex-col justify-center">
+              <PieceReserveVertical
+                whiteReserves={pieceReserves.A.white}
+                blackReserves={pieceReserves.A.black}
+                bottomColor="white"
+                height={400}
+              />
+            </div>
+
             {/* Board A - White at bottom */}
             <div className="flex flex-col items-center">
               <div className="mb-2 text-center">
@@ -153,23 +130,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 <p className="text-sm text-gray-400">
                   {gameState.players.aWhite} (White)
                 </p>
-              </div>
-
-              {/* Board A Reserves */}
-              <div className="mt-4 p-3 bg-gray-800 rounded-lg w-full">
-                <h4 className="text-white font-semibold mb-2 text-center text-sm">
-                  Piece Reserves
-                </h4>
-                <div className="text-center">
-                  <div className="mb-2">
-                    <span className="text-gray-300 text-sm">White:</span>
-                    {renderReserves(pieceReserves.A.white, true)}
-                  </div>
-                  <div>
-                    <span className="text-gray-300 text-sm">Black:</span>
-                    {renderReserves(pieceReserves.A.black, false)}
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -192,23 +152,16 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                   {gameState.players.bBlack} (Black)
                 </p>
               </div>
+            </div>
 
-              {/* Board B Reserves */}
-              <div className="mt-4 p-3 bg-gray-800 rounded-lg w-full">
-                <h4 className="text-white font-semibold mb-2 text-center text-sm">
-                  Piece Reserves
-                </h4>
-                <div className="text-center">
-                  <div className="mb-2">
-                    <span className="text-gray-300 text-sm">White:</span>
-                    {renderReserves(pieceReserves.B.white, true)}
-                  </div>
-                  <div>
-                    <span className="text-gray-300 text-sm">Black:</span>
-                    {renderReserves(pieceReserves.B.black, false)}
-                  </div>
-                </div>
-              </div>
+            {/* Right Reserves (Board B) */}
+            <div className="flex flex-col justify-center">
+              <PieceReserveVertical
+                whiteReserves={pieceReserves.B.white}
+                blackReserves={pieceReserves.B.black}
+                bottomColor="black"
+                height={400}
+              />
             </div>
           </div>
 
