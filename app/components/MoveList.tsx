@@ -32,7 +32,12 @@ const MoveList: React.FC<MoveListProps> = ({
       const containerTop = container.scrollTop;
       const containerHeight = container.offsetHeight;
 
-      if (elementTop < containerTop || elementTop + elementHeight > containerTop + containerHeight) {
+      // Adjust scroll calculation to account for sticky header
+      // Sticky header height is approximately 60px (7 (28px) + 8 (32px))
+      const headerOffset = 60; 
+
+      if (elementTop - headerOffset < containerTop || elementTop + elementHeight > containerTop + containerHeight) {
+        // Scroll with offset
         element.scrollIntoView({
           behavior: "smooth",
           block: "nearest",
@@ -43,39 +48,45 @@ const MoveList: React.FC<MoveListProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-800 rounded-lg overflow-hidden border border-gray-700 w-full">
-      {/* Header */}
-      <div className="flex flex-col text-xs font-semibold border-b border-gray-700">
-        {/* Row 1: Labels */}
-        <div className="grid grid-cols-4 text-[10px] uppercase tracking-wider text-center font-medium h-7">
-            <div className="bg-white text-gray-500 flex items-center justify-center border-r border-dashed border-gray-400">Board A White</div>
-            <div className="bg-black text-gray-400 flex items-center justify-center border-r-4 border-gray-600">Board A Black</div>
-            <div className="bg-white text-gray-500 flex items-center justify-center border-r border-dashed border-gray-400">Board B White</div>
-            <div className="bg-black text-gray-400 flex items-center justify-center">Board B Black</div>
-        </div>
-        
-        {/* Row 2: Player Names */}
-        <div className="grid grid-cols-4 text-xs font-bold text-center h-8">
-            <div className="bg-white text-black flex items-center justify-center px-2 border-r border-dashed border-gray-400 border-t border-dotted border-gray-400">
-                <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
-            </div>
-            <div className="bg-black text-white flex items-center justify-center px-2 border-r-4 border-gray-600 border-t border-dotted border-gray-600">
-                <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
-            </div>
-            <div className="bg-white text-black flex items-center justify-center px-2 border-r border-dashed border-gray-400 border-t border-dotted border-gray-400">
-                <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
-            </div>
-            <div className="bg-black text-white flex items-center justify-center px-2 border-t border-dotted border-gray-600">
-                <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
-            </div>
-        </div>
-      </div>
-
-      {/* Move List */}
       <div 
         ref={containerRef}
-        className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+        className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 relative"
       >
         <table className="w-full text-sm border-collapse table-fixed">
+          <thead className="sticky top-0 z-10 shadow-md">
+            {/* Row 1: Board Labels */}
+            <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
+              <th colSpan={2} className="bg-gray-200 text-gray-600 border-r-4 border-gray-600 border-b border-dotted border-gray-400">
+                Left Board
+              </th>
+              <th colSpan={2} className="bg-gray-200 text-gray-600 border-b border-dotted border-gray-400">
+                Right Board
+              </th>
+            </tr>
+            {/* Row 2: Player Names */}
+            <tr className="h-8 text-xs font-bold">
+              <th className="bg-white text-black px-2 border-r border-dashed border-gray-400 w-1/4">
+                <div className="flex items-center justify-center">
+                   <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
+                </div>
+              </th>
+              <th className="bg-black text-white px-2 border-r-4 border-gray-600 w-1/4">
+                <div className="flex items-center justify-center">
+                   <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
+                </div>
+              </th>
+              <th className="bg-white text-black px-2 border-r border-dashed border-gray-400 w-1/4">
+                <div className="flex items-center justify-center">
+                   <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
+                </div>
+              </th>
+              <th className="bg-black text-white px-2 w-1/4">
+                <div className="flex items-center justify-center">
+                   <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
           <tbody>
             {moves.map((move, index) => {
               const isCurrent = index === currentMoveIndex;
