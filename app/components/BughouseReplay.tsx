@@ -18,7 +18,6 @@ interface BughouseReplayProps {
 
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const boardsContainerRef = useRef<HTMLDivElement>(null);
-  const boardColumnRef = useRef<HTMLDivElement>(null);
 
   // Create the replay controller
   const replayController = useMemo(() => {
@@ -46,9 +45,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const GAP_PX = 16; // Tailwind `gap-4`
 
   const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
-  const [playAreaHeight, setPlayAreaHeight] = useState<number>(
-    DEFAULT_BOARD_SIZE + 120
-  );
 
   useEffect(() => {
     const container = boardsContainerRef.current;
@@ -72,23 +68,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
     const resizeObserver = new ResizeObserver(() => computeBoardSize());
     resizeObserver.observe(container);
-    return () => resizeObserver.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const column = boardColumnRef.current;
-    if (!column) return;
-
-    const computeHeight = () => {
-      const nextHeight = Math.ceil(column.getBoundingClientRect().height);
-      if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
-      setPlayAreaHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    };
-
-    computeHeight();
-
-    const resizeObserver = new ResizeObserver(() => computeHeight());
-    resizeObserver.observe(column);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -156,8 +135,11 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
     "transition-colors";
 
-  // Give reserves a little breathing room below full column height.
-  const reserveHeight = Math.max(300, playAreaHeight - 24);
+  // Derive a consistent column height (board + two name blocks + small padding/gaps).
+  const NAME_BLOCK = 34;
+  const COLUMN_PADDING = 12;
+  const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
+  const reserveHeight = playAreaHeight;
 
   return (
     <div className="w-full mx-auto">
@@ -171,7 +153,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
-            <div className="flex flex-col justify-center shrink-0 w-16">
+            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
               <PieceReserveVertical
                 whiteReserves={pieceReserves.A.white}
                 blackReserves={pieceReserves.A.black}
@@ -181,8 +163,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </div>
 
             {/* Board A - White at bottom */}
-            <div ref={boardColumnRef} className="flex flex-col items-center">
-              <div className="mb-3 text-center">
+            <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
+              <div className="text-center leading-tight">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.aBlack}
                 </div>
@@ -193,7 +175,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 size={boardSize}
                 flip={false}
               />
-              <div className="mt-3 text-center">
+              <div className="text-center leading-tight">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.aWhite}
                 </div>
@@ -201,8 +183,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </div>
 
             {/* Board B - Black at bottom (flipped) */}
-            <div className="flex flex-col items-center">
-              <div className="mb-3 text-center">
+            <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
+              <div className="text-center leading-tight">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.bWhite}
                 </div>
@@ -213,7 +195,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 size={boardSize}
                 flip={true}
               />
-              <div className="mt-3 text-center">
+              <div className="text-center leading-tight">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.bBlack}
                 </div>
@@ -221,7 +203,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </div>
 
             {/* Right Reserves (Board B) */}
-            <div className="flex flex-col justify-center shrink-0 w-16">
+            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
               <PieceReserveVertical
                 whiteReserves={pieceReserves.B.white}
                 blackReserves={pieceReserves.B.black}

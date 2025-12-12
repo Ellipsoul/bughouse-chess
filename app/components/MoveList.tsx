@@ -59,7 +59,7 @@ const MoveList: React.FC<MoveListProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-800 rounded-lg overflow-hidden border border-gray-700 w-full">
-      <div 
+      <div
         ref={containerRef}
         className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 relative"
       >
