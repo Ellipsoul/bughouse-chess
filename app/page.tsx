@@ -16,10 +16,21 @@ export default function Home() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const loadedGameId = gameData?.original?.game?.id?.toString();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (loadedGameId && loadedGameId !== gameId) {
+      const shouldLoadNewGame = window.confirm(
+        `Game ${loadedGameId} is already loaded. Do you want to load ${gameId}?`,
+      );
+
+      if (!shouldLoadNewGame) {
+        return;
+      }
+    }
 
     startTransition(async () => {
       try {
@@ -35,6 +46,7 @@ export default function Home() {
           partner: partnerGame,
           partnerId,
         });
+        setGameId("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       }
@@ -45,7 +57,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Top Navigation Bar */}
       <header className="w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
-        <div className="max-w-[1600px] mx-auto flex items-center gap-6">
+        <div className="max-w-[1600px] mx-auto flex items-center gap-6 w-full">
           {/* Logo */}
           <div className="flex items-center gap-2">
             <Image
@@ -78,6 +90,13 @@ export default function Home() {
               </button>
             </div>
           </form>
+
+          {loadedGameId && (
+            <div className="ml-auto text-base text-gray-300">
+              <span className="font-medium text-gray-100">Game ID:</span>{" "}
+              <span className="text-gray-100 font-bold">{loadedGameId}</span>
+            </div>
+          )}
         </div>
       </header>
 
