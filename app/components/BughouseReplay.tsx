@@ -120,7 +120,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </button>
 
             <div className="text-white text-lg font-semibold">
-              Move {currentMoveIndex} / {totalMoves}
+              Move {currentMoveIndex + 1} / {totalMoves}
             </div>
 
             <button
