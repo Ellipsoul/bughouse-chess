@@ -21,28 +21,37 @@ const MoveList: React.FC<MoveListProps> = ({
 }) => {
   const activeMoveRef = useRef<HTMLTableRowElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLTableSectionElement>(null);
 
   useEffect(() => {
     if (activeMoveRef.current && containerRef.current) {
       const container = containerRef.current;
       const element = activeMoveRef.current;
-      
-      const elementTop = element.offsetTop;
-      const elementHeight = element.offsetHeight;
-      const containerTop = container.scrollTop;
-      const containerHeight = container.offsetHeight;
 
-      // Adjust scroll calculation to account for sticky header
-      // Sticky header height is approximately 60px (7 (28px) + 8 (32px))
-      const headerOffset = 60; 
+      // When scrolling "back up", the active row can be technically in the viewport
+      // while still being hidden behind the sticky header. To avoid that, measure
+      // in container coordinates and treat the region under the sticky header as
+      // not visible.
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const headerHeight = headerRef.current?.getBoundingClientRect().height ?? 0;
 
-      if (elementTop - headerOffset < containerTop || elementTop + elementHeight > containerTop + containerHeight) {
-        // Scroll with offset
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      }
+      // Visible region is the container minus the sticky header overlay.
+      const visibleTop = containerRect.top + headerHeight;
+      const visibleBottom = containerRect.bottom;
+
+      const padding = 8; // small breathing room so the row isn't glued to the header/footer
+
+      const isHiddenAbove = elementRect.top < visibleTop + padding;
+      const isHiddenBelow = elementRect.bottom > visibleBottom - padding;
+
+      if (!isHiddenAbove && !isHiddenBelow) return;
+
+      const delta = isHiddenAbove
+        ? elementRect.top - (visibleTop + padding)
+        : elementRect.bottom - (visibleBottom - padding);
+
+      container.scrollBy({ top: delta, behavior: "smooth" });
     }
   }, [currentMoveIndex]);
 
@@ -53,7 +62,7 @@ const MoveList: React.FC<MoveListProps> = ({
         className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 relative"
       >
         <table className="w-full text-sm border-collapse table-fixed">
-          <thead className="sticky top-0 z-10 shadow-md">
+          <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
             <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
               <th colSpan={2} className="bg-gray-200 text-gray-600 border-r-4 border-gray-600 border-b border-dotted border-gray-400">
@@ -106,7 +115,7 @@ const MoveList: React.FC<MoveListProps> = ({
                   onClick={() => onMoveClick(index)}
                   className={`
                     cursor-pointer transition-colors border-b border-gray-700/30
-                    ${isCurrent ? "bg-mariner-900/50 hover:bg-mariner-900/60" : "hover:bg-gray-700/50"}
+                    ${isCurrent ? "bg-amber-200/15 hover:bg-amber-200/20" : "hover:bg-gray-700/50"}
                   `}
                 >
                   {[0, 1, 2, 3].map((col) => {
@@ -120,7 +129,7 @@ const MoveList: React.FC<MoveListProps> = ({
                         key={col}
                         className={`
                           p-1 text-center h-8 w-1/4
-                          ${col === colIndex ? (isCurrent ? "text-mariner-300 font-bold" : "text-gray-300") : ""}
+                          ${col === colIndex ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
                           ${borderClass}
                         `}
                       >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
@@ -17,6 +17,8 @@ interface BughouseReplayProps {
 }
 
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
+  const boardsContainerRef = useRef<HTMLDivElement>(null);
+
   // Create the replay controller
   const replayController = useMemo(() => {
     const processedData = processGameData(gameData.original, gameData.partner);
@@ -30,6 +32,44 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     replayController.getCurrentPieceReserves()
   );
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+
+  /**
+   * Keep the reserve columns a consistent, readable size and instead shrink boards
+   * as the viewport narrows.
+   *
+   * We derive the board size from the available width of the boards container.
+   */
+  const DEFAULT_BOARD_SIZE = 400;
+  const MIN_BOARD_SIZE = 260;
+  const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
+  const GAP_PX = 16; // Tailwind `gap-4`
+
+  const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
+
+  useEffect(() => {
+    const container = boardsContainerRef.current;
+    if (!container) return;
+
+    const computeBoardSize = () => {
+      // children: reserve | boardA | boardB | reserve => 3 gaps
+      const availableWidth =
+        container.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
+
+      const candidate = Math.floor(availableWidth / 2);
+      const nextSize = Math.max(
+        MIN_BOARD_SIZE,
+        Math.min(DEFAULT_BOARD_SIZE, candidate)
+      );
+
+      setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
+    };
+
+    computeBoardSize();
+
+    const resizeObserver = new ResizeObserver(() => computeBoardSize());
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // Update state when moves change
   const updateGameState = useCallback(() => {
@@ -96,14 +136,17 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     <div className="w-full mx-auto">
       <div className="flex justify-center gap-8 h-[600px]">
         {/* Boards Container with Reserves */}
-        <div className="flex gap-4 grow justify-center items-center">
+        <div
+          ref={boardsContainerRef}
+          className="flex gap-4 grow justify-center items-center min-w-0"
+        >
           {/* Left Reserves (Board A) */}
-          <div className="flex flex-col justify-center">
+          <div className="flex flex-col justify-center shrink-0 w-16">
             <PieceReserveVertical
               whiteReserves={pieceReserves.A.white}
               blackReserves={pieceReserves.A.black}
               bottomColor="white"
-              height={400}
+              height={boardSize}
             />
           </div>
 
@@ -120,7 +163,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             <ChessBoard
               fen={gameState.boardA.fen}
               boardName="A"
-              size={400}
+              size={boardSize}
               flip={false}
             />
             <div className="mt-3 text-center">
@@ -146,7 +189,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             <ChessBoard
               fen={gameState.boardB.fen}
               boardName="B"
-              size={400}
+              size={boardSize}
               flip={true}
             />
             <div className="mt-3 text-center">
@@ -160,12 +203,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
           </div>
 
           {/* Right Reserves (Board B) */}
-          <div className="flex flex-col justify-center">
+          <div className="flex flex-col justify-center shrink-0 w-16">
             <PieceReserveVertical
               whiteReserves={pieceReserves.B.white}
               blackReserves={pieceReserves.B.black}
               bottomColor="black"
-              height={400}
+              height={boardSize}
             />
           </div>
         </div>

@@ -81,7 +81,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
 
   return (
     <div 
-      className="flex flex-col bg-gray-800 rounded-lg p-2"
+      className="flex flex-col bg-gray-800 rounded-lg p-2 w-full"
       style={{ height: `${height}px`, justifyContent: "space-between" }}
     >
       {slots.map((slot, index) => (
@@ -95,7 +95,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
             <img
               src={getPieceImage(slot.piece, slot.color)}
               alt={`${slot.color} ${slot.piece}`}
-              className="w-8 h-8 md:w-10 md:h-10 object-contain"
+              className="w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0"
             />
           
           {slot.count > 0 && (
