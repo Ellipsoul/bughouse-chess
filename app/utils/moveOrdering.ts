@@ -53,10 +53,14 @@ export function processGameData(
   }
 
   // Calculate move times and create combined move list
+  // BaseTime1 and moveTimestamps appear to be in the same unit (likely deciseconds for Bughouse)
+  // so we don't need to scale BaseTime1.
+  const initialTime = originalGame.game.baseTime1 || 300;
+  
   result.combinedMoves = createCombinedMoveList(
     result.originalGame,
     result.partnerGame,
-    originalGame.game.baseTime1 || 300,
+    initialTime,
     originalGame.game.timeIncrement1 || 0,
   );
 
@@ -74,16 +78,25 @@ function createCombinedMoveList(
   timeIncrement: number,
 ): BughouseMove[] {
   // Adapted from getMoveOrder function in bughouse-viewer
-  const movesA = calculateMoveTimes(
+  let movesA = calculateMoveTimes(
     gameA.timestamps,
     initialTime,
-    timeIncrement,
+    timeIncrement
   );
-  const movesB = calculateMoveTimes(
+  let movesB = calculateMoveTimes(
     gameB.timestamps,
     initialTime,
-    timeIncrement,
+    timeIncrement
   );
+
+  // Truncate timestamp arrays to match the number of moves
+  // This handles the case where the API returns more timestamps than moves
+  if (movesA.length > gameA.moves.length) {
+    movesA = movesA.slice(0, gameA.moves.length);
+  }
+  if (movesB.length > gameB.moves.length) {
+    movesB = movesB.slice(0, gameB.moves.length);
+  }
 
   const combinedMoves: BughouseMove[] = [];
   let aIndex = 0;
@@ -127,7 +140,7 @@ function createCombinedMoveList(
 function calculateMoveTimes(
   timestamps: number[],
   initialTime: number,
-  timeIncrement: number,
+  timeIncrement: number
 ): Array<{ timestamp: number }> {
   // Adapted from getMoveTimes function in bughouse-viewer
   if (!timestamps.length) return [];
@@ -135,8 +148,16 @@ function calculateMoveTimes(
   const moveTimestamps: Array<{ timestamp: number }> = [];
 
   for (let i = 0; i < timestamps.length; i++) {
-    const remainingTime = timestamps[i] - (timestamps[i - 1] || initialTime);
+    // remainingTime is the sum of both clocks at the time of the move.
+    // timestamps[i] is the mover's remaining time.
+    // timestamps[i-1] (or initialTime) is the opponent's remaining time.
+    const prevTimestamp = i === 0 ? initialTime : timestamps[i - 1];
+    const remainingTime = timestamps[i] + prevTimestamp;
+    
+    // sumGivenTime is the total time available on the board (initial * 2 + increments)
     const sumGivenTime = 2 * initialTime + (i + 1) * timeIncrement * 10;
+    
+    // Elapsed time is Total Available - Total Remaining
     const moveTime = sumGivenTime - remainingTime;
 
     moveTimestamps.push({ timestamp: Math.max(0, moveTime) });

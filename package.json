@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
+    "chessboardjs": "^0.0.1",
+    "jquery": "^3.7.1",
     "next": "15.3.1",
     "react": "^19.1.0",
     "react-dom": "^19.0.0"
