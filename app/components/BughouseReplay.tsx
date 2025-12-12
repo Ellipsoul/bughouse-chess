@@ -134,7 +134,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
         <div className="flex justify-center gap-8 h-[600px]">
           {/* Boards Container */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 grow justify-center">
             {/* Board A - White at bottom */}
             <div className="flex flex-col items-center">
               <div className="mb-2 text-center">
@@ -213,7 +213,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
           </div>
 
           {/* Move List */}
-          <div className="flex-1 min-w-[500px]">
+          <div className="flex-1 min-w-[350px] max-w-[25%]">
             <MoveList
               moves={replayController.getCombinedMoves()}
               currentMoveIndex={currentMoveIndex}
@@ -242,7 +242,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             >
               &larr; Previous
             </button>
-            
+
             <div className="text-white font-mono px-4">
               {currentMoveIndex + 1} / {totalMoves}
             </div>
