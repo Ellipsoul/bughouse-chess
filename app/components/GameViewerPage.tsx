@@ -65,9 +65,9 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
         }
       }
 
-      setError(null);
-
       startTransition(() => {
+        setError(null);
+
         const loadPromise = (async () => {
           const originalGame = await fetchChessGame(trimmedId);
           const partnerId = await findPartnerGameId(trimmedId);
@@ -114,8 +114,13 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
     }
 
     lastAutoLoadedIdRef.current = autoLoadId;
-    setGameId(autoLoadId);
-    void loadGame(autoLoadId, { skipConfirm: true, clearInput: false });
+    const timeoutId = window.setTimeout(() => {
+      void loadGame(autoLoadId, { skipConfirm: true, clearInput: false });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [pathGameId, queryGameId, loadGame]);
 
   const handleSubmit = async (event: FormEvent) => {
