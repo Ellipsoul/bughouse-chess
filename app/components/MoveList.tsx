@@ -67,7 +67,7 @@ const MoveList: React.FC<MoveListProps> = ({
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
             <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
-              <th colSpan={2} className="bg-gray-200 text-gray-600 border-r-4 border-gray-600 border-b border-dotted border-gray-400">
+              <th colSpan={2} className="bg-gray-200 text-gray-600 border-r-2 border-b border-dotted border-gray-400">
                 Left Board
               </th>
               <th colSpan={2} className="bg-gray-200 text-gray-600 border-b border-dotted border-gray-400">
