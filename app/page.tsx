@@ -66,9 +66,9 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={isPending || !gameId}
-                className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium hover:bg-mariner-700 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
-              >
-                {isPending ? "Loading..." : "Fetch"}
+                className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium border border-mariner-400 hover:bg-mariner-400 hover:border-mariner-300 cursor-pointer disabled:bg-gray-700 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                >
+                {isPending ? "Loading..." : "Load Game"}
               </button>
             </div>
           </form>

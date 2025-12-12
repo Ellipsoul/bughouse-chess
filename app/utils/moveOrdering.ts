@@ -156,10 +156,10 @@ function calculateMoveTimes(
     // timestamps[i-1] (or initialTime) is the opponent's remaining time.
     const prevTimestamp = i === 0 ? initialTime : timestamps[i - 1];
     const remainingTime = timestamps[i] + prevTimestamp;
-    
+
     // sumGivenTime is the total time available on the board (initial * 2 + increments)
     const sumGivenTime = 2 * initialTime + (i + 1) * timeIncrement * 10;
-    
+
     // Elapsed time is Total Available - Total Remaining
     const moveTime = sumGivenTime - remainingTime;
 

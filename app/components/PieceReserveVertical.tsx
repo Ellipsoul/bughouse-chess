@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 
 interface PieceReserveVerticalProps {
   whiteReserves: { [piece: string]: number };
@@ -23,7 +24,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   // Wait, "mirrored" description:
   // "White... see from bottom to top... Pawn, Knight, Bishop, Rook, Queen" -> P (bot).. Q (top)
   // "Mirrored... Queen, Rook, Bishop, Knight and Pawn" -> Q (near middle).. P (far end)
-  
+
   // So visually from Top to Bottom:
   // 1. Far end (Top)
   // ...
@@ -35,7 +36,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   // If White is bottom:
   // Bottom (10) is wP. Top (6) is wQ.
   // Top (1) is bP. Bottom (5) is bQ.
-  
+
   // Display List (index 0 is Top):
   // [bP, bN, bB, bR, bQ, wQ, wR, wB, wN, wP]
 
@@ -46,7 +47,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   // [wP, wN, wB, wR, wQ, bQ, bR, bB, bN, bP]
 
   const topColor = isWhiteBottom ? "black" : "white";
-  
+
   const topPieces = [...pieceOrder]; // [p, n, b, r, q] -> Displayed top to bottom (P at top)
   const bottomPieces = [...pieceOrder].reverse(); // [q, r, b, n, p] -> Displayed top to bottom (Q at top, P at bottom)
 
@@ -80,7 +81,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="grid grid-rows-10 bg-gray-800 rounded-lg p-2 w-full overflow-hidden"
       style={{ height: `${height}px` }}
     >
@@ -91,12 +92,15 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
             slot.count > 0 ? "opacity-100" : "opacity-30"
           }`}
         >
-            <img
-              src={getPieceImage(slot.piece, slot.color)}
-              alt={`${slot.color} ${slot.piece}`}
-              className="w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0"
-            />
-          
+          <Image
+            src={getPieceImage(slot.piece, slot.color)}
+            alt={`${slot.color} ${slot.piece}`}
+            width={80}
+            height={80}
+            className="w-8 h-8 md:w-10 md:h-10 object-contain shrink-0"
+            priority
+          />
+
           {slot.count > 0 && (
             <span className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold z-10">
               {slot.count}

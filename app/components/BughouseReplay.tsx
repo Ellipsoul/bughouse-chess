@@ -131,7 +131,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   }, [handleNextMove, handlePreviousMove, handleStart, handleEnd]);
 
   const controlButtonBaseClass =
-    "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 " +
+    "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 cursor-pointer " +
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
     "transition-colors";
 
