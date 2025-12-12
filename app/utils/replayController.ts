@@ -284,6 +284,10 @@ export class BughouseReplayController {
     return null;
   }
 
+  public getCombinedMoves(): BughouseMove[] {
+    return this.combinedMoves;
+  }
+
   public getDebugInfo(): string {
     let debugInfo = `BPGN (Bughouse Portable Game Notation)\n`;
     debugInfo += `Players: ${this.players.aWhite} & ${this.players.bBlack} vs ${this.players.aBlack} & ${this.players.bWhite}\n\n`;
