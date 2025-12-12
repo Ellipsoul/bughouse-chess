@@ -1,5 +1,8 @@
 "use server";
 
+/**
+ * Shape of the chess.com live game payload used by the viewer.
+ */
 export interface ChessGame {
   game: {
     id: number;
@@ -81,6 +84,12 @@ export interface ChessGame {
   };
 }
 
+/**
+ * Fetches a single chess.com live game payload by ID.
+ * @param gameId - Chess.com live game identifier (numeric string).
+ * @throws Error when the id is missing or the request fails.
+ * @returns Parsed game response JSON.
+ */
 export async function fetchChessGame(gameId: string): Promise<ChessGame> {
   if (!gameId) {
     throw new Error("Game ID is required");
@@ -107,6 +116,13 @@ export async function fetchChessGame(gameId: string): Promise<ChessGame> {
   }
 }
 
+/**
+ * Attempts to locate the partner game for a bughouse match.
+ * - Prefer the `partnerGameId` returned in the original response.
+ * - Fallback: probe adjacent game IDs that often contain the paired board.
+ * @param originalGameId - ID of the first board.
+ * @returns Partner game ID string when found; otherwise null.
+ */
 export async function findPartnerGameId(
   originalGameId: string,
 ): Promise<string | null> {
@@ -116,7 +132,6 @@ export async function findPartnerGameId(
 
     // Directly use the partner game ID if available
     if (originalGame?.game?.partnerGameId) {
-      console.log("Using partnerGameId from response:", originalGame.game.partnerGameId);
       return originalGame.game.partnerGameId.toString();
     }
 
@@ -132,7 +147,6 @@ export async function findPartnerGameId(
       try {
         const candidateGame = await fetchChessGame(id.toString());
         if (candidateGame?.game?.type === "bughouse") {
-          console.log("Found partner game in adjacent ID:", id);
           return id.toString();
         }
       } catch {
@@ -140,7 +154,6 @@ export async function findPartnerGameId(
       }
     }
 
-    console.log("No partner game found in adjacent IDs.");
     return null;
   } catch (error) {
     console.error("Error finding partner game:", error);

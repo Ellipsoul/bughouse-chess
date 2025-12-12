@@ -17,6 +17,10 @@ interface BughouseReplayProps {
   };
 }
 
+/**
+ * Visual replay experience for a two-board bughouse match, including boards,
+ * reserves, clocks, and move navigation.
+ */
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const boardsContainerRef = useRef<HTMLDivElement>(null);
 

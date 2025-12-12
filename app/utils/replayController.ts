@@ -14,6 +14,10 @@ interface BughouseHistoryState {
   };
 }
 
+/**
+ * Imperative controller that replays bughouse moves across two boards, tracking clocks,
+ * reserves, promotions, and enabling navigation (forward/back/jump).
+ */
 export class BughouseReplayController {
   private boardA: Chess;
   private boardB: Chess;
@@ -88,6 +92,9 @@ export class BughouseReplayController {
     };
   }
 
+  /**
+   * Build a per-move clock timeline for a board using remaining-time snapshots.
+   */
   private buildClockTimeline(
     timestamps: number[],
     moveCount: number
@@ -142,6 +149,9 @@ export class BughouseReplayController {
     this.gameState.boardB.clocks = this.getClockSnapshot('B', this.gameState.boardB.currentMoveIndex);
   }
 
+  /**
+   * Normalize move strings up-front so live execution is predictable and reversible.
+   */
   private sanitizeMoves() {
     const tempBoardA = new Chess();
     const tempBoardB = new Chess();
@@ -297,6 +307,9 @@ export class BughouseReplayController {
     return true;
   }
 
+  /**
+   * Execute a single move on the correct board, updating reserves/promotions/clocks.
+   */
   private executeMove(move: BughouseMove): boolean {
     const board = move.board === 'A' ? this.boardA : this.boardB;
     const boardKey = move.board;

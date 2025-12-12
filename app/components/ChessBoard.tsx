@@ -30,6 +30,9 @@ interface ChessBoardProps {
 
 type PieceColor = "w" | "b";
 
+/**
+ * Parse a FEN string and map each square to the occupying piece color for styling.
+ */
 function buildSquareColorMap(fen?: string): Map<string, PieceColor> {
   const map = new Map<string, PieceColor>();
   if (!fen) return map;
@@ -62,6 +65,9 @@ function buildSquareColorMap(fen?: string): Map<string, PieceColor> {
   return map;
 }
 
+/**
+ * Client-only wrapper around chessboard.js that keeps the board in sync with game state.
+ */
 export default function ChessBoard(
   { fen, boardName, size = 400, flip = false, promotedSquares = [] }: ChessBoardProps,
 ) {

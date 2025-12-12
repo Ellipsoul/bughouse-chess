@@ -2,14 +2,15 @@ import { Suspense } from "react";
 import GameViewerPage from "../components/GameViewerPage";
 
 interface GamePageProps {
-  params: Promise<{
+  params: {
     gameId: string;
-  }>;
+  };
 }
 
-export default async function GamePage({ params }: GamePageProps) {
-  const resolvedParams = await params;
-
+/**
+ * Dynamic route that preloads the viewer with the game ID from the URL.
+ */
+export default function GamePage({ params }: GamePageProps) {
   return (
     <Suspense
       fallback={
@@ -18,7 +19,7 @@ export default async function GamePage({ params }: GamePageProps) {
         </div>
       }
     >
-      <GameViewerPage initialGameId={resolvedParams.gameId} />
+      <GameViewerPage initialGameId={params.gameId} />
     </Suspense>
   );
 }

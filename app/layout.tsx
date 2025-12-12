@@ -46,6 +46,9 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
+/**
+ * Root layout sets global fonts, background, and wraps pages with shared providers.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

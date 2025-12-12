@@ -8,6 +8,10 @@ interface PieceReserveVerticalProps {
   height?: number;
 }
 
+/**
+ * Displays captured-piece reserves for one board in a vertical strip.
+ * Ordering mirrors over-the-board intuition: the bottom player sees their pawns closest.
+ */
 const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   whiteReserves,
   blackReserves,
@@ -16,35 +20,6 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
 }) => {
   const pieceOrder = ["p", "n", "b", "r", "q"];
   const isWhiteBottom = bottomColor === "white";
-
-  // Determine the order of pieces to display from top to bottom
-  // If White is bottom:
-  // Top half: Black pieces (P -> Q going up, so P is top) -> [bP, bN, bB, bR, bQ]
-  // Bottom half: White pieces (Q -> P going down, so P is bottom) -> [wQ, wR, wB, wN, wP]
-  // Wait, "mirrored" description:
-  // "White... see from bottom to top... Pawn, Knight, Bishop, Rook, Queen" -> P (bot).. Q (top)
-  // "Mirrored... Queen, Rook, Bishop, Knight and Pawn" -> Q (near middle).. P (far end)
-
-  // So visually from Top to Bottom:
-  // 1. Far end (Top)
-  // ...
-  // 5. Near middle
-  // 6. Near middle
-  // ...
-  // 10. Far end (Bottom)
-
-  // If White is bottom:
-  // Bottom (10) is wP. Top (6) is wQ.
-  // Top (1) is bP. Bottom (5) is bQ.
-
-  // Display List (index 0 is Top):
-  // [bP, bN, bB, bR, bQ, wQ, wR, wB, wN, wP]
-
-  // If Black is bottom:
-  // Bottom (10) is bP. Top (6) is bQ.
-  // Top (1) is wP. Bottom (5) is wQ.
-  // Display List:
-  // [wP, wN, wB, wR, wQ, bQ, bR, bB, bN, bP]
 
   const topColor = isWhiteBottom ? "black" : "white";
 

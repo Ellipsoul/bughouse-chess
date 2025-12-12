@@ -1,5 +1,6 @@
-// Type definitions for bughouse game replay system
-
+/**
+ * Move within an interleaved bughouse timeline.
+ */
 export interface BughouseMove {
   board: 'A' | 'B';
   moveNumber: number;
@@ -9,11 +10,17 @@ export interface BughouseMove {
   fen?: string;
 }
 
+/**
+ * Snapshot of both clocks (deciseconds) for a single board.
+ */
 export interface BoardClocks {
   white: number;
   black: number;
 }
 
+/**
+ * UI-friendly representation of two boards plus shared data.
+ */
 export interface BughouseGameState {
   boardA: {
     fen: string;
@@ -63,6 +70,9 @@ export interface ProcessedGameData {
   };
 }
 
+/**
+ * Piece reserves keyed by board and color; counts represent capturable drops.
+ */
 export interface PieceReserves {
   A: {
     white: { [piece: string]: number };

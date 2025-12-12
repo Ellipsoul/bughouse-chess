@@ -3,6 +3,10 @@ import { BughouseMove, ProcessedGameData } from "../types/bughouse";
 import { ChessGame } from "../actions";
 import { parseChessComCompressedMoveList } from "../chesscom_movelist_parse";
 
+/**
+ * Normalize two chess.com game payloads into a combined bughouse move timeline.
+ * Timestamps are converted to deciseconds so boards can be merged chronologically.
+ */
 export function processGameData(
   originalGame: ChessGame,
   partnerGame: ChessGame | null,
@@ -74,6 +78,9 @@ function parseMovesFromMoveList(moveList: string): string[] {
   return parseChessComCompressedMoveList(moveList);
 }
 
+/**
+ * Merge two boards' moves based on timestamps so the UI can replay them in order.
+ */
 function createCombinedMoveList(
   gameA: { moves: string[]; timestamps: number[] },
   gameB: { moves: string[]; timestamps: number[] },

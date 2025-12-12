@@ -22,6 +22,9 @@ interface GameViewerPageProps {
   initialGameId?: string;
 }
 
+/**
+ * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
+ */
 export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   const searchParams = useSearchParams();
   const pathGameId = initialGameId?.trim();
@@ -42,6 +45,9 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
 
+  /**
+   * Fetches the primary game (and partner game when available) then updates UI state.
+   */
   const loadGame = useCallback(
     async (
       requestedGameId: string,

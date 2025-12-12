@@ -13,6 +13,9 @@ interface MoveListProps {
   onMoveClick: (index: number) => void;
 }
 
+/**
+ * Table-based move list showing interleaved bughouse moves with per-move timings.
+ */
 const MoveList: React.FC<MoveListProps> = ({
   moves,
   currentMoveIndex,
