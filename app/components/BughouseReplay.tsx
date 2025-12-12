@@ -43,6 +43,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const MIN_BOARD_SIZE = 260;
   const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
   const GAP_PX = 16; // Tailwind `gap-4`
+  const RESERVE_HEIGHT_PX = 420;
 
   const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
 
@@ -134,99 +135,90 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
   return (
     <div className="w-full mx-auto">
-      <div className="flex justify-center gap-8 h-[600px]">
-        {/* Boards Container with Reserves */}
-        <div
-          ref={boardsContainerRef}
-          className="flex gap-4 grow justify-center items-center min-w-0"
-        >
-          {/* Left Reserves (Board A) */}
-          <div className="flex flex-col justify-center shrink-0 w-16">
-            <PieceReserveVertical
-              whiteReserves={pieceReserves.A.white}
-              blackReserves={pieceReserves.A.black}
-              bottomColor="white"
-              height={boardSize}
-            />
-          </div>
+      <div className="flex justify-center gap-6 items-start">
+        {/* Left Column: Boards + Controls */}
+        <div className="flex flex-col items-center gap-6 grow min-w-0">
+          {/* Boards Container with Reserves */}
+          <div
+            ref={boardsContainerRef}
+            className="flex gap-4 justify-center items-center min-w-0 h-[600px]"
+          >
+            {/* Left Reserves (Board A) */}
+            <div className="flex flex-col justify-center shrink-0 w-16">
+              <PieceReserveVertical
+                whiteReserves={pieceReserves.A.white}
+                blackReserves={pieceReserves.A.black}
+                bottomColor="white"
+                height={RESERVE_HEIGHT_PX}
+              />
+            </div>
 
-          {/* Board A - White at bottom */}
-          <div className="flex flex-col items-center">
-            <div className="mb-3 text-center">
-              <div className="text-xl font-bold text-white tracking-wide">
-                {gameState.players.aBlack}
+            {/* Board A - White at bottom */}
+            <div className="flex flex-col items-center">
+              <div className="mb-3 text-center">
+                <div className="text-xl font-bold text-white tracking-wide">
+                  {gameState.players.aBlack}
+                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                  Black
+                </div>
               </div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                Black
+              <ChessBoard
+                fen={gameState.boardA.fen}
+                boardName="A"
+                size={boardSize}
+                flip={false}
+              />
+              <div className="mt-3 text-center">
+                <div className="text-xl font-bold text-white tracking-wide">
+                  {gameState.players.aWhite}
+                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                  White
+                </div>
               </div>
             </div>
-            <ChessBoard
-              fen={gameState.boardA.fen}
-              boardName="A"
-              size={boardSize}
-              flip={false}
-            />
-            <div className="mt-3 text-center">
-              <div className="text-xl font-bold text-white tracking-wide">
-                {gameState.players.aWhite}
+
+            {/* Board B - Black at bottom (flipped) */}
+            <div className="flex flex-col items-center">
+              <div className="mb-3 text-center">
+                <div className="text-xl font-bold text-white tracking-wide">
+                  {gameState.players.bWhite}
+                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                  White
+                </div>
               </div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                White
+              <ChessBoard
+                fen={gameState.boardB.fen}
+                boardName="B"
+                size={boardSize}
+                flip={true}
+              />
+              <div className="mt-3 text-center">
+                <div className="text-xl font-bold text-white tracking-wide">
+                  {gameState.players.bBlack}
+                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                  Black
+                </div>
               </div>
+            </div>
+
+            {/* Right Reserves (Board B) */}
+            <div className="flex flex-col justify-center shrink-0 w-16">
+              <PieceReserveVertical
+                whiteReserves={pieceReserves.B.white}
+                blackReserves={pieceReserves.B.black}
+                bottomColor="black"
+                height={RESERVE_HEIGHT_PX}
+              />
             </div>
           </div>
 
-          {/* Board B - Black at bottom (flipped) */}
-          <div className="flex flex-col items-center">
-            <div className="mb-3 text-center">
-              <div className="text-xl font-bold text-white tracking-wide">
-                {gameState.players.bWhite}
-              </div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                White
-              </div>
-            </div>
-            <ChessBoard
-              fen={gameState.boardB.fen}
-              boardName="B"
-              size={boardSize}
-              flip={true}
-            />
-            <div className="mt-3 text-center">
-              <div className="text-xl font-bold text-white tracking-wide">
-                {gameState.players.bBlack}
-              </div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                Black
-              </div>
-            </div>
-          </div>
-
-          {/* Right Reserves (Board B) */}
-          <div className="flex flex-col justify-center shrink-0 w-16">
-            <PieceReserveVertical
-              whiteReserves={pieceReserves.B.white}
-              blackReserves={pieceReserves.B.black}
-              bottomColor="black"
-              height={boardSize}
-            />
-          </div>
-        </div>
-
-        {/* Move List */}
-        <div className="flex-1 min-w-[350px] max-w-[25%]">
-          <MoveList
-            moves={replayController.getCombinedMoves()}
-            currentMoveIndex={currentMoveIndex}
-            players={gameState.players}
-            onMoveClick={handleJumpToMove}
-          />
-        </div>
-      </div>
-
-      {/* Board Controls */}
-      <div className="mt-8 flex flex-col items-center space-y-4">
-          <div className="flex items-center space-x-4">
+          {/* Board Controls (centered under boards) */}
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex items-center space-x-4">
             <button
               onClick={handleStart}
               disabled={!replayController.canMoveBackward()}
@@ -269,6 +261,18 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             Use arrow keys to navigate (Up/Down for Start/End)
           </div>
         </div>
+        </div>
+
+        {/* Right Column: Move List (slightly narrower to give boards more space) */}
+        <div className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px] h-[600px]">
+          <MoveList
+            moves={replayController.getCombinedMoves()}
+            currentMoveIndex={currentMoveIndex}
+            players={gameState.players}
+            onMoveClick={handleJumpToMove}
+          />
+        </div>
+      </div>
     </div>
   );
 };

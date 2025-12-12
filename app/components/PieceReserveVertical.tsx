@@ -81,16 +81,15 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
 
   return (
     <div 
-      className="flex flex-col bg-gray-800 rounded-lg p-2 w-full"
-      style={{ height: `${height}px`, justifyContent: "space-between" }}
+      className="grid grid-rows-10 bg-gray-800 rounded-lg p-2 w-full overflow-hidden"
+      style={{ height: `${height}px`, minHeight: "420px" }}
     >
       {slots.map((slot, index) => (
         <div
           key={`${slot.color}-${slot.piece}-${index}`}
-          className={`relative flex items-center justify-center grow ${
+          className={`relative flex items-center justify-center ${
             slot.count > 0 ? "opacity-100" : "opacity-30"
           }`}
-          style={{ maxHeight: `${height / 10}px` }}
         >
             <img
               src={getPieceImage(slot.piece, slot.color)}
