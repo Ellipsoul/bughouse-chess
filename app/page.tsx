@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useTransition } from "react";
+import toast from "react-hot-toast";
 import { ChessGame, fetchChessGame, findPartnerGameId } from "./actions";
 import BughouseReplay from "./components/BughouseReplay";
 
@@ -21,10 +22,16 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const requestedGameId = gameId.trim();
 
-    if (loadedGameId && loadedGameId !== gameId) {
+    if (!requestedGameId) {
+      setError("Game ID is required");
+      return;
+    }
+
+    if (loadedGameId && loadedGameId !== requestedGameId) {
       const shouldLoadNewGame = window.confirm(
-        `Game ${loadedGameId} is already loaded. Do you want to load ${gameId}?`,
+        `Game ${loadedGameId} is already loaded. Do you want to load ${requestedGameId}?`,
       );
 
       if (!shouldLoadNewGame) {
@@ -33,23 +40,36 @@ export default function Home() {
     }
 
     startTransition(async () => {
-      try {
-        // Fetch the original game
-        const originalGame = await fetchChessGame(gameId);
-
-        // Try to find the partner game
-        const partnerId = await findPartnerGameId(gameId);
+      const loadPromise = (async () => {
+        const originalGame = await fetchChessGame(requestedGameId);
+        const partnerId = await findPartnerGameId(requestedGameId);
         const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
 
-        setGameData({
+        return {
           original: originalGame,
           partner: partnerGame,
           partnerId,
+        };
+      })();
+
+      toast.promise(loadPromise, {
+        loading: `Loading game ${requestedGameId}...`,
+        success: (data) =>
+          data.partnerId
+            ? `Successfully loaded game ${requestedGameId} with partner game ${data.partnerId}`
+            : `Successfully loaded game ${requestedGameId}`,
+        error: (err: unknown) =>
+          err instanceof Error ? err.message : "Failed to load game",
+      });
+
+      loadPromise
+        .then((data) => {
+          setGameData(data);
+          setGameId("");
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "An error occurred");
         });
-        setGameId("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      }
     });
   };
 
@@ -109,16 +129,27 @@ export default function Home() {
             </div>
           )}
 
-          {!gameData && !error && !isPending && (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-              <p className="text-lg">Enter a game ID above to get started</p>
+          {isPending ? (
+            <div
+              className="flex flex-col items-center justify-center h-[60vh] text-gray-200"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="h-12 w-12 rounded-full border-4 border-mariner-500/40 border-t-mariner-200 animate-spin mb-4" />
+              <p className="text-sm text-gray-300">
+                Loading game data...
+              </p>
             </div>
-          )}
-
-          {gameData && (
+          ) : gameData ? (
             <BughouseReplay
               gameData={gameData}
             />
+          ) : (
+            !error && (
+              <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+                <p className="text-lg">Enter a game ID above to get started</p>
+              </div>
+            )
           )}
         </div>
       </main>

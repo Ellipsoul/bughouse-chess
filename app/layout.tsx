@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fira_Code, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -56,9 +57,11 @@ export default function RootLayout({
       className={`${inter.variable} ${playfair.variable} ${firaCode.variable}`}
     >
       <body className="min-h-screen bg-neutral-50 text-neutral-900 antialiased">
-        <main className="mx-auto px-4 sm:px-6 lg:px-8">
-          {children}
-        </main>
+        <Providers>
+          <main className="mx-auto px-4 sm:px-6 lg:px-8">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );

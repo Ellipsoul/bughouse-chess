@@ -102,7 +102,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
           />
 
           {slot.count > 0 && (
-            <span className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold z-10">
+            <span className="absolute -bottom-1 -right-1 bg-cyan-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold z-10">
               {slot.count}
             </span>
           )}
