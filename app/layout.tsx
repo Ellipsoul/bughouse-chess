@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fira_Code, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -25,7 +25,6 @@ export const metadata: Metadata = {
   description: "A modern implementation of Bughouse Chess",
   applicationName: "Bughouse Chess Viewer",
   manifest: "/site.webmanifest",
-  themeColor: "#ffffff",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -40,6 +39,10 @@ export const metadata: Metadata = {
       },
     ],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
