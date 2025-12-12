@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { BughouseMove } from "../types/bughouse";
 
 interface MoveListProps {
@@ -22,6 +22,35 @@ const MoveList: React.FC<MoveListProps> = ({
   const activeMoveRef = useRef<HTMLTableRowElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLTableSectionElement>(null);
+
+  // Pre-compute per-move durations (deciseconds) so we can show how long each move took.
+  const moveDurations = useMemo(() => {
+    const lastTimestampByBoard: Record<'A' | 'B', number> = { A: 0, B: 0 };
+
+    return moves.map((move) => {
+      const previous = lastTimestampByBoard[move.board] ?? 0;
+      const current = Number.isFinite(move.timestamp) ? move.timestamp : previous;
+      const duration = Math.max(0, current - previous);
+
+      lastTimestampByBoard[move.board] = current;
+      return duration;
+    });
+  }, [moves]);
+
+  const formatMoveTime = useCallback((deciseconds?: number) => {
+    if (!Number.isFinite(deciseconds)) return "—";
+
+    const safeValue = Math.max(0, Math.round(deciseconds ?? 0));
+    const minutes = Math.floor(safeValue / 600);
+    const seconds = Math.floor((safeValue % 600) / 10);
+    const tenths = safeValue % 10;
+
+    if (minutes > 0) {
+      return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
+    }
+
+    return `${(safeValue / 10).toFixed(1)}s`;
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -130,12 +159,22 @@ const MoveList: React.FC<MoveListProps> = ({
                       <td
                         key={col}
                         className={`
-                          p-1 text-center h-8 w-1/4
+                          relative p-1 text-center h-8 w-1/4
                           ${col === colIndex ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
                           ${borderClass}
                         `}
                       >
-                        {col === colIndex ? move.move : ""}
+                        {col === colIndex ? (
+                          <>
+                            <span className="block leading-4">{move.move}</span>
+                            <span
+                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                              title={`Time spent on move: ${formatMoveTime(moveDurations[index])}`}
+                            >
+                              {formatMoveTime(moveDurations[index])}
+                            </span>
+                          </>
+                        ) : ""}
                       </td>
                     );
                   })}
