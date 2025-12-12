@@ -82,7 +82,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   return (
     <div 
       className="grid grid-rows-10 bg-gray-800 rounded-lg p-2 w-full overflow-hidden"
-      style={{ height: `${height}px`, minHeight: "420px" }}
+      style={{ height: `${height}px` }}
     >
       {slots.map((slot, index) => (
         <div

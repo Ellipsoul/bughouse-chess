@@ -24,34 +24,36 @@ const MoveList: React.FC<MoveListProps> = ({
   const headerRef = useRef<HTMLTableSectionElement>(null);
 
   useEffect(() => {
-    if (activeMoveRef.current && containerRef.current) {
-      const container = containerRef.current;
-      const element = activeMoveRef.current;
+    const container = containerRef.current;
+    if (!container) return;
 
-      // When scrolling "back up", the active row can be technically in the viewport
-      // while still being hidden behind the sticky header. To avoid that, measure
-      // in container coordinates and treat the region under the sticky header as
-      // not visible.
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      const headerHeight = headerRef.current?.getBoundingClientRect().height ?? 0;
+    const headerHeight = headerRef.current?.offsetHeight ?? 0;
+    const padding = 8;
 
-      // Visible region is the container minus the sticky header overlay.
-      const visibleTop = containerRect.top + headerHeight;
-      const visibleBottom = containerRect.bottom;
+    // Always handle "start of game" even if no active row (e.g., index -1).
+    if (currentMoveIndex <= 0) {
+      container.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
-      const padding = 8; // small breathing room so the row isn't glued to the header/footer
+    const element = activeMoveRef.current;
+    if (!element) return;
 
-      const isHiddenAbove = elementRect.top < visibleTop + padding;
-      const isHiddenBelow = elementRect.bottom > visibleBottom - padding;
+    const elementTop = element.offsetTop; // relative to container
+    const elementBottom = elementTop + element.offsetHeight;
+    const viewTop = container.scrollTop + headerHeight + padding;
+    const viewBottom = container.scrollTop + container.clientHeight - padding;
 
-      if (!isHiddenAbove && !isHiddenBelow) return;
-
-      const delta = isHiddenAbove
-        ? elementRect.top - (visibleTop + padding)
-        : elementRect.bottom - (visibleBottom - padding);
-
-      container.scrollBy({ top: delta, behavior: "smooth" });
+    if (elementTop < viewTop) {
+      container.scrollTo({
+        top: elementTop - headerHeight - padding,
+        behavior: "smooth",
+      });
+    } else if (elementBottom > viewBottom) {
+      container.scrollTo({
+        top: elementBottom - container.clientHeight + padding,
+        behavior: "smooth",
+      });
     }
   }, [currentMoveIndex]);
 

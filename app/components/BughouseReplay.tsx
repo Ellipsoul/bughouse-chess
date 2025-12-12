@@ -18,6 +18,7 @@ interface BughouseReplayProps {
 
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const boardsContainerRef = useRef<HTMLDivElement>(null);
+  const boardColumnRef = useRef<HTMLDivElement>(null);
 
   // Create the replay controller
   const replayController = useMemo(() => {
@@ -43,9 +44,11 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const MIN_BOARD_SIZE = 260;
   const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
   const GAP_PX = 16; // Tailwind `gap-4`
-  const RESERVE_HEIGHT_PX = 420;
 
   const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
+  const [playAreaHeight, setPlayAreaHeight] = useState<number>(
+    DEFAULT_BOARD_SIZE + 120
+  );
 
   useEffect(() => {
     const container = boardsContainerRef.current;
@@ -69,6 +72,23 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
     const resizeObserver = new ResizeObserver(() => computeBoardSize());
     resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const column = boardColumnRef.current;
+    if (!column) return;
+
+    const computeHeight = () => {
+      const nextHeight = Math.ceil(column.getBoundingClientRect().height);
+      if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
+      setPlayAreaHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    computeHeight();
+
+    const resizeObserver = new ResizeObserver(() => computeHeight());
+    resizeObserver.observe(column);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -109,8 +129,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     }
   }, [replayController, updateGameState]);
 
-  const totalMoves = replayController.getTotalMoves();
-
   // Add keyboard navigation
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -133,15 +151,24 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleNextMove, handlePreviousMove, handleStart, handleEnd]);
 
+  const controlButtonBaseClass =
+    "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 " +
+    "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
+    "transition-colors";
+
+  // Give reserves a little breathing room below full column height.
+  const reserveHeight = Math.max(300, playAreaHeight - 24);
+
   return (
     <div className="w-full mx-auto">
       <div className="flex justify-center gap-6 items-start">
         {/* Left Column: Boards + Controls */}
-        <div className="flex flex-col items-center gap-6 grow min-w-0">
+        <div className="flex flex-col items-center gap-4 grow min-w-0">
           {/* Boards Container with Reserves */}
           <div
             ref={boardsContainerRef}
-            className="flex gap-4 justify-center items-center min-w-0 h-[600px]"
+            className="flex gap-4 justify-center items-stretch min-w-0"
+            style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
             <div className="flex flex-col justify-center shrink-0 w-16">
@@ -149,18 +176,15 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 whiteReserves={pieceReserves.A.white}
                 blackReserves={pieceReserves.A.black}
                 bottomColor="white"
-                height={RESERVE_HEIGHT_PX}
+                height={reserveHeight}
               />
             </div>
 
             {/* Board A - White at bottom */}
-            <div className="flex flex-col items-center">
+            <div ref={boardColumnRef} className="flex flex-col items-center">
               <div className="mb-3 text-center">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.aBlack}
-                </div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                  Black
                 </div>
               </div>
               <ChessBoard
@@ -173,9 +197,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.aWhite}
                 </div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                  White
-                </div>
               </div>
             </div>
 
@@ -184,9 +205,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               <div className="mb-3 text-center">
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.bWhite}
-                </div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                  White
                 </div>
               </div>
               <ChessBoard
@@ -199,9 +217,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 <div className="text-xl font-bold text-white tracking-wide">
                   {gameState.players.bBlack}
                 </div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                  Black
-                </div>
               </div>
             </div>
 
@@ -211,60 +226,61 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 whiteReserves={pieceReserves.B.white}
                 blackReserves={pieceReserves.B.black}
                 bottomColor="black"
-                height={RESERVE_HEIGHT_PX}
+                height={reserveHeight}
               />
             </div>
           </div>
 
           {/* Board Controls (centered under boards) */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={handleStart}
               disabled={!replayController.canMoveBackward()}
-              className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
-              title="Start of game"
+              className={controlButtonBaseClass}
+              title="Start"
+              aria-label="Jump to start"
+              type="button"
             >
-              |&lt;&lt;
+              <span className="text-lg leading-none">«</span>
             </button>
             <button
               onClick={handlePreviousMove}
               disabled={!replayController.canMoveBackward()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-900/20"
-              title="Previous move"
+              className={controlButtonBaseClass}
+              title="Previous"
+              aria-label="Previous move"
+              type="button"
             >
-              &larr; Previous
+              <span className="text-lg leading-none">‹</span>
             </button>
-
-            <div className="text-white font-mono px-4">
-              {currentMoveIndex + 1} / {totalMoves}
-            </div>
-
             <button
               onClick={handleNextMove}
               disabled={!replayController.canMoveForward()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-900/20"
-              title="Next move"
+              className={controlButtonBaseClass}
+              title="Next"
+              aria-label="Next move"
+              type="button"
             >
-              Next &rarr;
+              <span className="text-lg leading-none">›</span>
             </button>
             <button
               onClick={handleEnd}
               disabled={!replayController.canMoveForward()}
-              className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
-              title="End of game"
+              className={controlButtonBaseClass}
+              title="End"
+              aria-label="Jump to end"
+              type="button"
             >
-              &gt;&gt;|
+              <span className="text-lg leading-none">»</span>
             </button>
           </div>
-          <div className="text-gray-500 text-sm">
-            Use arrow keys to navigate (Up/Down for Start/End)
-          </div>
-        </div>
         </div>
 
         {/* Right Column: Move List (slightly narrower to give boards more space) */}
-        <div className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px] h-[600px]">
+        <div
+          className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px]"
+          style={{ height: playAreaHeight }}
+        >
           <MoveList
             moves={replayController.getCombinedMoves()}
             currentMoveIndex={currentMoveIndex}
