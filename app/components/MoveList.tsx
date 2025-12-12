@@ -96,26 +96,26 @@ const MoveList: React.FC<MoveListProps> = ({
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
             <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
-              <th colSpan={2} className="bg-gray-200 text-gray-600 border-r-2 border-b border-dotted border-gray-400">
+              <th colSpan={2} className="bg-gray-200 text-gray-600">
                 Left Board
               </th>
-              <th colSpan={2} className="bg-gray-200 text-gray-600 border-b border-dotted border-gray-400">
+              <th colSpan={2} className="bg-gray-200 text-gray-600">
                 Right Board
               </th>
             </tr>
             {/* Row 2: Player Names */}
             <tr className="h-7 text-[8px] font-semibold">
-              <th className="bg-white text-black px-1 border-r border-dashed border-gray-400 w-1/4">
+              <th className="bg-white text-black px-1 w-1/4">
                 <div className="flex items-center justify-center">
                   <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
                 </div>
               </th>
-              <th className="bg-black text-white px-1 border-r-4 border-gray-600 w-1/4">
+              <th className="bg-black text-white px-1 w-1/4">
                 <div className="flex items-center justify-center">
                   <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
                 </div>
               </th>
-              <th className="bg-white text-black px-1 border-r border-dashed border-gray-400 w-1/4">
+              <th className="bg-white text-black px-1 w-1/4">
                 <div className="flex items-center justify-center">
                   <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
                 </div>
