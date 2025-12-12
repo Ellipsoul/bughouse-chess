@@ -6,7 +6,8 @@ import "chessboardjs/www/css/chessboard.css";
 
 interface ChessBoardInstance {
   destroy: () => void;
-  position: (fen: string) => void;
+  // `animated` mirrors chessboard.js docs: position(fen, useAnimation?)
+  position: (fen: string, animated?: boolean) => void;
   orientation: (color: string) => void;
   resize: () => void;
 }
@@ -125,7 +126,9 @@ export default function ChessBoard(
   useEffect(() => {
     if (boardRef.current) {
       if (fen) {
-        boardRef.current.position(fen);
+        // Disable chessboard.js animation to avoid duplicate-piece blink
+        // per https://chessboardjs.com/docs#position.
+        boardRef.current.position(fen, false);
       }
       boardRef.current.orientation(flip ? "black" : "white");
       boardRef.current.resize();
