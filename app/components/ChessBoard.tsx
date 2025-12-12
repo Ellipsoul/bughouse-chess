@@ -46,12 +46,12 @@ export default function ChessBoard(
 
       // Load Chessboard
       // Note: We need to ensure chessboardjs uses the global jQuery or we might need to handle it.
-      // Since 'chessboardjs' is a CommonJS module that likely expects global $, 
-      // ensuring window.$ is set before import *might* work if we use require, 
+      // Since 'chessboardjs' is a CommonJS module that likely expects global $,
+      // ensuring window.$ is set before import *might* work if we use require,
       // or if we import it after setting window.$.
-      
+
       const ChessboardModule = await import("chessboardjs");
-      const Chessboard = (ChessboardModule.default || customWindow.ChessBoard) as ChessBoardFactory | undefined;
+      const Chessboard = ((ChessboardModule as unknown as { default?: ChessBoardFactory }).default || customWindow.ChessBoard) as ChessBoardFactory | undefined;
 
       if (!Chessboard) {
         console.error("Chessboard.js failed to load");
