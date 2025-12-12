@@ -136,10 +136,38 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     "transition-colors";
 
   // Derive a consistent column height (board + two name blocks + small padding/gaps).
-  const NAME_BLOCK = 34;
+  const NAME_BLOCK = 44;
   const COLUMN_PADDING = 12;
   const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
   const reserveHeight = playAreaHeight;
+
+  const formatClock = useCallback((deciseconds?: number) => {
+    const safeValue =
+      typeof deciseconds === "number" && Number.isFinite(deciseconds)
+        ? Math.max(0, Math.floor(deciseconds))
+        : 0;
+
+    const minutes = Math.floor(safeValue / 600);
+    const seconds = Math.floor((safeValue % 600) / 10);
+    const tenths = safeValue % 10;
+
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
+  }, []);
+
+  const renderPlayerBar = useCallback(
+    (name: string, clockValue?: number) => (
+      <div
+        className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
+        style={{ width: boardSize }}
+      >
+        <span className="truncate" title={name}>{name}</span>
+        <span className="font-mono text-lg tabular-nums">
+          {formatClock(clockValue)}
+        </span>
+      </div>
+    ),
+    [boardSize, formatClock],
+  );
 
   return (
     <div className="w-full mx-auto">
@@ -164,42 +192,26 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
             {/* Board A - White at bottom */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              <div className="text-center leading-tight">
-                <div className="text-xl font-bold text-white tracking-wide">
-                  {gameState.players.aBlack}
-                </div>
-              </div>
+              {renderPlayerBar(gameState.players.aBlack, gameState.boardA.clocks.black)}
               <ChessBoard
                 fen={gameState.boardA.fen}
                 boardName="A"
                 size={boardSize}
                 flip={false}
               />
-              <div className="text-center leading-tight">
-                <div className="text-xl font-bold text-white tracking-wide">
-                  {gameState.players.aWhite}
-                </div>
-              </div>
+              {renderPlayerBar(gameState.players.aWhite, gameState.boardA.clocks.white)}
             </div>
 
             {/* Board B - Black at bottom (flipped) */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              <div className="text-center leading-tight">
-                <div className="text-xl font-bold text-white tracking-wide">
-                  {gameState.players.bWhite}
-                </div>
-              </div>
+              {renderPlayerBar(gameState.players.bWhite, gameState.boardB.clocks.white)}
               <ChessBoard
                 fen={gameState.boardB.fen}
                 boardName="B"
                 size={boardSize}
                 flip={true}
               />
-              <div className="text-center leading-tight">
-                <div className="text-xl font-bold text-white tracking-wide">
-                  {gameState.players.bBlack}
-                </div>
-              </div>
+              {renderPlayerBar(gameState.players.bBlack, gameState.boardB.clocks.black)}
             </div>
 
             {/* Right Reserves (Board B) */}

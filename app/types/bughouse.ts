@@ -9,6 +9,11 @@ export interface BughouseMove {
   fen?: string;
 }
 
+export interface BoardClocks {
+  white: number;
+  black: number;
+}
+
 export interface BughouseGameState {
   boardA: {
     fen: string;
@@ -16,6 +21,7 @@ export interface BughouseGameState {
     currentMoveIndex: number;
     isPlaying: boolean;
     speed: number;
+    clocks: BoardClocks;
   };
   boardB: {
     fen: string;
@@ -23,6 +29,7 @@ export interface BughouseGameState {
     currentMoveIndex: number;
     isPlaying: boolean;
     speed: number;
+    clocks: BoardClocks;
   };
   players: {
     aWhite: string;
@@ -42,6 +49,8 @@ export interface ProcessedGameData {
     timestamps: number[];
   };
   combinedMoves: BughouseMove[];
+  initialTime: number;
+  timeIncrement: number;
   players: {
     aWhite: string;
     aBlack: string;

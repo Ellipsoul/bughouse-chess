@@ -1,5 +1,5 @@
 import { Chess, PieceSymbol, Color, Square } from 'chess.js';
-import { BughouseMove, BughouseGameState, ProcessedGameData, PieceReserves } from '../types/bughouse';
+import { BoardClocks, BughouseMove, BughouseGameState, ProcessedGameData, PieceReserves } from '../types/bughouse';
 import { validateAndConvertMove } from './moveConverter';
 
 interface BughouseHistoryState {
@@ -16,6 +16,8 @@ export class BughouseReplayController {
   private combinedMoves: BughouseMove[];
   private currentMoveIndex: number = -1;
   private pieceReserves: PieceReserves;
+  private clockTimelines: { A: BoardClocks[]; B: BoardClocks[] };
+  private initialTime: number;
   private players: {
     aWhite: string;
     aBlack: string;
@@ -29,9 +31,21 @@ export class BughouseReplayController {
     this.boardA = new Chess();
     this.boardB = new Chess();
     this.combinedMoves = processedData.combinedMoves;
+    this.initialTime = processedData.initialTime;
     this.pieceReserves = {
       A: { white: {}, black: {} },
       B: { white: {}, black: {} }
+    };
+
+    this.clockTimelines = {
+      A: this.buildClockTimeline(
+        processedData.originalGame.timestamps,
+        processedData.originalGame.moves.length
+      ),
+      B: this.buildClockTimeline(
+        processedData.partnerGame.timestamps,
+        processedData.partnerGame.moves.length
+      )
     };
     this.players = processedData.players;
     this.gameState = {
@@ -40,19 +54,75 @@ export class BughouseReplayController {
         moves: [],
         currentMoveIndex: 0,
         isPlaying: false,
-        speed: 1
+        speed: 1,
+        clocks: this.getClockSnapshot('A', 0)
       },
       boardB: {
         fen: this.boardB.fen(),
         moves: [],
         currentMoveIndex: 0,
         isPlaying: false,
-        speed: 1
+        speed: 1,
+        clocks: this.getClockSnapshot('B', 0)
       },
       players: this.players
     };
 
     this.sanitizeMoves();
+  }
+
+  private buildClockTimeline(
+    timestamps: number[],
+    moveCount: number
+  ): BoardClocks[] {
+    // Clocks are stored as deciseconds. We clamp to non-negative values.
+    const timeline: BoardClocks[] = [
+      { white: Math.max(0, Math.floor(this.initialTime)), black: Math.max(0, Math.floor(this.initialTime)) }
+    ];
+
+    let currentWhite = timeline[0].white;
+    let currentBlack = timeline[0].black;
+
+    for (let i = 0; i < moveCount; i++) {
+      const isWhiteMove = i % 2 === 0;
+      const provided = timestamps[i];
+      const next: BoardClocks = { white: currentWhite, black: currentBlack };
+
+      if (Number.isFinite(provided)) {
+        const remaining = Math.max(0, Math.floor(provided));
+        if (isWhiteMove) {
+          next.white = remaining;
+          currentWhite = remaining;
+        } else {
+          next.black = remaining;
+          currentBlack = remaining;
+        }
+      }
+
+      timeline.push(next);
+    }
+
+    // If timestamp data is shorter than move list, pad with the latest known values.
+    while (timeline.length < moveCount + 1) {
+      timeline.push({ white: currentWhite, black: currentBlack });
+    }
+
+    return timeline;
+  }
+
+  private getClockSnapshot(board: 'A' | 'B', moveIndex: number): BoardClocks {
+    const timeline = board === 'A' ? this.clockTimelines.A : this.clockTimelines.B;
+    if (!timeline.length) {
+      return { white: 0, black: 0 };
+    }
+
+    const clampedIndex = Math.min(Math.max(moveIndex, 0), timeline.length - 1);
+    return timeline[clampedIndex];
+  }
+
+  private refreshClocks() {
+    this.gameState.boardA.clocks = this.getClockSnapshot('A', this.gameState.boardA.currentMoveIndex);
+    this.gameState.boardB.clocks = this.getClockSnapshot('B', this.gameState.boardB.currentMoveIndex);
   }
 
   private sanitizeMoves() {
@@ -177,6 +247,7 @@ export class BughouseReplayController {
     this.gameState.boardB.currentMoveIndex = prevState.boardBMoveCount;
 
     this.currentMoveIndex--;
+    this.refreshClocks();
     return true;
   }
 
@@ -320,6 +391,8 @@ export class BughouseReplayController {
       this.gameState.boardB.moves.push(move.move);
       this.gameState.boardB.currentMoveIndex++;
     }
+
+    this.refreshClocks();
   }
 
   private isDropMove(move: string): boolean {

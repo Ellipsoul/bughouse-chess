@@ -7,6 +7,9 @@ export function processGameData(
   originalGame: ChessGame,
   partnerGame: ChessGame | null,
 ): ProcessedGameData {
+  const initialTime = originalGame.game.baseTime1 || 300;
+  const timeIncrement = originalGame.game.timeIncrement1 || 0;
+
   const result: ProcessedGameData = {
     originalGame: {
       moves: [],
@@ -23,6 +26,8 @@ export function processGameData(
       bWhite: partnerGame?.players.top.username || "Unknown",
       bBlack: partnerGame?.players.bottom.username || "Unknown",
     },
+    initialTime,
+    timeIncrement,
   };
 
   // Process original game
@@ -55,13 +60,11 @@ export function processGameData(
   // Calculate move times and create combined move list
   // BaseTime1 and moveTimestamps appear to be in the same unit (likely deciseconds for Bughouse)
   // so we don't need to scale BaseTime1.
-  const initialTime = originalGame.game.baseTime1 || 300;
-  
   result.combinedMoves = createCombinedMoveList(
     result.originalGame,
     result.partnerGame,
     initialTime,
-    originalGame.game.timeIncrement1 || 0,
+    timeIncrement,
   );
 
   return result;
