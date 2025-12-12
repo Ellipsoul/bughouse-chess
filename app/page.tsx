@@ -5,7 +5,7 @@ import { ChessGame, fetchChessGame, findPartnerGameId } from "./actions";
 import BughouseReplay from "./components/BughouseReplay";
 
 export default function Home() {
-  const [gameId, setGameId] = useState("");
+  const [gameId, setGameId] = useState("159878252255");
   const [gameData, setGameData] = useState<
     {
       original: ChessGame;
@@ -59,7 +59,7 @@ export default function Home() {
                 type="text"
                 value={gameId}
                 onChange={(e) => setGameId(e.target.value)}
-                placeholder="Enter Chess.com game ID"
+                placeholder="Enter chess.com Game ID"
                 className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
                 disabled={isPending}
               />

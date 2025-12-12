@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 // Import CSS from the package
 import "chessboardjs/www/css/chessboard.css";
 
@@ -24,13 +24,49 @@ interface ChessBoardProps {
   boardName: string;
   size?: number;
   flip?: boolean;
+  promotedSquares?: string[];
+}
+
+type PieceColor = "w" | "b";
+
+function buildSquareColorMap(fen?: string): Map<string, PieceColor> {
+  const map = new Map<string, PieceColor>();
+  if (!fen) return map;
+
+  const parts = fen.split(" ");
+  const board = parts[0];
+  const rows = board.split("/");
+  if (rows.length !== 8) return map;
+
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+  for (let rankIndex = 0; rankIndex < 8; rankIndex++) {
+    const rankStr = rows[rankIndex];
+    let fileIndex = 0;
+
+    for (const ch of rankStr) {
+      if (fileIndex >= 8) break;
+      if (/\d/.test(ch)) {
+        fileIndex += parseInt(ch, 10);
+        continue;
+      }
+
+      const square = `${files[fileIndex]}${8 - rankIndex}`;
+      const color: PieceColor = ch === ch.toUpperCase() ? "w" : "b";
+      map.set(square, color);
+      fileIndex += 1;
+    }
+  }
+
+  return map;
 }
 
 export default function ChessBoard(
-  { fen, boardName, size = 400, flip = false }: ChessBoardProps,
+  { fen, boardName, size = 400, flip = false, promotedSquares = [] }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
   const boardRef = useRef<ChessBoardInstance | null>(null);
+  const squareColorMap = useMemo(() => buildSquareColorMap(fen), [fen]);
 
   useEffect(() => {
     // Dynamically load dependencies on the client side
@@ -95,6 +131,34 @@ export default function ChessBoard(
       boardRef.current.resize();
     }
   }, [fen, flip, size]);
+
+  // Decorate promoted pieces with a subtle outline so they are visually distinct.
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    // Clear old markers
+    const existing = boardElement.querySelectorAll(".bh-promoted-square");
+    existing.forEach((el) => {
+      el.classList.remove("bh-promoted-square");
+      el.classList.remove("bh-promoted-square--white");
+      el.classList.remove("bh-promoted-square--black");
+    });
+
+    // Apply markers for current promoted squares
+    promotedSquares.forEach((square) => {
+      const squareEl = boardElement.querySelector(`[data-square="${square}"]`);
+      if (squareEl instanceof HTMLElement) {
+        const color = squareColorMap.get(square);
+        squareEl.classList.add("bh-promoted-square");
+        if (color === "w") {
+          squareEl.classList.add("bh-promoted-square--white");
+        } else if (color === "b") {
+          squareEl.classList.add("bh-promoted-square--black");
+        }
+      }
+    });
+  }, [boardId, promotedSquares, squareColorMap]);
 
   return (
     <div className="flex flex-col items-center">

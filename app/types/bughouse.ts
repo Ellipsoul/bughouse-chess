@@ -31,6 +31,10 @@ export interface BughouseGameState {
     speed: number;
     clocks: BoardClocks;
   };
+  promotedSquares: {
+    A: string[];
+    B: string[];
+  };
   players: {
     aWhite: string;
     aBlack: string;

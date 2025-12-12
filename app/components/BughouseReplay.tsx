@@ -198,6 +198,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 boardName="A"
                 size={boardSize}
                 flip={false}
+                promotedSquares={gameState.promotedSquares.A}
               />
               {renderPlayerBar(gameState.players.aWhite, gameState.boardA.clocks.white)}
             </div>
@@ -210,6 +211,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 boardName="B"
                 size={boardSize}
                 flip={true}
+                promotedSquares={gameState.promotedSquares.B}
               />
               {renderPlayerBar(gameState.players.bBlack, gameState.boardB.clocks.black)}
             </div>

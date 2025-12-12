@@ -8,6 +8,10 @@ interface BughouseHistoryState {
   pieceReserves: PieceReserves;
   boardAMoveCount: number;
   boardBMoveCount: number;
+  promotedSquares: {
+    A: string[];
+    B: string[];
+  };
 }
 
 export class BughouseReplayController {
@@ -16,6 +20,7 @@ export class BughouseReplayController {
   private combinedMoves: BughouseMove[];
   private currentMoveIndex: number = -1;
   private pieceReserves: PieceReserves;
+  private promotedPieces: { A: Set<string>; B: Set<string> };
   private clockTimelines: { A: BoardClocks[]; B: BoardClocks[] };
   private initialTime: number;
   private players: {
@@ -36,6 +41,7 @@ export class BughouseReplayController {
       A: { white: {}, black: {} },
       B: { white: {}, black: {} }
     };
+    this.promotedPieces = { A: new Set(), B: new Set() };
 
     this.clockTimelines = {
       A: this.buildClockTimeline(
@@ -65,10 +71,21 @@ export class BughouseReplayController {
         speed: 1,
         clocks: this.getClockSnapshot('B', 0)
       },
+      promotedSquares: {
+        A: [],
+        B: []
+      },
       players: this.players
     };
 
     this.sanitizeMoves();
+  }
+
+  private clonePromotedPieces(): { A: string[]; B: string[] } {
+    return {
+      A: Array.from(this.promotedPieces.A),
+      B: Array.from(this.promotedPieces.B)
+    };
   }
 
   private buildClockTimeline(
@@ -194,6 +211,10 @@ export class BughouseReplayController {
       boardB: {
         ...this.gameState.boardB,
         fen: this.boardB.fen()
+      },
+      promotedSquares: {
+        A: Array.from(this.promotedPieces.A),
+        B: Array.from(this.promotedPieces.B)
       }
     };
   }
@@ -219,7 +240,8 @@ export class BughouseReplayController {
       fenB: this.boardB.fen(),
       pieceReserves: JSON.parse(JSON.stringify(this.pieceReserves)),
       boardAMoveCount: this.gameState.boardA.moves.length,
-      boardBMoveCount: this.gameState.boardB.moves.length
+      boardBMoveCount: this.gameState.boardB.moves.length,
+      promotedSquares: this.clonePromotedPieces()
     });
 
     this.currentMoveIndex++;
@@ -238,6 +260,10 @@ export class BughouseReplayController {
     this.boardA.load(prevState.fenA);
     this.boardB.load(prevState.fenB);
     this.pieceReserves = prevState.pieceReserves;
+    this.promotedPieces = {
+      A: new Set(prevState.promotedSquares.A),
+      B: new Set(prevState.promotedSquares.B)
+    };
 
     // Restore game state counters/arrays
     // We trim the moves array to the previous length
@@ -273,6 +299,7 @@ export class BughouseReplayController {
 
   private executeMove(move: BughouseMove): boolean {
     const board = move.board === 'A' ? this.boardA : this.boardB;
+    const boardKey = move.board;
 
     try {
       if (this.isDropMove(move.move)) {
@@ -289,16 +316,25 @@ export class BughouseReplayController {
 
         const result = board.move(convertedMove);
         if (result) {
+          const promotedSet = this.promotedPieces[boardKey];
+          const movingPromoted = promotedSet.has(result.from);
+          const capturedSquare = this.resolveCapturedSquare(result);
+          const capturedWasPromoted = capturedSquare ? promotedSet.has(capturedSquare) : false;
+
+          promotedSet.delete(result.from);
+          if (capturedSquare) {
+            promotedSet.delete(capturedSquare);
+          }
+          if (result.promotion) {
+            promotedSet.add(result.to);
+          } else if (movingPromoted) {
+            promotedSet.add(result.to);
+          }
+
           // Handle captures - add captured piece to partner's reserve
           if (result.captured) {
             const partnerBoard = move.board === 'A' ? 'B' : 'A';
-            const capturedPiece = result.captured; // 'p', 'n', etc.
-            // Note: In bughouse, promoted pieces revert to pawns upon capture.
-            // chess.js doesn't explicitly flag promoted pieces in capture result,
-            // but for now we assume standard piece capture.
-            // Strict rule: "Pawns that have promoted revert to pawns when captured."
-            // We would need to track promotion history to do this perfectly,
-            // but for now we'll use the captured type.
+            const capturedPiece = capturedWasPromoted ? 'p' : result.captured; // 'p', 'n', etc.
 
             const receivingColor = move.side === 'white' ? 'black' : 'white';
 
@@ -344,6 +380,9 @@ export class BughouseReplayController {
       const success = board.put({ type: pieceType as PieceSymbol, color: color as Color }, square as Square);
 
       if (success) {
+        // Dropped pieces are never promoted; ensure we clear any stale marker
+        this.promotedPieces[move.board].delete(square);
+
         // Manually switch turn and clear en passant
         const fen = board.fen();
         const fenParts = fen.split(' ');
@@ -393,6 +432,25 @@ export class BughouseReplayController {
     }
 
     this.refreshClocks();
+    this.gameState.promotedSquares = this.clonePromotedPieces();
+  }
+
+  private resolveCapturedSquare(result: {
+    captured?: string;
+    flags: string;
+    to: string;
+    color: string;
+  }): string | null {
+    if (!result.captured) return null;
+
+    // En-passant is the only case where the captured piece is not on `to`.
+    if (result.flags.includes('e')) {
+      const file = result.to[0];
+      const rank = result.color === 'w' ? '5' : '4';
+      return `${file}${rank}`;
+    }
+
+    return result.to;
   }
 
   private isDropMove(move: string): boolean {
