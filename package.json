@@ -26,6 +26,7 @@
     "@types/chessboardjs": "^0.3.6",
     "@types/jquery": "^3.5.33",
     "@types/node": "^25.0.1",
+    "@types/prop-types": "^15.7.15",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.1",

@@ -5,7 +5,6 @@ import { SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
-import RippleIconButton from "./RippleIconButton";
 import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState } from "../types/bughouse";
@@ -135,7 +134,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const controlButtonBaseClass =
     "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 cursor-pointer " +
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
-    "transition-colors focus-visible:ring-2 focus-visible:ring-mariner-400/70 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900";
+    "transition-colors";
 
   // Derive a consistent column height (board + two name blocks + small padding/gaps).
   const NAME_BLOCK = 44;
@@ -231,38 +230,46 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
           {/* Board Controls (centered under boards) */}
           <div className="flex items-center gap-3">
-            <RippleIconButton
+            <button
               onClick={handleStart}
               disabled={!replayController.canMoveBackward()}
               className={controlButtonBaseClass}
-              label="Jump to start"
               title="Start"
-              icon={<SkipBack aria-hidden className="h-5 w-5" />}
-            />
-            <RippleIconButton
+              aria-label="Jump to start"
+              type="button"
+            >
+              <SkipBack aria-hidden className="h-5 w-5" />
+            </button>
+            <button
               onClick={handlePreviousMove}
               disabled={!replayController.canMoveBackward()}
               className={controlButtonBaseClass}
-              label="Previous move"
               title="Previous"
-              icon={<StepBack aria-hidden className="h-5 w-5" />}
-            />
-            <RippleIconButton
+              aria-label="Previous move"
+              type="button"
+            >
+              <StepBack aria-hidden className="h-5 w-5" />
+            </button>
+            <button
               onClick={handleNextMove}
               disabled={!replayController.canMoveForward()}
               className={controlButtonBaseClass}
-              label="Next move"
               title="Next"
-              icon={<StepForward aria-hidden className="h-5 w-5" />}
-            />
-            <RippleIconButton
+              aria-label="Next move"
+              type="button"
+            >
+              <StepForward aria-hidden className="h-5 w-5" />
+            </button>
+            <button
               onClick={handleEnd}
               disabled={!replayController.canMoveForward()}
               className={controlButtonBaseClass}
-              label="Jump to end"
               title="End"
-              icon={<SkipForward aria-hidden className="h-5 w-5" />}
-            />
+              aria-label="Jump to end"
+              type="button"
+            >
+              <SkipForward aria-hidden className="h-5 w-5" />
+            </button>
           </div>
         </div>
 

@@ -71,27 +71,3 @@ body {
   color: #111827;
   border: 1px solid #d1d5db;
 }
-
-/* Reusable ripple effect for icon buttons */
-.bh-ripple {
-  position: absolute;
-  border-radius: 9999px;
-  transform: translate(-50%, -50%) scale(0);
-  opacity: 0.35;
-  pointer-events: none;
-  animation: bh-ripple-pulse 0.52s ease-out forwards;
-}
-
-@keyframes bh-ripple-pulse {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0.35;
-  }
-  65% {
-    opacity: 0.15;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(2.4);
-    opacity: 0;
-  }
-}
