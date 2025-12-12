@@ -4,6 +4,21 @@ import { useEffect, useRef } from "react";
 // Import CSS from the package
 import "chessboardjs/www/css/chessboard.css";
 
+interface ChessBoardInstance {
+  destroy: () => void;
+  position: (fen: string) => void;
+  orientation: (color: string) => void;
+  resize: () => void;
+}
+
+type ChessBoardFactory = (id: string, config: Record<string, unknown>) => ChessBoardInstance;
+
+interface CustomWindow extends Window {
+  $: unknown;
+  jQuery: unknown;
+  ChessBoard: ChessBoardFactory | undefined;
+}
+
 interface ChessBoardProps {
   fen?: string;
   boardName: string;
@@ -15,17 +30,19 @@ export default function ChessBoard(
   { fen, boardName, size = 400, flip = false }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
-  const boardRef = useRef<any>(null);
+  const boardRef = useRef<ChessBoardInstance | null>(null);
 
   useEffect(() => {
     // Dynamically load dependencies on the client side
     const initBoard = async () => {
       if (typeof window === "undefined") return;
 
+      const customWindow = window as unknown as CustomWindow;
+
       // Load jQuery and attach to window
       const $ = (await import("jquery")).default;
-      (window as any).$ = $;
-      (window as any).jQuery = $;
+      customWindow.$ = $;
+      customWindow.jQuery = $;
 
       // Load Chessboard
       // Note: We need to ensure chessboardjs uses the global jQuery or we might need to handle it.
@@ -33,14 +50,15 @@ export default function ChessBoard(
       // ensuring window.$ is set before import *might* work if we use require, 
       // or if we import it after setting window.$.
       
-      const Chessboard = (await import("chessboardjs")).default || (window as any).ChessBoard;
+      const ChessboardModule = await import("chessboardjs");
+      const Chessboard = (ChessboardModule.default || customWindow.ChessBoard) as ChessBoardFactory | undefined;
 
       if (!Chessboard) {
         console.error("Chessboard.js failed to load");
         return;
       }
 
-      const config = {
+      const config: Record<string, unknown> = {
         position: fen || "start",
         orientation: flip ? "black" : "white",
         pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",

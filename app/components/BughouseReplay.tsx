@@ -5,9 +5,13 @@ import ChessBoard from "./ChessBoard";
 import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState } from "../types/bughouse";
+import { ChessGame } from "../actions";
 
 interface BughouseReplayProps {
-  gameData: any; // The processed game data from Chess.com
+  gameData: {
+    original: ChessGame;
+    partner: ChessGame | null;
+  };
 }
 
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
@@ -26,23 +30,23 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
 
   // Update state when moves change
-  const updateGameState = () => {
+  const updateGameState = useCallback(() => {
     setGameState(replayController.getCurrentGameState());
     setPieceReserves(replayController.getCurrentPieceReserves());
     setCurrentMoveIndex(replayController.getCurrentMoveIndex());
-  };
+  }, [replayController]);
 
   const handleNextMove = useCallback(() => {
     if (replayController.moveForward()) {
       updateGameState();
     }
-  }, [replayController]);
+  }, [replayController, updateGameState]);
 
   const handlePreviousMove = useCallback(() => {
     if (replayController.moveBackward()) {
       updateGameState();
     }
-  }, [replayController]);
+  }, [replayController, updateGameState]);
 
   const currentMove = replayController.getCurrentMove();
   const totalMoves = replayController.getTotalMoves();

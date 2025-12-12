@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, PieceSymbol, Color, Square } from 'chess.js';
 import { BughouseMove, BughouseGameState, ProcessedGameData, PieceReserves } from '../types/bughouse';
 import { validateAndConvertMove } from './moveConverter';
 
@@ -209,7 +209,7 @@ export class BughouseReplayController {
 
     try {
       // Place the piece
-      const success = board.put({ type: pieceType as any, color: color }, square);
+      const success = board.put({ type: pieceType as PieceSymbol, color: color as Color }, square as Square);
 
       if (success) {
         // Manually switch turn and clear en passant
