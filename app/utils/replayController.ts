@@ -36,6 +36,32 @@ export class BughouseReplayController {
   private gameState: BughouseGameState;
   private history: BughouseHistoryState[] = [];
 
+  /**
+   * Determine whether the last-applied move gives check/checkmate.
+   *
+   * Important: We call this **after** applying a move and flipping the active color in FEN.
+   * At that point, the side-to-move is the *opponent*, so:
+   * - `board.inCheck()` means the opponent is in check ⇒ the move was a checking move (`+`)
+   * - `board.isCheckmate()` means the opponent is checkmated ⇒ the move was mate (`#`)
+   */
+  private getCheckSuffix(board: Chess): '' | '+' | '#' {
+    if (board.isCheckmate()) return '#';
+    if (board.inCheck()) return '+';
+    return '';
+  }
+
+  /**
+   * Bughouse drops are represented as `P@e4` (optionally suffixed with `+` or `#`).
+   * We accept/check-strip suffixes so the same string can be used for both replay execution
+   * (where we need a clean square like `e4`) and display (where we may include `+/#`).
+   */
+  private parseDropMove(move: string): { pieceChar: string; square: Square } | null {
+    const cleaned = move.replace(/[+#]$/, '');
+    const match = cleaned.match(/^([PNBRQKpnbrqk])@([a-h][1-8])$/);
+    if (!match) return null;
+    return { pieceChar: match[1], square: match[2] as Square };
+  }
+
   constructor(processedData: ProcessedGameData) {
     this.boardA = new Chess();
     this.boardB = new Chess();
@@ -190,22 +216,27 @@ export class BughouseReplayController {
   }
 
   private applyDropMoveOnBoard(board: Chess, move: BughouseMove) {
-    const parts = move.move.split('@');
-    if (parts.length !== 2) return;
-    
-    const pieceChar = parts[0];
-    const square = parts[1];
+    const parsed = this.parseDropMove(move.move);
+    if (!parsed) return;
+
+    const pieceChar = parsed.pieceChar;
+    const square = parsed.square;
     const pieceType = pieceChar.toLowerCase();
     const color = move.side === 'white' ? 'w' : 'b';
 
     try {
       board.put({ type: pieceType as PieceSymbol, color: color as Color }, square as Square);
-      
+
       const fen = board.fen();
       const fenParts = fen.split(' ');
-      fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w'; 
-      fenParts[3] = '-'; 
+      fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w';
+      fenParts[3] = '-';
       board.load(fenParts.join(' '));
+
+      // After a move is made, the side to move is the *opponent*.
+      // If the opponent is now in check, this move is a checking move.
+      const suffix = this.getCheckSuffix(board);
+      move.move = `${pieceChar.toUpperCase()}@${square}${suffix}`;
     } catch (e) {
       console.error('Error applying drop move during sanitization', e);
     }
@@ -370,14 +401,14 @@ export class BughouseReplayController {
 
   private executeDropMove(move: BughouseMove): boolean {
     const board = move.board === 'A' ? this.boardA : this.boardB;
-    const moveStr = move.move; // e.g., "P@e4"
+    const moveStr = move.move; // e.g., "P@e4" or "P@e4+"
 
-    // Parse drop move
-    const parts = moveStr.split('@');
-    if (parts.length !== 2) return false;
+    // Parse drop move (tolerates trailing `+/#`).
+    const parsed = this.parseDropMove(moveStr);
+    if (!parsed) return false;
 
-    const pieceChar = parts[0];
-    const square = parts[1];
+    const pieceChar = parsed.pieceChar;
+    const square = parsed.square;
     const pieceType = pieceChar.toLowerCase(); // 'p', 'n', 'b', 'r', 'q'
     const color = move.side === 'white' ? 'w' : 'b';
 
@@ -402,6 +433,10 @@ export class BughouseReplayController {
         fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w'; // Switch active color
         fenParts[3] = '-'; // Clear en passant target
         board.load(fenParts.join(' '));
+
+        // Normalize the stored notation to include check/checkmate when applicable.
+        const suffix = this.getCheckSuffix(board);
+        move.move = `${pieceChar.toUpperCase()}@${square}${suffix}`;
 
         // Decrement reserve
         if (reserves && reserves[pieceType] > 0) {
