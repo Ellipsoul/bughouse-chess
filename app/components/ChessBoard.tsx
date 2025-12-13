@@ -8,7 +8,20 @@ interface ChessBoardInstance {
   destroy: () => void;
   // `animated` mirrors chessboard.js docs: position(fen, useAnimation?)
   position: (fen: string, animated?: boolean) => void;
-  orientation: (color: string) => void;
+  /**
+   * Set or get the board orientation.
+   *
+   * chessboard.js supports `orientation()` as a getter and `orientation(color)` as a setter.
+   * We model both because we may want to query the current orientation in the future.
+   */
+  orientation: (color?: string) => void | string;
+  /**
+   * Toggle the board orientation.
+   *
+   * This is the method requested for user-driven flips so the library stays the
+   * source of truth for the internal orientation state + any built-in behaviors.
+   */
+  flip: () => void;
   resize: () => void;
 }
 
@@ -74,6 +87,18 @@ export default function ChessBoard(
   const boardId = `board-${boardName}`;
   const boardRef = useRef<ChessBoardInstance | null>(null);
   const squareColorMap = useMemo(() => buildSquareColorMap(fen), [fen]);
+  const desiredFlipRef = useRef(flip);
+  const desiredFenRef = useRef(fen);
+  const appliedFlipRef = useRef<boolean | null>(null);
+
+  // Keep the latest desired values available to the async initializer.
+  useEffect(() => {
+    desiredFlipRef.current = flip;
+  }, [flip]);
+
+  useEffect(() => {
+    desiredFenRef.current = fen;
+  }, [fen]);
 
   useEffect(() => {
     // Dynamically load dependencies on the client side
@@ -102,8 +127,8 @@ export default function ChessBoard(
       }
 
       const config: Record<string, unknown> = {
-        position: fen || "start",
-        orientation: flip ? "black" : "white",
+        position: desiredFenRef.current || "start",
+        orientation: desiredFlipRef.current ? "black" : "white",
         pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",
         showNotation: true,
       };
@@ -113,6 +138,7 @@ export default function ChessBoard(
       }
 
       boardRef.current = Chessboard(boardId, config);
+      appliedFlipRef.current = desiredFlipRef.current;
     };
 
     initBoard();
@@ -128,7 +154,13 @@ export default function ChessBoard(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update position and orientation when props change
+  /**
+   * Keep the rendered board synchronized with React state.
+   *
+   * Important: We intentionally use `board.flip()` (not `board.orientation(...)`) for
+   * user-driven orientation toggles so we match the feature request and let chessboard.js
+   * own its internal flip state.
+   */
   useEffect(() => {
     if (boardRef.current) {
       if (fen) {
@@ -136,7 +168,17 @@ export default function ChessBoard(
         // per https://chessboardjs.com/docs#position.
         boardRef.current.position(fen, false);
       }
-      boardRef.current.orientation(flip ? "black" : "white");
+
+      // Flip only when the desired orientation toggles. This prevents accidental
+      // double-flips when other props (like `fen` or `size`) update.
+      if (appliedFlipRef.current === null) {
+        // Board just initialized. Assume config orientation already applied.
+        appliedFlipRef.current = flip;
+      } else if (appliedFlipRef.current !== flip) {
+        boardRef.current.flip();
+        appliedFlipRef.current = flip;
+      }
+
       boardRef.current.resize();
     }
   }, [fen, flip, size]);

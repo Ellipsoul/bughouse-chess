@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
+import { FlipVertical, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
@@ -37,6 +37,17 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     replayController.getCurrentPieceReserves()
   );
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+  const [isBoardsFlipped, setIsBoardsFlipped] = useState(false);
+
+  /**
+   * Global board orientation toggle.
+   *
+   * This is the *single source of truth* for "user flipped or not" so every UI element
+   * (boards, reserves, and player bars) stays consistent.
+   */
+  const toggleBoardsFlipped = useCallback(() => {
+    setIsBoardsFlipped((prev) => !prev);
+  }, []);
 
   /**
    * Keep the reserve columns a consistent, readable size and instead shrink boards
@@ -116,6 +127,18 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   // Add keyboard navigation
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isTypingTarget =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT");
+
+      if (isTypingTarget) {
+        return;
+      }
+
       if (event.key === "ArrowRight") {
         event.preventDefault();
         handleNextMove();
@@ -128,12 +151,15 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         handleEnd();
+      } else if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        toggleBoardsFlipped();
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [handleNextMove, handlePreviousMove, handleStart, handleEnd]);
+  }, [handleNextMove, handlePreviousMove, handleStart, handleEnd, toggleBoardsFlipped]);
 
   const controlButtonBaseClass =
     "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 cursor-pointer " +
@@ -145,6 +171,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const COLUMN_PADDING = 12;
   const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
   const reserveHeight = playAreaHeight;
+  const controlsWidth =
+    boardSize * 2 + RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3;
 
   const formatClock = useCallback((deciseconds?: number) => {
     const safeValue =
@@ -214,47 +242,67 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               <PieceReserveVertical
                 whiteReserves={pieceReserves.A.white}
                 blackReserves={pieceReserves.A.black}
-                bottomColor="white"
+                bottomColor={isBoardsFlipped ? "black" : "white"}
                 height={reserveHeight}
               />
             </div>
 
             {/* Board A - White at bottom */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {renderPlayerBar(
-                gameState.players.aBlack,
-                gameState.boardA.clocks.black,
-              )}
+              {isBoardsFlipped
+                ? renderPlayerBar(
+                    gameState.players.aWhite,
+                    gameState.boardA.clocks.white,
+                  )
+                : renderPlayerBar(
+                    gameState.players.aBlack,
+                    gameState.boardA.clocks.black,
+                  )}
               <ChessBoard
                 fen={gameState.boardA.fen}
                 boardName="A"
                 size={boardSize}
-                flip={false}
+                flip={isBoardsFlipped}
                 promotedSquares={gameState.promotedSquares.A}
               />
-              {renderPlayerBar(
-                gameState.players.aWhite,
-                gameState.boardA.clocks.white,
-              )}
+              {isBoardsFlipped
+                ? renderPlayerBar(
+                    gameState.players.aBlack,
+                    gameState.boardA.clocks.black,
+                  )
+                : renderPlayerBar(
+                    gameState.players.aWhite,
+                    gameState.boardA.clocks.white,
+                  )}
             </div>
 
             {/* Board B - Black at bottom (flipped) */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {renderPlayerBar(
-                gameState.players.bWhite,
-                gameState.boardB.clocks.white,
-              )}
+              {isBoardsFlipped
+                ? renderPlayerBar(
+                    gameState.players.bBlack,
+                    gameState.boardB.clocks.black,
+                  )
+                : renderPlayerBar(
+                    gameState.players.bWhite,
+                    gameState.boardB.clocks.white,
+                  )}
               <ChessBoard
                 fen={gameState.boardB.fen}
                 boardName="B"
                 size={boardSize}
-                flip={true}
+                flip={!isBoardsFlipped}
                 promotedSquares={gameState.promotedSquares.B}
               />
-              {renderPlayerBar(
-                gameState.players.bBlack,
-                gameState.boardB.clocks.black,
-              )}
+              {isBoardsFlipped
+                ? renderPlayerBar(
+                    gameState.players.bWhite,
+                    gameState.boardB.clocks.white,
+                  )
+                : renderPlayerBar(
+                    gameState.players.bBlack,
+                    gameState.boardB.clocks.black,
+                  )}
             </div>
 
             {/* Right Reserves (Board B) */}
@@ -262,53 +310,68 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               <PieceReserveVertical
                 whiteReserves={pieceReserves.B.white}
                 blackReserves={pieceReserves.B.black}
-                bottomColor="black"
+                bottomColor={isBoardsFlipped ? "white" : "black"}
                 height={reserveHeight}
               />
             </div>
           </div>
 
           {/* Board Controls (centered under boards) */}
-          <div className="flex items-center gap-3">
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: controlsWidth }}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleStart}
+                disabled={!replayController.canMoveBackward()}
+                className={controlButtonBaseClass}
+                title="Start"
+                aria-label="Jump to start"
+                type="button"
+              >
+                <SkipBack aria-hidden className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handlePreviousMove}
+                disabled={!replayController.canMoveBackward()}
+                className={controlButtonBaseClass}
+                title="Previous"
+                aria-label="Previous move"
+                type="button"
+              >
+                <StepBack aria-hidden className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleNextMove}
+                disabled={!replayController.canMoveForward()}
+                className={controlButtonBaseClass}
+                title="Next"
+                aria-label="Next move"
+                type="button"
+              >
+                <StepForward aria-hidden className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleEnd}
+                disabled={!replayController.canMoveForward()}
+                className={controlButtonBaseClass}
+                title="End"
+                aria-label="Jump to end"
+                type="button"
+              >
+                <SkipForward aria-hidden className="h-5 w-5" />
+              </button>
+            </div>
+
             <button
-              onClick={handleStart}
-              disabled={!replayController.canMoveBackward()}
-              className={controlButtonBaseClass}
-              title="Start"
-              aria-label="Jump to start"
+              onClick={toggleBoardsFlipped}
+              className={`${controlButtonBaseClass} absolute right-1 bottom-0`}
+              title="Flip boards (F)"
+              aria-label="Flip boards"
               type="button"
             >
-              <SkipBack aria-hidden className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handlePreviousMove}
-              disabled={!replayController.canMoveBackward()}
-              className={controlButtonBaseClass}
-              title="Previous"
-              aria-label="Previous move"
-              type="button"
-            >
-              <StepBack aria-hidden className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handleNextMove}
-              disabled={!replayController.canMoveForward()}
-              className={controlButtonBaseClass}
-              title="Next"
-              aria-label="Next move"
-              type="button"
-            >
-              <StepForward aria-hidden className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handleEnd}
-              disabled={!replayController.canMoveForward()}
-              className={controlButtonBaseClass}
-              title="End"
-              aria-label="Jump to end"
-              type="button"
-            >
-              <SkipForward aria-hidden className="h-5 w-5" />
+              <FlipVertical aria-hidden className="h-5 w-5" />
             </button>
           </div>
         </div>
