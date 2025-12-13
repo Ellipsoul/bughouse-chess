@@ -7,7 +7,7 @@ import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
 import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
-import { BughouseGameState } from "../types/bughouse";
+import { BughouseGameState, BughousePlayer } from "../types/bughouse";
 import { ChessGame } from "../actions";
 
 interface BughouseReplayProps {
@@ -159,19 +159,43 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
   }, []);
 
+  const formatElo = useCallback((rating?: number) => {
+    if (typeof rating !== "number" || !Number.isFinite(rating)) {
+      return null;
+    }
+
+    return Math.round(rating).toString();
+  }, []);
+
   const renderPlayerBar = useCallback(
-    (name: string, clockValue?: number) => (
+    (player: BughousePlayer, clockValue?: number) => (
       <div
         className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
         style={{ width: boardSize }}
       >
-        <span className="truncate" title={name}>{name}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="truncate min-w-0"
+            title={
+              formatElo(player.rating)
+                ? `${player.username} (${formatElo(player.rating)})`
+                : player.username
+            }
+          >
+            {player.username}
+          </span>
+          {formatElo(player.rating) && (
+            <span className="shrink-0 text-sm font-semibold text-white/60">
+              ({formatElo(player.rating)})
+            </span>
+          )}
+        </div>
         <span className="font-mono text-lg tabular-nums">
           {formatClock(clockValue)}
         </span>
       </div>
     ),
-    [boardSize, formatClock],
+    [boardSize, formatClock, formatElo],
   );
 
   return (
@@ -197,7 +221,10 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
             {/* Board A - White at bottom */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {renderPlayerBar(gameState.players.aBlack, gameState.boardA.clocks.black)}
+              {renderPlayerBar(
+                gameState.players.aBlack,
+                gameState.boardA.clocks.black,
+              )}
               <ChessBoard
                 fen={gameState.boardA.fen}
                 boardName="A"
@@ -205,12 +232,18 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 flip={false}
                 promotedSquares={gameState.promotedSquares.A}
               />
-              {renderPlayerBar(gameState.players.aWhite, gameState.boardA.clocks.white)}
+              {renderPlayerBar(
+                gameState.players.aWhite,
+                gameState.boardA.clocks.white,
+              )}
             </div>
 
             {/* Board B - Black at bottom (flipped) */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {renderPlayerBar(gameState.players.bWhite, gameState.boardB.clocks.white)}
+              {renderPlayerBar(
+                gameState.players.bWhite,
+                gameState.boardB.clocks.white,
+              )}
               <ChessBoard
                 fen={gameState.boardB.fen}
                 boardName="B"
@@ -218,7 +251,10 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 flip={true}
                 promotedSquares={gameState.promotedSquares.B}
               />
-              {renderPlayerBar(gameState.players.bBlack, gameState.boardB.clocks.black)}
+              {renderPlayerBar(
+                gameState.players.bBlack,
+                gameState.boardB.clocks.black,
+              )}
             </div>
 
             {/* Right Reserves (Board B) */}

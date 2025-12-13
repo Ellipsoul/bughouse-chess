@@ -25,10 +25,22 @@ export function processGameData(
     },
     combinedMoves: [],
     players: {
-      aWhite: originalGame.players.top.username || "Unknown",
-      aBlack: originalGame.players.bottom.username || "Unknown",
-      bWhite: partnerGame?.players.top.username || "Unknown",
-      bBlack: partnerGame?.players.bottom.username || "Unknown",
+      aWhite: {
+        username: originalGame.players.top.username || "Unknown",
+        rating: originalGame.players.top.rating,
+      },
+      aBlack: {
+        username: originalGame.players.bottom.username || "Unknown",
+        rating: originalGame.players.bottom.rating,
+      },
+      bWhite: {
+        username: partnerGame?.players.top.username || "Unknown",
+        rating: partnerGame?.players.top.rating,
+      },
+      bBlack: {
+        username: partnerGame?.players.bottom.username || "Unknown",
+        rating: partnerGame?.players.bottom.rating,
+      },
     },
     initialTime,
     timeIncrement,

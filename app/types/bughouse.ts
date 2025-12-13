@@ -21,6 +21,18 @@ export interface BoardClocks {
 /**
  * UI-friendly representation of two boards plus shared data.
  */
+export interface BughousePlayer {
+  /**
+   * Chess.com username as shown in the live game payload.
+   */
+  username: string;
+  /**
+   * Player rating (ELO) as returned by the live game payload.
+   * Optional to keep the UI resilient when data is missing (e.g. partner game not found).
+   */
+  rating?: number;
+}
+
 export interface BughouseGameState {
   boardA: {
     fen: string;
@@ -43,10 +55,10 @@ export interface BughouseGameState {
     B: string[];
   };
   players: {
-    aWhite: string;
-    aBlack: string;
-    bWhite: string;
-    bBlack: string;
+    aWhite: BughousePlayer;
+    aBlack: BughousePlayer;
+    bWhite: BughousePlayer;
+    bBlack: BughousePlayer;
   };
 }
 
@@ -63,10 +75,10 @@ export interface ProcessedGameData {
   initialTime: number;
   timeIncrement: number;
   players: {
-    aWhite: string;
-    aBlack: string;
-    bWhite: string;
-    bBlack: string;
+    aWhite: BughousePlayer;
+    aBlack: BughousePlayer;
+    bWhite: BughousePlayer;
+    bBlack: BughousePlayer;
   };
 }
 

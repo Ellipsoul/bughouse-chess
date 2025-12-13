@@ -1,5 +1,5 @@
 import { Chess, PieceSymbol, Color, Square } from 'chess.js';
-import { BoardClocks, BughouseMove, BughouseGameState, ProcessedGameData, PieceReserves } from '../types/bughouse';
+import { BoardClocks, BughouseMove, BughouseGameState, BughousePlayer, ProcessedGameData, PieceReserves } from '../types/bughouse';
 import { validateAndConvertMove } from './moveConverter';
 
 interface BughouseHistoryState {
@@ -28,10 +28,10 @@ export class BughouseReplayController {
   private clockTimelines: { A: BoardClocks[]; B: BoardClocks[] };
   private initialTime: number;
   private players: {
-    aWhite: string;
-    aBlack: string;
-    bWhite: string;
-    bBlack: string;
+    aWhite: BughousePlayer;
+    aBlack: BughousePlayer;
+    bWhite: BughousePlayer;
+    bBlack: BughousePlayer;
   };
   private gameState: BughouseGameState;
   private history: BughouseHistoryState[] = [];

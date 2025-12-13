@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { BughouseMove } from "../types/bughouse";
+import { BughousePlayer } from "../types/bughouse";
 
 interface MoveListProps {
   moves: BughouseMove[];
   currentMoveIndex: number;
   players: {
-    aWhite: string;
-    aBlack: string;
-    bWhite: string;
-    bBlack: string;
+    aWhite: BughousePlayer;
+    aBlack: BughousePlayer;
+    bWhite: BughousePlayer;
+    bBlack: BughousePlayer;
   };
   onMoveClick: (index: number) => void;
 }
@@ -54,6 +55,19 @@ const MoveList: React.FC<MoveListProps> = ({
 
     return `${(safeValue / 10).toFixed(1)}s`;
   }, []);
+
+  const renderPlayerHeader = useCallback(
+    (player: BughousePlayer) => {
+      return (
+        <div className="flex items-center justify-center gap-1 min-w-0">
+          <span className="truncate min-w-0" title={player.username}>
+            {player.username}
+          </span>
+        </div>
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -109,24 +123,16 @@ const MoveList: React.FC<MoveListProps> = ({
             {/* Row 2: Player Names */}
             <tr className="h-7 text-[8px] font-semibold">
               <th className="bg-white text-black px-1 w-1/4">
-                <div className="flex items-center justify-center">
-                  <span className="truncate" title={players.aWhite}>{players.aWhite}</span>
-                </div>
+                {renderPlayerHeader(players.aWhite)}
               </th>
               <th className="bg-black text-white px-1 w-1/4">
-                <div className="flex items-center justify-center">
-                  <span className="truncate" title={players.aBlack}>{players.aBlack}</span>
-                </div>
+                {renderPlayerHeader(players.aBlack)}
               </th>
               <th className="bg-white text-black px-1 w-1/4">
-                <div className="flex items-center justify-center">
-                  <span className="truncate" title={players.bWhite}>{players.bWhite}</span>
-                </div>
+                {renderPlayerHeader(players.bWhite)}
               </th>
               <th className="bg-black text-white px-1 w-1/4">
-                <div className="flex items-center justify-center">
-                  <span className="truncate" title={players.bBlack}>{players.bBlack}</span>
-                </div>
+                {renderPlayerHeader(players.bBlack)}
               </th>
             </tr>
           </thead>
