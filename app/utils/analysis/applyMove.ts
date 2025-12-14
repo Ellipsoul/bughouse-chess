@@ -132,6 +132,18 @@ export function validateAndApplyBughouseHalfMove(
       return { type: "error", message: `Failed to place ${piece.toUpperCase()} on ${to}.` };
     }
 
+    /**
+     * Legality: a bughouse drop is still a chess move. It must not leave the dropping side's
+     * king in check.
+     *
+     * chess.js doesn't model drops as moves, but after `put()` the position is updated and
+     * the side-to-move is still the dropping side, so `inCheck()` correctly answers:
+     * “is the dropping side's king in check after this drop?”
+     */
+    if (chess.inCheck()) {
+      return { type: "error", message: "Illegal drop." };
+    }
+
     // Dropped pieces are never considered promoted; clear any stale marker.
     promotedSquares[boardKey].delete(to);
 
