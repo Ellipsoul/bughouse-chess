@@ -432,6 +432,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const handleDragStart = useCallback(
     (payload: { board: "A" | "B"; source: Square; piece: string }) => {
+      if (state.pendingPromotion) {
+        // Promotion choice must be resolved before allowing further moves.
+        return false;
+      }
       if (state.pendingDrop) {
         // Avoid mixed interaction modes: cancel dragging while a drop is armed.
         return false;
@@ -441,7 +445,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       const pieceColor = payload.piece.startsWith("w") ? "white" : "black";
       return pieceColor === sideToMove;
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, state.pendingDrop],
+    [currentPosition.fenA, currentPosition.fenB, getSideToMove, state.pendingDrop, state.pendingPromotion],
   );
 
   const handleAttemptMove = useCallback(
@@ -458,7 +462,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       }
 
       if (result.type === "needs_promotion") {
-        toast("Promotion required", { id: "promotion-required" });
         return "snapback";
       }
 
@@ -479,6 +482,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const handleSquareClick = useCallback(
     (payload: { board: "A" | "B"; square: Square }) => {
+      if (state.pendingPromotion) {
+        toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
+        return;
+      }
       const pending = state.pendingDrop;
       if (!pending) return;
       if (pending.board !== payload.board) {
@@ -511,7 +518,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       toast.error(result.message);
     },
-    [state.pendingDrop, tryApplyMove],
+    [state.pendingDrop, state.pendingPromotion, tryApplyMove],
   );
 
   const handleReservePieceDragStart = useCallback(
@@ -519,6 +526,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       board: "A" | "B",
       payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" },
     ) => {
+      if (state.pendingPromotion) {
+        toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
+        return false;
+      }
       const fen = board === "A" ? currentPosition.fenA : currentPosition.fenB;
       const sideToMove = getSideToMove(fen);
       if (payload.color !== sideToMove) {
@@ -532,7 +543,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       setPendingDrop({ board, side: payload.color, piece: payload.piece });
       return true;
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop],
+    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop, state.pendingPromotion],
   );
 
   const handleReservePieceDragEnd = useCallback(() => {
@@ -547,6 +558,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       side: "white" | "black";
       piece: "p" | "n" | "b" | "r" | "q";
     }) => {
+      if (state.pendingPromotion) {
+        toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
+        return "snapback";
+      }
       const fen = payload.board === "A" ? currentPosition.fenA : currentPosition.fenB;
       const sideToMove = getSideToMove(fen);
       if (payload.side !== sideToMove) {
@@ -575,11 +590,22 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       toast.error(result.message);
       return "snapback";
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop, tryApplyMove],
+    [
+      currentPosition.fenA,
+      currentPosition.fenB,
+      getSideToMove,
+      setPendingDrop,
+      state.pendingPromotion,
+      tryApplyMove,
+    ],
   );
 
   const handleReservePieceClick = useCallback(
     (board: "A" | "B", payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" }) => {
+      if (state.pendingPromotion) {
+        toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
+        return;
+      }
       const fen = board === "A" ? currentPosition.fenA : currentPosition.fenB;
       const sideToMove = getSideToMove(fen);
       if (payload.color !== sideToMove) {
@@ -597,7 +623,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       setPendingDrop(next);
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop, state.pendingDrop],
+    [
+      currentPosition.fenA,
+      currentPosition.fenB,
+      getSideToMove,
+      setPendingDrop,
+      state.pendingDrop,
+      state.pendingPromotion,
+    ],
   );
 
   return (
@@ -607,6 +640,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         <div className="flex flex-col items-center gap-4 grow min-w-0 relative">
           {state.pendingPromotion && (
             <PromotionPicker
+              board={state.pendingPromotion.board}
+              to={state.pendingPromotion.to}
+              side={state.pendingPromotion.board === "A" ? sideToMoveA : sideToMoveB}
               allowed={state.pendingPromotion.allowed}
               onCancel={cancelPendingPromotion}
               onPick={(piece) => {
