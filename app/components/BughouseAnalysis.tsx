@@ -26,6 +26,11 @@ interface BughouseAnalysisProps {
     partner: ChessGame | null;
   } | null;
   isLoading?: boolean;
+  /**
+   * Notifies the parent whether the analysis tree has any moves/variations.
+   * Used to warn before overwriting analysis by loading another game.
+   */
+  onAnalysisDirtyChange?: (dirty: boolean) => void;
 }
 
 const PLACEHOLDER_PLAYERS: {
@@ -45,7 +50,11 @@ const PLACEHOLDER_PLAYERS: {
  * - always renders both boards from first paint (start position when no game loaded)
  * - supports move entry + drops + nested variations (wired via analysis store)
  */
-const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading }) => {
+const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
+  gameData,
+  isLoading,
+  onAnalysisDirtyChange,
+}) => {
   const boardsContainerRef = useRef<HTMLDivElement>(null);
   const {
     state,
@@ -104,6 +113,16 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
 
   const players = processedGame?.players ?? PLACEHOLDER_PLAYERS;
   const shouldRenderClocks = Boolean(processedGame);
+
+  // Report whether the analysis contains any moves (tree has nodes beyond root).
+  const lastDirtyRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!onAnalysisDirtyChange) return;
+    const dirty = Object.keys(state.tree.nodesById).length > 1;
+    if (lastDirtyRef.current === dirty) return;
+    lastDirtyRef.current = dirty;
+    onAnalysisDirtyChange(dirty);
+  }, [onAnalysisDirtyChange, state.tree.nodesById]);
 
   // When a game is loaded, override the current analysis tree with its mainline.
   const lastLoadedGameIdRef = useRef<string | null>(null);

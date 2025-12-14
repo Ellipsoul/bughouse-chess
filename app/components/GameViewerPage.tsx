@@ -52,6 +52,7 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
+  const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
 
   /**
    * Fetches the primary game (and partner game when available) then updates UI state.
@@ -69,14 +70,12 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
         return;
       }
 
-      if (!skipConfirm && loadedGameId && loadedGameId !== trimmedId) {
+      if (!skipConfirm && (analysisIsDirty || loadedGameId)) {
+        const existingLabel = loadedGameId ? `Game ${loadedGameId}` : "Your current analysis";
         const shouldLoadNewGame = window.confirm(
-          `Game ${loadedGameId} is already loaded. Do you want to load ${trimmedId}?`,
+          `${existingLabel} is already loaded/modified.\n\nLoading game ${trimmedId} will replace all existing moves, variations, and position state.\n\nDo you want to continue?`,
         );
-
-        if (!shouldLoadNewGame) {
-          return;
-        }
+        if (!shouldLoadNewGame) return;
       }
 
       startTransition(() => {
@@ -114,7 +113,7 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
           });
       });
     },
-    [loadedGameId, startTransition],
+    [analysisIsDirty, loadedGameId, startTransition],
   );
 
   useEffect(() => {
@@ -193,7 +192,11 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
             </div>
           )}
 
-          <BughouseAnalysis gameData={gameData} isLoading={isPending} />
+          <BughouseAnalysis
+            gameData={gameData}
+            isLoading={isPending}
+            onAnalysisDirtyChange={setAnalysisIsDirty}
+          />
         </div>
       </main>
     </div>
