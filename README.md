@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bughouse Chess Viewer
 
-## Getting Started
+**Deployed at https://bughouse.aronteh.com/**
 
-First, run the development server:
+Welcome! This is a web app for **replaying and analyzing bughouse games from
+chess.com**.
+
+It loads both boards of a bughouse match (the “partner” game), merges the moves
+into a single timeline, and gives you an interactive two-board analysis UI with
+**drops**, **variations**, and **keyboard navigation**.
+
+## Key Features
+
+### Load Bughouse games from chess.com
+
+- **Load by game ID**: paste a chess.com _live game ID_ and the app fetches the
+  game.
+- **Auto-detect the partner board**: if chess.com provides a `partnerGameId`, we
+  use it; otherwise the app probes nearby IDs to find the paired bughouse board.
+- **Open games via URL**:
+  - **Path**: `/[gameId]` (example: `/159878252255`)
+  - **Query**: `?gameId=...` or `?gameid=...`
+
+### Replay a full two-board bughouse match
+
+- **Two synchronized boards** (A and B) rendered side-by-side.
+- **Merged move timeline**: moves from both boards are ordered by timestamp so
+  you can step through the match as it actually unfolded.
+- **Clocks**: shows remaining time snapshots per player (as provided by
+  chess.com), synchronized with the current position.
+- **Responsive layout**: boards resize to fit the available width.
+
+### Analyze positions interactively (like an analysis board, but bughouse-aware)
+
+- **Make moves directly on the board** via drag-and-drop.
+- **Bughouse drops**:
+  - Click a reserve piece to “arm” a drop, then click a target square.
+  - Or drag reserve pieces onto the board.
+- **Promotion handling**: when a move needs promotion, the UI asks you to pick a
+  piece.
+- **Bughouse reserves update correctly**: captures on one board feed the
+  partner’s reserve for later drops.
+
+### Explore and manage variations
+
+- **Branching analysis tree**: play alternative lines from any position.
+- **Variation selector**: when a node has multiple continuations, stepping
+  forward can open a selector.
+- **Move list with inline variations**: the mainline stays in a 4-column layout
+  (A/B, white/black), and variations are displayed beneath the relevant move.
+- **Context menu tools**:
+  - **Promote variation** (make a side line the mainline).
+  - **Truncate after** (delete all continuations after a node).
+
+### Keyboard + quality-of-life controls
+
+- **Arrow keys**: navigate moves (and variations when applicable).
+- **Up/Down**: jump to start/end of the current line.
+- **Flip boards**: press **F** (or use the flip button).
+- **Toasts**: clear feedback for load states, illegal moves, promotions, etc.
+
+## Technologies Used
+
+### Frameworks & UI
+
+- **Next.js** (App Router) for the application framework.
+- **React** for the interactive UI.
+- **TypeScript** for type safety.
+- **Tailwind CSS** for styling.
+- **lucide-react** for icons.
+- **react-hot-toast** for notifications.
+
+### Chess / bughouse domain logic
+
+- **chess.js** for rules, legal move validation, check/checkmate detection, and
+  FEN state.
+- **Bughouse move + reserve rules** implemented in app utilities:
+  - Drops are represented as `P@e4` (optionally suffixed with `+/#`).
+  - Captures feed the partner board’s reserve.
+  - Promotions are tracked (including visual marking of promoted squares).
+
+### Board rendering
+
+- **chessboard.js** for board UI, integrated via a small client wrapper.
+- **jQuery** is used because chessboard.js expects it.
+
+### Data ingestion
+
+- The app fetches chess.com live game payloads from
+  `https://www.chess.com/callback/live/game/<gameId>`.
+- chess.com’s compressed `moveList` format is parsed and normalized before being
+  merged into a single bughouse timeline.
+
+### Tooling
+
+- **ESLint** + **TypeScript** typechecking via `npm run lint`.
+- **@vercel/analytics** for deployment analytics.
+
+## Development
+
+### Prerequisites
+
+- Node.js + npm
+
+### Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev`: start the dev server
+- `npm run build`: production build
+- `npm run start`: run the production server
+- `npm run lint`: TypeScript check + ESLint
+- `npm run format`: ESLint auto-fix
