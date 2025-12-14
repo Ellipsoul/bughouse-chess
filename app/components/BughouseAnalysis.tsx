@@ -103,6 +103,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
   }, [gameData]);
 
   const players = processedGame?.players ?? PLACEHOLDER_PLAYERS;
+  const shouldRenderClocks = Boolean(processedGame);
 
   // When a game is loaded, override the current analysis tree with its mainline.
   const lastLoadedGameIdRef = useRef<string | null>(null);
@@ -261,8 +262,95 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
     selectNode(nodeId);
   }, [selectNode, state.cursorNodeId, state.tree.nodesById]);
 
+  const formatClock = useCallback((deciseconds?: number) => {
+    if (typeof deciseconds !== "number" || !Number.isFinite(deciseconds)) return "";
+    const safeValue = Math.max(0, Math.floor(deciseconds));
+    const minutes = Math.floor(safeValue / 600);
+    const seconds = Math.floor((safeValue % 600) / 10);
+    const tenths = safeValue % 10;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
+  }, []);
+
+  const getBoardMoveCountsAtNode = useCallback(
+    (nodeId: string): { A: number; B: number } => {
+      let a = 0;
+      let b = 0;
+      let cursor = state.tree.nodesById[nodeId];
+      while (cursor?.parentId) {
+        const mv = cursor.incomingMove;
+        if (mv?.board === "A") a += 1;
+        if (mv?.board === "B") b += 1;
+        cursor = state.tree.nodesById[cursor.parentId];
+      }
+      return { A: a, B: b };
+    },
+    [state.tree.nodesById],
+  );
+
+  const clockSnapshot = useMemo(() => {
+    if (!processedGame) return null;
+
+    const initialTime = processedGame.initialTime;
+
+    const buildTimeline = (timestamps: number[], moveCount: number) => {
+      const timeline: Array<{ white: number; black: number }> = [
+        {
+          white: Math.max(0, Math.floor(initialTime)),
+          black: Math.max(0, Math.floor(initialTime)),
+        },
+      ];
+
+      let currentWhite = timeline[0].white;
+      let currentBlack = timeline[0].black;
+
+      for (let i = 0; i < moveCount; i++) {
+        const isWhiteMove = i % 2 === 0;
+        const provided = timestamps[i];
+        const next = { white: currentWhite, black: currentBlack };
+
+        if (Number.isFinite(provided)) {
+          const remaining = Math.max(0, Math.floor(provided));
+          if (isWhiteMove) {
+            next.white = remaining;
+            currentWhite = remaining;
+          } else {
+            next.black = remaining;
+            currentBlack = remaining;
+          }
+        }
+
+        timeline.push(next);
+      }
+
+      while (timeline.length < moveCount + 1) {
+        timeline.push({ white: currentWhite, black: currentBlack });
+      }
+
+      return timeline;
+    };
+
+    const counts = getBoardMoveCountsAtNode(state.cursorNodeId);
+
+    const timelineA = buildTimeline(
+      processedGame.originalGame.timestamps,
+      processedGame.originalGame.moves.length,
+    );
+    const timelineB = buildTimeline(
+      processedGame.partnerGame.timestamps,
+      processedGame.partnerGame.moves.length,
+    );
+
+    const clamp = (timeline: Array<{ white: number; black: number }>, idx: number) =>
+      timeline[Math.min(Math.max(idx, 0), timeline.length - 1)];
+
+    return {
+      A: clamp(timelineA, counts.A),
+      B: clamp(timelineB, counts.B),
+    };
+  }, [getBoardMoveCountsAtNode, processedGame, state.cursorNodeId]);
+
   const renderPlayerBar = useCallback(
-    (player: BughousePlayer) => (
+    (player: BughousePlayer, clockValue?: number) => (
       <div
         className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
         style={{ width: boardSize }}
@@ -277,10 +365,16 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
             </span>
           )}
         </div>
-        <span className="font-mono text-lg tabular-nums text-white/60">—</span>
+        {shouldRenderClocks && typeof clockValue === "number" ? (
+          <span className="font-mono text-lg tabular-nums text-white/90">
+            {formatClock(clockValue)}
+          </span>
+        ) : (
+          <span className="font-mono text-lg tabular-nums text-white/60" />
+        )}
       </div>
     ),
-    [boardSize],
+    [boardSize, formatClock, shouldRenderClocks],
   );
 
   const getSideToMove = useCallback((fen: string): "white" | "black" => {
@@ -441,7 +535,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
 
             {/* Board A */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {isBoardsFlipped ? renderPlayerBar(players.aWhite) : renderPlayerBar(players.aBlack)}
+              {isBoardsFlipped
+                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white)
+                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black)}
               <ChessBoard
                 fen={currentPosition.fenA}
                 boardName="A"
@@ -453,12 +549,16 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
               />
-              {isBoardsFlipped ? renderPlayerBar(players.aBlack) : renderPlayerBar(players.aWhite)}
+              {isBoardsFlipped
+                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black)
+                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white)}
             </div>
 
             {/* Board B */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
-              {isBoardsFlipped ? renderPlayerBar(players.bBlack) : renderPlayerBar(players.bWhite)}
+              {isBoardsFlipped
+                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black)
+                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white)}
               <ChessBoard
                 fen={currentPosition.fenB}
                 boardName="B"
@@ -470,7 +570,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
               />
-              {isBoardsFlipped ? renderPlayerBar(players.bWhite) : renderPlayerBar(players.bBlack)}
+              {isBoardsFlipped
+                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white)
+                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black)}
             </div>
 
             {/* Right Reserves (Board B) */}
