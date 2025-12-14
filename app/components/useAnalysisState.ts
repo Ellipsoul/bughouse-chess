@@ -40,6 +40,14 @@ export interface AnalysisState {
   tree: AnalysisTree;
   cursorNodeId: string;
   selectedNodeId: string;
+  /**
+   * The most recent node the user visited *on the mainline*.
+   *
+   * This is intentionally UI-facing state (not game state): it lets the analysis UI
+   * "freeze" derived values (like clocks) when the cursor is exploring variations,
+   * and then snap back to correct mainline-derived values when returning to mainline.
+   */
+  clockAnchorNodeId: string;
   pendingDrop: PendingDropSelection | null;
   variationSelector: VariationSelectorState | null;
   pendingPromotion: PendingPromotionState | null;
@@ -49,6 +57,12 @@ type ReplaceTreePayload = {
   tree: AnalysisTree;
   cursorNodeId: string;
   selectedNodeId: string;
+  /**
+   * Optional explicit clock anchor override.
+   * - Used when loading a new game (reset to root)
+   * - Omitted for structural edits (promote/truncate) to preserve the user's anchor
+   */
+  clockAnchorNodeId?: string;
 };
 
 type Action =
@@ -93,6 +107,23 @@ function createInitialTree(): AnalysisTree {
 }
 
 /**
+ * Returns true iff `nodeId` lies on the tree's mainline (root → mainChildId chain).
+ */
+function isNodeOnMainline(tree: AnalysisTree, nodeId: string): boolean {
+  let cursor: string | null = tree.rootId;
+  while (cursor) {
+    if (cursor === nodeId) return true;
+    const node: AnalysisNode | undefined = tree.nodesById[cursor];
+    cursor = node?.mainChildId ?? null;
+  }
+  return false;
+}
+
+function isValidNodeId(tree: AnalysisTree, nodeId: string): boolean {
+  return Boolean(tree.nodesById[nodeId]);
+}
+
+/**
  * Internal extension of AnalysisState used only by the reducer implementation.
  * We keep the ID factory stable without threading it through every action.
  */
@@ -101,18 +132,48 @@ type InternalState = AnalysisState & { _internalCreateId: () => string };
 function reducer(state: InternalState, action: Action): InternalState {
   switch (action.type) {
     case "REPLACE_TREE": {
+      const nextTree = action.payload.tree;
+      const nextCursorNodeId = action.payload.cursorNodeId;
+      const nextSelectedNodeId = action.payload.selectedNodeId;
+
+      let nextClockAnchor =
+        action.payload.clockAnchorNodeId ?? state.clockAnchorNodeId;
+
+      // If the requested anchor is invalid or no longer on mainline, reset to root.
+      if (
+        !isValidNodeId(nextTree, nextClockAnchor) ||
+        !isNodeOnMainline(nextTree, nextClockAnchor)
+      ) {
+        nextClockAnchor = nextTree.rootId;
+      }
+
+      // While we're on mainline, always advance the anchor alongside the cursor.
+      if (isNodeOnMainline(nextTree, nextCursorNodeId)) {
+        nextClockAnchor = nextCursorNodeId;
+      }
+
       return {
         ...state,
-        tree: action.payload.tree,
-        cursorNodeId: action.payload.cursorNodeId,
-        selectedNodeId: action.payload.selectedNodeId,
+        tree: nextTree,
+        cursorNodeId: nextCursorNodeId,
+        selectedNodeId: nextSelectedNodeId,
+        clockAnchorNodeId: nextClockAnchor,
         pendingDrop: null,
         variationSelector: null,
         pendingPromotion: null,
       };
     }
-    case "SET_CURSOR":
-      return { ...state, cursorNodeId: action.nodeId };
+    case "SET_CURSOR": {
+      const nextCursorNodeId = action.nodeId;
+      const nextClockAnchorNodeId = isNodeOnMainline(state.tree, nextCursorNodeId)
+        ? nextCursorNodeId
+        : state.clockAnchorNodeId;
+      return {
+        ...state,
+        cursorNodeId: nextCursorNodeId,
+        clockAnchorNodeId: nextClockAnchorNodeId,
+      };
+    }
     case "SET_SELECTED":
       return { ...state, selectedNodeId: action.nodeId };
     case "SET_PENDING_DROP":
@@ -150,10 +211,15 @@ function reducer(state: InternalState, action: Action): InternalState {
         return child?.incomingMove?.key === action.move.key;
       });
       if (existingChildId) {
+        const nextCursorNodeId = existingChildId;
+        const nextClockAnchorNodeId = isNodeOnMainline(state.tree, nextCursorNodeId)
+          ? nextCursorNodeId
+          : state.clockAnchorNodeId;
         return {
           ...state,
-          cursorNodeId: existingChildId,
-          selectedNodeId: existingChildId,
+          cursorNodeId: nextCursorNodeId,
+          selectedNodeId: nextCursorNodeId,
+          clockAnchorNodeId: nextClockAnchorNodeId,
           pendingDrop: null,
           variationSelector: null,
           pendingPromotion: null,
@@ -176,18 +242,26 @@ function reducer(state: InternalState, action: Action): InternalState {
         mainChildId: parent.mainChildId ?? newId,
       };
 
+      const nextTree: AnalysisTree = {
+        ...state.tree,
+        nodesById: {
+          ...state.tree.nodesById,
+          [parent.id]: nextParent,
+          [newId]: newNode,
+        },
+      };
+
+      const nextCursorNodeId = newId;
+      const nextClockAnchorNodeId = isNodeOnMainline(nextTree, nextCursorNodeId)
+        ? nextCursorNodeId
+        : state.clockAnchorNodeId;
+
       return {
         ...state,
-        tree: {
-          ...state.tree,
-          nodesById: {
-            ...state.tree.nodesById,
-            [parent.id]: nextParent,
-            [newId]: newNode,
-          },
-        },
-        cursorNodeId: newId,
-        selectedNodeId: newId,
+        tree: nextTree,
+        cursorNodeId: nextCursorNodeId,
+        selectedNodeId: nextCursorNodeId,
+        clockAnchorNodeId: nextClockAnchorNodeId,
         pendingDrop: null,
         variationSelector: null,
         pendingPromotion: null,
@@ -246,6 +320,7 @@ export function useAnalysisState(): UseAnalysisStateResult {
         tree,
         cursorNodeId: rootId,
         selectedNodeId: rootId,
+        clockAnchorNodeId: rootId,
         pendingDrop: null,
         variationSelector: null,
         pendingPromotion: null,
@@ -365,7 +440,12 @@ export function useAnalysisState(): UseAnalysisStateResult {
       dispatch({
         type: "REPLACE_TREE",
         // Build the full mainline, but keep the UI at the starting position.
-        payload: { tree, cursorNodeId: rootId, selectedNodeId: rootId },
+        payload: {
+          tree,
+          cursorNodeId: rootId,
+          selectedNodeId: rootId,
+          clockAnchorNodeId: rootId,
+        },
       });
       return { ok: true };
     },

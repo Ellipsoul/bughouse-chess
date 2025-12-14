@@ -308,6 +308,33 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     [state.tree.nodesById],
   );
 
+  /**
+   * Mainline membership set (root + root→mainChildId chain).
+   *
+   * We treat the "mainline" as the canonical loaded game line; all other children
+   * are variations (even if the user is exploring them via the cursor).
+   */
+  const mainlineNodeIdSet = useMemo(() => {
+    const set = new Set<string>();
+    let nodeId: string | null = state.tree.rootId;
+    while (nodeId) {
+      set.add(nodeId);
+      const nextMainlineId: string | null = state.tree.nodesById[nodeId]?.mainChildId ?? null;
+      nodeId = nextMainlineId;
+    }
+    return set;
+  }, [state.tree.nodesById, state.tree.rootId]);
+
+  const isCursorOnMainline = useMemo(() => {
+    return mainlineNodeIdSet.has(state.cursorNodeId);
+  }, [mainlineNodeIdSet, state.cursorNodeId]);
+
+  const areClocksFrozen = shouldRenderClocks && !isCursorOnMainline;
+
+  const effectiveClockNodeId = isCursorOnMainline
+    ? state.cursorNodeId
+    : state.clockAnchorNodeId;
+
   const clockSnapshot = useMemo(() => {
     if (!processedGame) return null;
 
@@ -350,7 +377,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       return timeline;
     };
 
-    const counts = getBoardMoveCountsAtNode(state.cursorNodeId);
+    const counts = getBoardMoveCountsAtNode(effectiveClockNodeId);
 
     const timelineA = buildTimeline(
       processedGame.originalGame.timestamps,
@@ -368,7 +395,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       A: clamp(timelineA, counts.A),
       B: clamp(timelineB, counts.B),
     };
-  }, [getBoardMoveCountsAtNode, processedGame, state.cursorNodeId]);
+  }, [effectiveClockNodeId, getBoardMoveCountsAtNode, processedGame]);
 
   const renderPlayerBar = useCallback(
     (
@@ -380,6 +407,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
          * Used for a subtle, always-correct visual indicator during analysis.
          */
         isToMove?: boolean;
+        /**
+         * When true, visually indicates the clocks are "frozen" because the cursor
+         * is currently exploring a non-mainline variation.
+         */
+        clocksFrozen?: boolean;
       } = {},
     ) => (
       <div
@@ -405,7 +437,17 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           ) : null}
         </div>
         {shouldRenderClocks && typeof clockValue === "number" ? (
-          <span className="font-mono text-lg tabular-nums text-white/90">
+          <span
+            className={[
+              "font-mono text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
+              options.clocksFrozen
+                ? "bg-gray-950/40 text-white/55 ring-1 ring-white/5"
+                : "bg-transparent text-white/90",
+            ].join(" ")}
+          >
+            {options.clocksFrozen ? (
+              <span className="sr-only">Clocks frozen (variation)</span>
+            ) : null}
             {formatClock(clockValue)}
           </span>
         ) : (
@@ -696,8 +738,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             {/* Board A */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, { isToMove: sideToMoveA === "white" })
-                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, { isToMove: sideToMoveA === "black" })}
+                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, {
+                    isToMove: sideToMoveA === "white",
+                    clocksFrozen: areClocksFrozen,
+                  })
+                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, {
+                    isToMove: sideToMoveA === "black",
+                    clocksFrozen: areClocksFrozen,
+                  })}
               <ChessBoard
                 fen={currentPosition.fenA}
                 boardName="A"
@@ -712,15 +760,27 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, { isToMove: sideToMoveA === "black" })
-                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, { isToMove: sideToMoveA === "white" })}
+                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, {
+                    isToMove: sideToMoveA === "black",
+                    clocksFrozen: areClocksFrozen,
+                  })
+                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, {
+                    isToMove: sideToMoveA === "white",
+                    clocksFrozen: areClocksFrozen,
+                  })}
             </div>
 
             {/* Board B */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, { isToMove: sideToMoveB === "black" })
-                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, { isToMove: sideToMoveB === "white" })}
+                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, {
+                    isToMove: sideToMoveB === "black",
+                    clocksFrozen: areClocksFrozen,
+                  })
+                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, {
+                    isToMove: sideToMoveB === "white",
+                    clocksFrozen: areClocksFrozen,
+                  })}
               <ChessBoard
                 fen={currentPosition.fenB}
                 boardName="B"
@@ -735,8 +795,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, { isToMove: sideToMoveB === "white" })
-                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, { isToMove: sideToMoveB === "black" })}
+                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, {
+                    isToMove: sideToMoveB === "white",
+                    clocksFrozen: areClocksFrozen,
+                  })
+                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, {
+                    isToMove: sideToMoveB === "black",
+                    clocksFrozen: areClocksFrozen,
+                  })}
             </div>
 
             {/* Right Reserves (Board B) */}
