@@ -16,9 +16,9 @@ import type { BughousePlayer } from "../types/bughouse";
 import ChessBoard from "./ChessBoard";
 import PieceReserveVertical from "./PieceReserveVertical";
 import { useAnalysisState } from "./useAnalysisState";
-import MoveTree from "./MoveTree";
 import VariationSelector from "./VariationSelector";
 import PromotionPicker from "./PromotionPicker";
+import MoveListWithVariations from "./MoveListWithVariations";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -551,10 +551,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
           className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px]"
           style={{ height: playAreaHeight }}
         >
-          <MoveTree
+          <MoveListWithVariations
             tree={state.tree}
             cursorNodeId={state.cursorNodeId}
             selectedNodeId={state.selectedNodeId}
+            players={players}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}
