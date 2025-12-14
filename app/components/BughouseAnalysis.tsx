@@ -414,6 +414,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
         return "snapback";
       }
 
+      if (result.type === "error" && result.message === "Game is already over.") {
+        toast("Game is already over", { id: "game-over", duration: 1600 });
+        return "snapback";
+      }
+
       if (result.message === "Illegal move.") {
         toast("Illegal move", { id: "illegal-move", duration: 1400 });
       } else {
@@ -442,6 +447,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
       });
 
       if (result.type === "ok") {
+        return;
+      }
+
+      if (result.type === "error" && result.message === "Game is already over.") {
+        toast("Game is already over", { id: "game-over", duration: 1600 });
         return;
       }
 
@@ -507,6 +517,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
       if (result.type === "ok") {
         setPendingDrop(null);
         return;
+      }
+
+      if (result.type === "error" && result.message === "Game is already over.") {
+        toast("Game is already over", { id: "game-over", duration: 1600 });
+        return "snapback";
       }
 
       toast.error(result.message);

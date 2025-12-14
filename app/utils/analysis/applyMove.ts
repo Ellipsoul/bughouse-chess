@@ -22,6 +22,20 @@ type ValidationNeedsPromotion = {
 export type ValidateAndApplyResult = ValidationOk | ValidationError | ValidationNeedsPromotion;
 
 /**
+ * Bughouse ends immediately when either board is checkmated.
+ *
+ * We currently treat that as a hard stop for analysis move entry: once checkmate
+ * exists on either board, no further moves/drops can be added to the tree from
+ * that position.
+ */
+export function isBughouseOverByCheckmate(position: BughousePositionSnapshot): boolean {
+  const a = new Chess(position.fenA);
+  if (a.isCheckmate()) return true;
+  const b = new Chess(position.fenB);
+  return b.isCheckmate();
+}
+
+/**
  * Create an initial analysis position:
  * - both boards at the standard chess start position
  * - empty reserves
@@ -70,6 +84,10 @@ export function validateAndApplyBughouseHalfMove(
   position: BughousePositionSnapshot,
   attempted: AttemptedBughouseHalfMove,
 ): ValidateAndApplyResult {
+  if (isBughouseOverByCheckmate(position)) {
+    return { type: "error", message: "Game is already over." };
+  }
+
   const boardKey = attempted.board;
   const otherBoardKey: BughouseBoardId = boardKey === "A" ? "B" : "A";
 
