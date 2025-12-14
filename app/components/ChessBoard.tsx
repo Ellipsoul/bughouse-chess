@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import type { Square } from "chess.js";
 // Import CSS from the package
 import "chessboardjs/www/css/chessboard.css";
+import type { BughouseBoardId } from "../types/analysis";
 
 interface ChessBoardInstance {
   destroy: () => void;
@@ -35,10 +37,29 @@ interface CustomWindow extends Window {
 
 interface ChessBoardProps {
   fen?: string;
-  boardName: string;
+  boardName: BughouseBoardId;
   size?: number;
   flip?: boolean;
   promotedSquares?: string[];
+  /**
+   * When enabled, pieces are draggable and `onAttemptMove` is invoked via chessboard.js callbacks.
+   */
+  draggable?: boolean;
+  /**
+   * Called before a piece drag begins. Return `false` to prevent dragging.
+   */
+  onDragStart?: (payload: { board: BughouseBoardId; source: Square; piece: string }) => boolean;
+  /**
+   * Called when the user drops a piece. Return `"snapback"` to reject the move.
+   *
+   * Note: promotions are handled at a higher layer (we snapback, show a modal, then
+   * apply the promoted move which updates `fen` and re-renders the board).
+   */
+  onAttemptMove?: (payload: { board: BughouseBoardId; from: Square; to: Square; piece: string }) => "snapback" | void;
+  /**
+   * Optional square click handler (used for click-to-drop).
+   */
+  onSquareClick?: (payload: { board: BughouseBoardId; square: Square }) => void;
 }
 
 type PieceColor = "w" | "b";
@@ -82,7 +103,17 @@ function buildSquareColorMap(fen?: string): Map<string, PieceColor> {
  * Client-only wrapper around chessboard.js that keeps the board in sync with game state.
  */
 export default function ChessBoard(
-  { fen, boardName, size = 400, flip = false, promotedSquares = [] }: ChessBoardProps,
+  {
+    fen,
+    boardName,
+    size = 400,
+    flip = false,
+    promotedSquares = [],
+    draggable = false,
+    onDragStart,
+    onAttemptMove,
+    onSquareClick,
+  }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
   const boardRef = useRef<ChessBoardInstance | null>(null);
@@ -90,6 +121,9 @@ export default function ChessBoard(
   const desiredFlipRef = useRef(flip);
   const desiredFenRef = useRef(fen);
   const appliedFlipRef = useRef<boolean | null>(null);
+  const onDragStartRef = useRef(onDragStart);
+  const onAttemptMoveRef = useRef(onAttemptMove);
+  const onSquareClickRef = useRef(onSquareClick);
 
   // Keep the latest desired values available to the async initializer.
   useEffect(() => {
@@ -99,6 +133,18 @@ export default function ChessBoard(
   useEffect(() => {
     desiredFenRef.current = fen;
   }, [fen]);
+
+  useEffect(() => {
+    onDragStartRef.current = onDragStart;
+  }, [onDragStart]);
+
+  useEffect(() => {
+    onAttemptMoveRef.current = onAttemptMove;
+  }, [onAttemptMove]);
+
+  useEffect(() => {
+    onSquareClickRef.current = onSquareClick;
+  }, [onSquareClick]);
 
   useEffect(() => {
     // Dynamically load dependencies on the client side
@@ -131,6 +177,27 @@ export default function ChessBoard(
         orientation: desiredFlipRef.current ? "black" : "white",
         pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",
         showNotation: true,
+        draggable,
+        onDragStart: (source: string, piece: string) => {
+          const handler = onDragStartRef.current;
+          if (!handler) return true;
+          return handler({ board: boardName, source: source as Square, piece });
+        },
+        onDrop: (source: string, target: string, piece: string) => {
+          const handler = onAttemptMoveRef.current;
+          if (!handler) return;
+          // chessboard.js calls onDrop even when the user simply clicks a piece
+          // without moving it (source === target). Treat that as a no-op.
+          if (source === target) return;
+          // Defensively reject non-square targets like "offboard"/"trash".
+          if (!/^[a-h][1-8]$/.test(target)) return "snapback";
+          return handler({
+            board: boardName,
+            from: source as Square,
+            to: target as Square,
+            piece,
+          });
+        },
       };
 
       if (boardRef.current) {
@@ -149,10 +216,8 @@ export default function ChessBoard(
         boardRef.current.destroy();
       }
     };
-    // We only want to initialize once or when fundamental props change that require re-init
-    // But mostly we update position via useEffect below
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // We only want to initialize once per board instance.
+  }, [boardId, boardName, draggable]);
 
   /**
    * Keep the rendered board synchronized with React state.
@@ -210,6 +275,27 @@ export default function ChessBoard(
       }
     });
   }, [boardId, promotedSquares, squareColorMap]);
+
+  // Delegate square click handling (for click-to-drop).
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    const handler = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const squareEl = target.closest("[data-square]");
+      if (!(squareEl instanceof HTMLElement)) return;
+      const square = squareEl.getAttribute("data-square");
+      if (!square) return;
+      const cb = onSquareClickRef.current;
+      if (!cb) return;
+      cb({ board: boardName, square: square as Square });
+    };
+
+    boardElement.addEventListener("click", handler);
+    return () => boardElement.removeEventListener("click", handler);
+  }, [boardId, boardName]);
 
   return (
     <div className="flex flex-col items-center">

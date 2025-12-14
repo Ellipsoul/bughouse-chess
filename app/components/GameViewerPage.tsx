@@ -12,7 +12,7 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 import { ChessGame, fetchChessGame, findPartnerGameId } from "../actions";
-import BughouseReplay from "./BughouseReplay";
+import BughouseAnalysis from "./BughouseAnalysis";
 
 interface GameViewerPageProps {
   /**
@@ -186,31 +186,20 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
       </header>
 
       <main className="flex-1 w-full flex">
-        <div className="flex flex-col justify-center flex-1 max-w-[1600px] mx-auto p-4">
+        <div className="flex flex-col flex-1 max-w-[1600px] mx-auto p-4">
           {error && (
             <div className="w-full p-4 mb-6 text-red-300 bg-red-900/20 rounded-lg border border-red-800 text-center">
               {error}
             </div>
           )}
 
-          {isPending ? (
-            <div
-              className="flex flex-col items-center justify-center h-[60vh] text-gray-200"
-              role="status"
-              aria-live="polite"
-            >
-              <div className="h-12 w-12 rounded-full border-4 border-mariner-500/40 border-t-mariner-200 animate-spin mb-4" />
-              <p className="text-sm text-gray-300">Loading game data...</p>
+          {!gameData && !isPending && !error && (
+            <div className="w-full mb-4 text-center text-gray-400 text-sm">
+              No game loaded — start analyzing from the initial position, or load a chess.com game above.
             </div>
-          ) : gameData ? (
-            <BughouseReplay gameData={gameData} />
-          ) : (
-            !error && (
-              <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-                <p className="text-lg">Enter a game ID above to get started</p>
-              </div>
-            )
           )}
+
+          <BughouseAnalysis gameData={gameData} isLoading={isPending} />
         </div>
       </main>
     </div>

@@ -1,11 +1,23 @@
 import React from "react";
 import Image from "next/image";
 
+type ReservePiece = "p" | "n" | "b" | "r" | "q";
+type ReserveColor = "white" | "black";
+
 interface PieceReserveVerticalProps {
   whiteReserves: { [piece: string]: number };
   blackReserves: { [piece: string]: number };
   bottomColor: "white" | "black";
   height?: number;
+  /**
+   * Optional click handler for interactive analysis mode.
+   * When provided, reserve pieces become clickable to initiate drops.
+   */
+  onPieceClick?: (payload: { color: ReserveColor; piece: ReservePiece }) => void;
+  /**
+   * Optional selection marker (used to show the currently selected drop piece).
+   */
+  selected?: { color: ReserveColor; piece: ReservePiece } | null;
 }
 
 /**
@@ -17,18 +29,20 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   blackReserves,
   bottomColor,
   height = 400,
+  onPieceClick,
+  selected = null,
 }) => {
-  const pieceOrder = ["p", "n", "b", "r", "q"];
+  const pieceOrder: ReservePiece[] = ["p", "n", "b", "r", "q"];
   const isWhiteBottom = bottomColor === "white";
 
-  const topColor = isWhiteBottom ? "black" : "white";
+  const topColor: ReserveColor = isWhiteBottom ? "black" : "white";
 
   const topPieces = [...pieceOrder]; // [p, n, b, r, q] -> Displayed top to bottom (P at top)
   const bottomPieces = [...pieceOrder].reverse(); // [q, r, b, n, p] -> Displayed top to bottom (Q at top, P at bottom)
 
   // Construct the full list of 10 slots
   // We need to store: piece type, color, count
-  type Slot = { piece: string; color: "white" | "black"; count: number };
+  type Slot = { piece: ReservePiece; color: ReserveColor; count: number };
 
   const slots: Slot[] = [];
 
@@ -50,7 +64,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
     });
   });
 
-  const getPieceImage = (piece: string, color: "white" | "black") => {
+  const getPieceImage = (piece: ReservePiece, color: ReserveColor) => {
     const code = color === "white" ? `w${piece.toUpperCase()}` : `b${piece.toUpperCase()}`;
     return `https://chessboardjs.com/img/chesspieces/wikipedia/${code}.png`;
   };
@@ -63,9 +77,32 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
       {slots.map((slot, index) => (
         <div
           key={`${slot.color}-${slot.piece}-${index}`}
-          className={`relative flex items-center justify-center ${
-            slot.count > 0 ? "opacity-100" : "opacity-30"
-          }`}
+          className={[
+            "relative flex items-center justify-center rounded",
+            slot.count > 0 ? "opacity-100" : "opacity-30",
+            onPieceClick && slot.count > 0 ? "cursor-pointer hover:bg-gray-700/50" : "",
+            selected?.color === slot.color && selected?.piece === slot.piece
+              ? "ring-2 ring-amber-200/60 bg-gray-700/40"
+              : "",
+          ].join(" ")}
+          role={onPieceClick && slot.count > 0 ? "button" : undefined}
+          tabIndex={onPieceClick && slot.count > 0 ? 0 : undefined}
+          aria-label={
+            onPieceClick && slot.count > 0
+              ? `Select ${slot.color} ${slot.piece.toUpperCase()} to drop`
+              : undefined
+          }
+          onClick={() => {
+            if (!onPieceClick || slot.count <= 0) return;
+            onPieceClick({ color: slot.color, piece: slot.piece });
+          }}
+          onKeyDown={(e) => {
+            if (!onPieceClick || slot.count <= 0) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onPieceClick({ color: slot.color, piece: slot.piece });
+            }
+          }}
         >
           <Image
             src={getPieceImage(slot.piece, slot.color)}
