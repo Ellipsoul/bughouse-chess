@@ -333,8 +333,15 @@ export default function MoveListWithVariations({
     [getMoveNumberLabelForNode],
   );
 
-  const renderVariationLine = useCallback(
-    function renderVariationLine(startNodeId: string): React.ReactNode {
+  const MAX_STRUCTURED_VARIATION_DEPTH = 3;
+
+  /**
+   * Inline (single-line) variation renderer used as a fallback when nesting depth is too large.
+   * This mirrors the previous behavior: all nested sub-variations appear as parenthesized
+   * inline blocks rather than separate lines.
+   */
+  const renderVariationInline = useCallback(
+    function renderVariationInline(startNodeId: string): React.ReactNode {
       const startNode = tree.nodesById[startNodeId];
       if (!startNode) return null;
 
@@ -344,6 +351,7 @@ export default function MoveListWithVariations({
 
       while (node) {
         const current: AnalysisNode = node;
+
         const currentInfo = getMoveNumberLabelForNode(current.id);
         const shouldHideBlackNumber =
           Boolean(prevNumberInfo && currentInfo) &&
@@ -352,12 +360,9 @@ export default function MoveListWithVariations({
           currentInfo.board === prevNumberInfo.board &&
           currentInfo.plyOnBoard === prevNumberInfo.plyOnBoard + 1;
 
-        // In variation text, show move numbers as a prefix except when a black move
-        // immediately follows the corresponding white move on the same board.
         const showNumber = !shouldHideBlackNumber;
         tokens.push(
           renderMoveToken(current.id, {
-            // Replace the existing board label with the move-number label (or hide it).
             leadingLabel: getVariationTokenLeadingLabel(current.id, { showNumber }),
           }),
         );
@@ -368,13 +373,13 @@ export default function MoveListWithVariations({
         );
         if (nonMainChildren.length > 0) {
           tokens.push(
-            <span key={`${current.id}-nested`} className="text-gray-300">
+            <span key={`${current.id}-inline-nested`} className="text-gray-300">
               {" "}
               {nonMainChildren.map((childId: string) => (
                 <span key={`${current.id}-${childId}`} className="inline">
-                  {"("}
-                  {renderVariationLine(childId)}
-                  {")"}{" "}
+                  <span className="text-gray-400">(</span>
+                  {renderVariationInline(childId)}
+                  <span className="text-gray-400">)</span>{" "}
                 </span>
               ))}
             </span>,
@@ -395,6 +400,104 @@ export default function MoveListWithVariations({
       return <span className="inline">{tokens}</span>;
     },
     [getMoveNumberLabelForNode, getVariationTokenLeadingLabel, renderMoveToken, tree.nodesById],
+  );
+
+  /**
+   * Render a single variation as:
+   * - One mainline sequence on a single line (wrapped in parentheses)
+   * - Any nested sub-variations on their own lines, indented
+   */
+  const renderVariationBlock = useCallback(
+    function renderVariationBlock(startNodeId: string, depth: number): React.ReactNode {
+      const startNode = tree.nodesById[startNodeId];
+      if (!startNode) return null;
+
+      // Prevent runaway indentation/width growth: after a few levels, fall back to
+      // the previous inline representation (single “text area” style).
+      if (depth >= MAX_STRUCTURED_VARIATION_DEPTH) {
+        return (
+          <div
+            key={`${startNodeId}-var-inline-${depth}`}
+            style={{ paddingLeft: MAX_STRUCTURED_VARIATION_DEPTH * 12 }}
+            className="text-[12px] leading-6 text-gray-200"
+          >
+            <div className="whitespace-normal">
+              <span className="text-gray-400">(</span>
+              {renderVariationInline(startNodeId)}
+              <span className="text-gray-400">)</span>
+            </div>
+          </div>
+        );
+      }
+
+      const lineTokens: React.ReactNode[] = [];
+      const nested: React.ReactNode[] = [];
+
+      let node: AnalysisNode | undefined = startNode;
+      let prevNumberInfo: ReturnType<typeof getMoveNumberLabelForNode> = null;
+
+      while (node) {
+        const current: AnalysisNode = node;
+
+        const currentInfo = getMoveNumberLabelForNode(current.id);
+        const shouldHideBlackNumber =
+          Boolean(prevNumberInfo && currentInfo) &&
+          currentInfo?.side === "black" &&
+          prevNumberInfo?.side === "white" &&
+          currentInfo.board === prevNumberInfo.board &&
+          currentInfo.plyOnBoard === prevNumberInfo.plyOnBoard + 1;
+
+        const showNumber = !shouldHideBlackNumber;
+        lineTokens.push(
+          renderMoveToken(current.id, {
+            // Replace the existing board label with the move-number label (or hide it).
+            leadingLabel: getVariationTokenLeadingLabel(current.id, { showNumber }),
+          }),
+        );
+        prevNumberInfo = currentInfo;
+
+        const nonMainChildren = current.children.filter(
+          (id: string) => id !== current.mainChildId,
+        );
+        for (const childId of nonMainChildren) {
+          nested.push(renderVariationBlock(childId, depth + 1));
+        }
+
+        const nextId: string | null = current.mainChildId;
+        node = nextId ? tree.nodesById[nextId] : undefined;
+        if (node) {
+          lineTokens.push(
+            <span key={`${node.id}-sp`} className="text-gray-500">
+              {" "}
+            </span>,
+          );
+        }
+      }
+
+      return (
+        <div
+          key={`${startNodeId}-var-${depth}`}
+          style={{ paddingLeft: depth * 12 }}
+          className="text-[12px] leading-6 text-gray-200"
+        >
+          <div className="whitespace-normal">
+            <span className="text-gray-400">(</span>
+            {lineTokens}
+            <span className="text-gray-400">)</span>
+          </div>
+          {nested.length > 0 ? (
+            <div className="mt-1 flex flex-col gap-1">{nested}</div>
+          ) : null}
+        </div>
+      );
+    },
+    [
+      getMoveNumberLabelForNode,
+      getVariationTokenLeadingLabel,
+      renderMoveToken,
+      renderVariationInline,
+      tree.nodesById,
+    ],
   );
 
   // Close context menu on outside click / Escape.
@@ -611,14 +714,10 @@ export default function MoveListWithVariations({
                     <tr className="border-b border-gray-700/30">
                       <td className="p-1 bg-gray-900/35 border-r border-gray-700/40" />
                       <td colSpan={4} className="p-2 bg-gray-900/40">
-                        <div className="text-[12px] leading-6 text-gray-200">
-                          {row.alternativeChildIds.map((childId) => (
-                            <span key={`${row.nodeBeforeId}-${childId}`} className="mr-2">
-                              {"("}
-                              {renderVariationLine(childId)}
-                              {")"}
-                            </span>
-                          ))}
+                        <div className="flex flex-col gap-1">
+                          {row.alternativeChildIds.map((childId) =>
+                            renderVariationBlock(childId, 0),
+                          )}
                         </div>
                       </td>
                     </tr>
