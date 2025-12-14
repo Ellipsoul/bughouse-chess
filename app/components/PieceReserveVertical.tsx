@@ -18,6 +18,15 @@ interface PieceReserveVerticalProps {
    * Optional selection marker (used to show the currently selected drop piece).
    */
   selected?: { color: ReserveColor; piece: ReservePiece } | null;
+  /**
+   * Optional drag-start handler for interactive analysis mode.
+   * When provided, reserve pieces become draggable (when `count > 0`).
+   */
+  onPieceDragStart?: (payload: { color: ReserveColor; piece: ReservePiece }) => boolean | void;
+  /**
+   * Optional drag-end handler for interactive analysis mode.
+   */
+  onPieceDragEnd?: () => void;
 }
 
 /**
@@ -31,6 +40,8 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   height = 400,
   onPieceClick,
   selected = null,
+  onPieceDragStart,
+  onPieceDragEnd,
 }) => {
   const pieceOrder: ReservePiece[] = ["p", "n", "b", "r", "q"];
   const isWhiteBottom = bottomColor === "white";
@@ -92,6 +103,26 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
               ? `Select ${slot.color} ${slot.piece.toUpperCase()} to drop`
               : undefined
           }
+          draggable={Boolean(onPieceDragStart) && slot.count > 0}
+          onDragStart={(e) => {
+            if (!onPieceDragStart || slot.count <= 0) return;
+            const ok = onPieceDragStart({ color: slot.color, piece: slot.piece });
+            if (ok === false) {
+              e.preventDefault();
+              return;
+            }
+            // Provide a stable payload for board drop handlers.
+            e.dataTransfer.setData(
+              "application/x-bughouse-reserve-piece",
+              JSON.stringify({ color: slot.color, piece: slot.piece }),
+            );
+            // Use "move" to avoid the OS showing a "copy (+)" badge on the drag ghost.
+            // Semantically we still validate + decrement reserves only on successful drop.
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragEnd={() => {
+            onPieceDragEnd?.();
+          }}
           onClick={() => {
             if (!onPieceClick || slot.count <= 0) return;
             onPieceClick({ color: slot.color, piece: slot.piece });

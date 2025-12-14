@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { Square } from "chess.js";
 // Import CSS from the package
 import "chessboardjs/www/css/chessboard.css";
-import type { BughouseBoardId } from "../types/analysis";
+import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../types/analysis";
 
 interface ChessBoardInstance {
   destroy: () => void;
@@ -60,6 +60,16 @@ interface ChessBoardProps {
    * Optional square click handler (used for click-to-drop).
    */
   onSquareClick?: (payload: { board: BughouseBoardId; square: Square }) => void;
+  /**
+   * Optional reserve-drop handler (drag from reserves onto board square).
+   * Return value mirrors chessboard.js: `"snapback"` rejects the drop.
+   */
+  onAttemptReserveDrop?: (payload: {
+    board: BughouseBoardId;
+    to: Square;
+    side: BughouseSide;
+    piece: BughousePieceType;
+  }) => "snapback" | void;
 }
 
 type PieceColor = "w" | "b";
@@ -113,6 +123,7 @@ export default function ChessBoard(
     onDragStart,
     onAttemptMove,
     onSquareClick,
+    onAttemptReserveDrop,
   }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
@@ -124,6 +135,7 @@ export default function ChessBoard(
   const onDragStartRef = useRef(onDragStart);
   const onAttemptMoveRef = useRef(onAttemptMove);
   const onSquareClickRef = useRef(onSquareClick);
+  const onAttemptReserveDropRef = useRef(onAttemptReserveDrop);
 
   // Keep the latest desired values available to the async initializer.
   useEffect(() => {
@@ -145,6 +157,10 @@ export default function ChessBoard(
   useEffect(() => {
     onSquareClickRef.current = onSquareClick;
   }, [onSquareClick]);
+
+  useEffect(() => {
+    onAttemptReserveDropRef.current = onAttemptReserveDrop;
+  }, [onAttemptReserveDrop]);
 
   useEffect(() => {
     // Dynamically load dependencies on the client side
@@ -295,6 +311,97 @@ export default function ChessBoard(
 
     boardElement.addEventListener("click", handler);
     return () => boardElement.removeEventListener("click", handler);
+  }, [boardId, boardName]);
+
+  // Accept HTML5 drags from our reserve strip onto squares.
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    let lastHoverSquareEl: HTMLElement | null = null;
+
+    const clearHover = () => {
+      if (lastHoverSquareEl) {
+        lastHoverSquareEl.classList.remove("bh-drop-hover-square");
+        lastHoverSquareEl = null;
+      }
+    };
+
+    const getSquareElementFromEventTarget = (target: EventTarget | null): HTMLElement | null => {
+      if (!(target instanceof HTMLElement)) return null;
+      const squareEl = target.closest("[data-square]");
+      return squareEl instanceof HTMLElement ? squareEl : null;
+    };
+
+    const isReserveDrag = (event: DragEvent): boolean => {
+      const types = event.dataTransfer?.types;
+      return Boolean(types && Array.from(types).includes("application/x-bughouse-reserve-piece"));
+    };
+
+    const onDragOver = (event: DragEvent) => {
+      const handler = onAttemptReserveDropRef.current;
+      if (!handler) return;
+      if (!isReserveDrag(event)) return;
+      const squareEl = getSquareElementFromEventTarget(event.target);
+      if (!squareEl) return;
+
+      // Allow drop.
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+
+      if (lastHoverSquareEl !== squareEl) {
+        clearHover();
+        squareEl.classList.add("bh-drop-hover-square");
+        lastHoverSquareEl = squareEl;
+      }
+    };
+
+    const onDrop = (event: DragEvent) => {
+      const handler = onAttemptReserveDropRef.current;
+      if (!handler) return;
+      if (!isReserveDrag(event)) return;
+      const squareEl = getSquareElementFromEventTarget(event.target);
+      if (!squareEl) return;
+      const square = squareEl.getAttribute("data-square");
+      if (!square || !/^[a-h][1-8]$/.test(square)) return;
+
+      const raw = event.dataTransfer?.getData("application/x-bughouse-reserve-piece");
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as { color?: BughouseSide; piece?: BughousePieceType };
+        if (!parsed.color || !parsed.piece) return;
+        event.preventDefault();
+        clearHover();
+        return handler({
+          board: boardName,
+          to: square as Square,
+          side: parsed.color,
+          piece: parsed.piece,
+        });
+      } catch {
+        // ignore malformed drags
+      }
+    };
+
+    const onDragLeave = (event: DragEvent) => {
+      if (!isReserveDrag(event)) return;
+      const related = event.relatedTarget;
+      if (related instanceof Node && boardElement.contains(related)) {
+        // Still inside the board; dragleave fires when moving between child elements.
+        return;
+      }
+      clearHover();
+    };
+
+    boardElement.addEventListener("dragover", onDragOver);
+    boardElement.addEventListener("drop", onDrop);
+    boardElement.addEventListener("dragleave", onDragLeave);
+    return () => {
+      boardElement.removeEventListener("dragover", onDragOver);
+      boardElement.removeEventListener("drop", onDrop);
+      boardElement.removeEventListener("dragleave", onDragLeave);
+      clearHover();
+    };
   }, [boardId, boardName]);
 
   return (

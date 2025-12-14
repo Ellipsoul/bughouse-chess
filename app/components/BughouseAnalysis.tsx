@@ -456,6 +456,65 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
     [state.pendingDrop, tryApplyMove],
   );
 
+  const handleReservePieceDragStart = useCallback(
+    (
+      board: "A" | "B",
+      payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" },
+    ) => {
+      const fen = board === "A" ? currentPosition.fenA : currentPosition.fenB;
+      const sideToMove = getSideToMove(fen);
+      if (payload.color !== sideToMove) {
+        toast.error(`It is ${sideToMove} to move on board ${board}.`);
+        return false;
+      }
+
+      // Arm the same pending-drop state used for click-to-drop so:
+      // - the reserve highlight is consistent
+      // - Escape cancels drag mode
+      setPendingDrop({ board, side: payload.color, piece: payload.piece });
+      return true;
+    },
+    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop],
+  );
+
+  const handleReservePieceDragEnd = useCallback(() => {
+    // Clear pending-drop state after drag ends (successful or cancelled).
+    setPendingDrop(null);
+  }, [setPendingDrop]);
+
+  const handleAttemptReserveDrop = useCallback(
+    (payload: {
+      board: "A" | "B";
+      to: Square;
+      side: "white" | "black";
+      piece: "p" | "n" | "b" | "r" | "q";
+    }) => {
+      const fen = payload.board === "A" ? currentPosition.fenA : currentPosition.fenB;
+      const sideToMove = getSideToMove(fen);
+      if (payload.side !== sideToMove) {
+        toast.error(`It is ${sideToMove} to move on board ${payload.board}.`);
+        return "snapback";
+      }
+
+      const result = tryApplyMove({
+        kind: "drop",
+        board: payload.board,
+        side: payload.side,
+        piece: payload.piece,
+        to: payload.to,
+      });
+
+      if (result.type === "ok") {
+        setPendingDrop(null);
+        return;
+      }
+
+      toast.error(result.message);
+      return "snapback";
+    },
+    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop, tryApplyMove],
+  );
+
   const handleReservePieceClick = useCallback(
     (board: "A" | "B", payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" }) => {
       const fen = board === "A" ? currentPosition.fenA : currentPosition.fenB;
@@ -525,6 +584,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 bottomColor={isBoardsFlipped ? "black" : "white"}
                 height={reserveHeight}
                 onPieceClick={(payload) => handleReservePieceClick("A", payload)}
+                onPieceDragStart={(payload) => handleReservePieceDragStart("A", payload)}
+                onPieceDragEnd={handleReservePieceDragEnd}
                 selected={
                   state.pendingDrop?.board === "A"
                     ? { color: state.pendingDrop.side, piece: state.pendingDrop.piece }
@@ -548,6 +609,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 onDragStart={handleDragStart}
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
+                onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
                 ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black)
@@ -569,6 +631,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 onDragStart={handleDragStart}
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
+                onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
                 ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white)
@@ -583,6 +646,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
                 bottomColor={isBoardsFlipped ? "white" : "black"}
                 height={reserveHeight}
                 onPieceClick={(payload) => handleReservePieceClick("B", payload)}
+                onPieceDragStart={(payload) => handleReservePieceDragStart("B", payload)}
+                onPieceDragEnd={handleReservePieceDragEnd}
                 selected={
                   state.pendingDrop?.board === "B"
                     ? { color: state.pendingDrop.side, piece: state.pendingDrop.piece }
