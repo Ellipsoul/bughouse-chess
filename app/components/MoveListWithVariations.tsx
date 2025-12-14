@@ -76,7 +76,7 @@ export default function MoveListWithVariations({
     return rows;
   }, [tree.nodesById, tree.rootId]);
 
-  const activeMoveRef = useRef<HTMLTableRowElement>(null);
+  const activeElementRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLTableSectionElement>(null);
 
@@ -85,7 +85,17 @@ export default function MoveListWithVariations({
     return mainline.findIndex((r) => r.nodeId === cursorNodeId);
   }, [cursorNodeId, mainline, tree.rootId]);
 
-  // Scroll active row into view when cursor changes.
+  const setActiveElementRef = useCallback(
+    (nodeId: string) => (element: HTMLElement | null) => {
+      if (nodeId !== cursorNodeId) return;
+      if (element) {
+        activeElementRef.current = element;
+      }
+    },
+    [cursorNodeId],
+  );
+
+  // Scroll active element into view when cursor changes (mainline or variation).
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -93,16 +103,19 @@ export default function MoveListWithVariations({
     const headerHeight = headerRef.current?.offsetHeight ?? 0;
     const padding = 8;
 
-    if (cursorRowIndex < 0) {
+    if (cursorNodeId === tree.rootId) {
       container.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    const element = activeMoveRef.current;
+    const element = activeElementRef.current;
     if (!element) return;
 
-    const elementTop = element.offsetTop;
-    const elementBottom = elementTop + element.offsetHeight;
+    // Use bounding rect math so this works for both <tr> and nested <span> tokens.
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const elementTop = elementRect.top - containerRect.top + container.scrollTop;
+    const elementBottom = elementTop + elementRect.height;
     const viewTop = container.scrollTop + headerHeight + padding;
     const viewBottom = container.scrollTop + container.clientHeight - padding;
 
@@ -117,7 +130,7 @@ export default function MoveListWithVariations({
         behavior: "smooth",
       });
     }
-  }, [cursorRowIndex]);
+  }, [cursorNodeId, cursorRowIndex, tree.rootId]);
 
   const renderPlayerHeader = useCallback((player: BughousePlayer) => {
     return (
@@ -141,6 +154,7 @@ export default function MoveListWithVariations({
       return (
         <span
           key={nodeId}
+          ref={isCursor ? setActiveElementRef(nodeId) : undefined}
           className={[
             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none transition-colors",
             isSelected ? "bg-amber-200/15 text-amber-200 font-semibold" : "text-gray-200 hover:bg-gray-700/60",
@@ -162,7 +176,7 @@ export default function MoveListWithVariations({
         </span>
       );
     },
-    [cursorNodeId, onSelectNode, selectedNodeId, tree.nodesById],
+    [cursorNodeId, onSelectNode, selectedNodeId, setActiveElementRef, tree.nodesById],
   );
 
   const renderVariationLine = useCallback(
@@ -292,7 +306,7 @@ export default function MoveListWithVariations({
               return (
                 <React.Fragment key={row.nodeId}>
                   <tr
-                    ref={isCursor ? activeMoveRef : null}
+                    ref={isCursor ? setActiveElementRef(row.nodeId) : undefined}
                     onClick={() => onSelectNode(row.nodeId)}
                     className={[
                       "cursor-pointer transition-colors border-b border-gray-700/30",
