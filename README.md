@@ -50,7 +50,7 @@ into a single timeline, and gives you an interactive two-board analysis UI with
   (A/B, white/black), and variations are displayed beneath the relevant move.
 - **Context menu tools**:
   - **Promote variation** (make a side line the mainline).
-  - **Truncate after** (delete all continuations after a node).
+  - **Delete from here** (delete all continuations after a node).
 
 ### Keyboard + quality-of-life controls
 

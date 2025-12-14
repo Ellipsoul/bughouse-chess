@@ -573,7 +573,7 @@ export default function MoveListWithVariations({
                   closeContextMenu();
                 }}
               >
-                Truncate after
+                Delete from here
               </button>
             </TooltipAnchor>
             <TooltipAnchor content="Promote this variation one level toward the mainline">

@@ -214,7 +214,7 @@ export default function MoveTree({
               onClick={() => onTruncateAfterNode(selectedNodeId)}
               disabled={!canTruncateSelected}
             >
-              Truncate after
+              Delete from here
             </button>
           </TooltipAnchor>
         </div>
