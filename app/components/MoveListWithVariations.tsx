@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BughousePlayer } from "../types/bughouse";
+import type { BughouseMove, BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
 import { TooltipAnchor } from "./TooltipAnchor";
 
@@ -15,6 +15,11 @@ interface MoveListWithVariationsProps {
     bWhite: BughousePlayer;
     bBlack: BughousePlayer;
   };
+  /**
+   * Combined moves from the loaded game, used to calculate and display move times.
+   * If not provided, move times will not be displayed.
+   */
+  combinedMoves?: BughouseMove[];
   onSelectNode: (nodeId: string) => void;
   onPromoteVariationOneLevel: (nodeId: string) => void;
   onTruncateAfterNode: (nodeId: string) => void;
@@ -49,6 +54,7 @@ export default function MoveListWithVariations({
   cursorNodeId,
   selectedNodeId,
   players,
+  combinedMoves,
   onSelectNode,
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
@@ -174,6 +180,87 @@ export default function MoveListWithVariations({
       });
     }
   }, [cursorNodeId, cursorRowIndex, tree.rootId]);
+
+  /**
+   * Calculate move durations for mainline nodes by matching them to combinedMoves.
+   * Returns a map from nodeId to duration in deciseconds, or undefined if no timestamp data.
+   */
+  const mainlineMoveDurations = useMemo(() => {
+    if (!combinedMoves || combinedMoves.length === 0) return undefined;
+
+    const durations = new Map<string, number>();
+    const lastTimestampByBoard: Record<"A" | "B", number> = { A: 0, B: 0 };
+    let combinedMoveIndex = 0;
+
+    // Walk through mainline and match nodes to combinedMoves
+    let nodeId = tree.rootId;
+    while (true) {
+      const nodeBefore = tree.nodesById[nodeId];
+      if (!nodeBefore?.mainChildId) break;
+      const childId = nodeBefore.mainChildId;
+      const child = tree.nodesById[childId];
+      if (!child?.incomingMove) break;
+
+      const move = child.incomingMove;
+
+      // Try to find matching move in combinedMoves
+      // We match by board, side, and SAN (move notation)
+      let matched = false;
+      for (let i = combinedMoveIndex; i < combinedMoves.length; i++) {
+        const combinedMove = combinedMoves[i];
+        if (
+          combinedMove.board === move.board &&
+          combinedMove.side === move.side &&
+          combinedMove.move === move.san
+        ) {
+          // Calculate duration similar to MoveList.tsx
+          const previous = lastTimestampByBoard[move.board] ?? 0;
+          const current = Number.isFinite(combinedMove.timestamp)
+            ? combinedMove.timestamp
+            : previous;
+          const duration = Math.max(0, current - previous);
+
+          durations.set(childId, duration);
+          lastTimestampByBoard[move.board] = current;
+          combinedMoveIndex = i + 1;
+          matched = true;
+          break;
+        }
+      }
+
+      // If no match found, this is likely a user-added move, so no timestamp
+      if (!matched) {
+        // Still update the last timestamp to prevent incorrect durations for subsequent moves
+        // We use the previous timestamp as a fallback
+        const previous = lastTimestampByBoard[move.board] ?? 0;
+        lastTimestampByBoard[move.board] = previous;
+      }
+
+      nodeId = childId;
+    }
+
+    return durations;
+  }, [combinedMoves, tree.nodesById, tree.rootId]);
+
+  /**
+   * Format move time duration for display.
+   * @param deciseconds - Duration in deciseconds (tenths of seconds)
+   * @returns Formatted string like "1.2s" or "1:23.4"
+   */
+  const formatMoveTime = useCallback((deciseconds?: number) => {
+    if (!Number.isFinite(deciseconds)) return "—";
+
+    const safeValue = Math.max(0, Math.round(deciseconds ?? 0));
+    const minutes = Math.floor(safeValue / 600);
+    const seconds = Math.floor((safeValue % 600) / 10);
+    const tenths = safeValue % 10;
+
+    if (minutes > 0) {
+      return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
+    }
+
+    return `${(safeValue / 10).toFixed(1)}s`;
+  }, []);
 
   const formatMoveListPlayerName = useCallback((username: string) => {
     // The board UI uses "(A)/(B)" placeholders for the initial empty analysis state.
@@ -692,6 +779,8 @@ export default function MoveListWithVariations({
                       else if (col === 1) borderClass = "border-r-4 border-gray-600/50";
                       else if (col === 2) borderClass = "border-r border-dashed border-gray-600/50";
 
+                      const moveDuration =
+                        mainlineMoveDurations?.get(row.nodeId);
                       return (
                         <td
                           key={col}
@@ -706,7 +795,17 @@ export default function MoveListWithVariations({
                           ].join(" ")}
                         >
                           {col === colIndex ? (
-                            <span className="block leading-4">{move.san}</span>
+                            <>
+                              <span className="block leading-4">{move.san}</span>
+                              {mainlineMoveDurations !== undefined && (
+                                <span
+                                  className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                                  title={`Time spent on move: ${formatMoveTime(moveDuration)}`}
+                                >
+                                  {formatMoveTime(moveDuration)}
+                                </span>
+                              )}
+                            </>
                           ) : (
                             ""
                           )}

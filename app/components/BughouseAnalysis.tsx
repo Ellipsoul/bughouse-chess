@@ -13,7 +13,12 @@ import {
 import toast from "react-hot-toast";
 import type { ChessGame } from "../actions";
 import { processGameData } from "../utils/moveOrdering";
+import type { BughouseMove } from "../types/bughouse";
 import type { BughousePlayer } from "../types/bughouse";
+import {
+  createInitialPositionSnapshot,
+  validateAndApplyMoveFromNotation,
+} from "../utils/analysis/applyMove";
 import ChessBoard from "./ChessBoard";
 import PieceReserveVertical from "./PieceReserveVertical";
 import { useAnalysisState } from "./useAnalysisState";
@@ -115,6 +120,42 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const players = processedGame?.players ?? PLACEHOLDER_PLAYERS;
   const shouldRenderClocks = Boolean(processedGame);
+
+  /**
+   * The chess.com `moveList` parsing yields “SAN-ish” strings (often including source squares,
+   * e.g. `Ng1f3`) which we then normalize to proper SAN (`Nf3`) when building the analysis tree.
+   *
+   * Move-time display in `MoveListWithVariations` matches mainline nodes back to the loaded
+   * `combinedMoves` array. To keep that matching reliable, we pre-normalize `combinedMoves[].move`
+   * to the same SAN strings stored on analysis nodes (`incomingMove.san`).
+   *
+   * This is purely a UI convenience: we keep timestamps/ordering unchanged.
+   */
+  const combinedMovesForMoveTimes = useMemo((): BughouseMove[] | undefined => {
+    if (!processedGame?.combinedMoves?.length) return undefined;
+
+    const sanitized: BughouseMove[] = [];
+    let position = createInitialPositionSnapshot();
+
+    for (const combinedMove of processedGame.combinedMoves) {
+      const applied = validateAndApplyMoveFromNotation(position, {
+        board: combinedMove.board,
+        side: combinedMove.side,
+        move: combinedMove.move,
+      });
+
+      if (applied.type === "ok") {
+        sanitized.push({ ...combinedMove, move: applied.move.san });
+        position = applied.next;
+        continue;
+      }
+
+      // If we can't normalize a move here, fall back to the raw string so the UI stays resilient.
+      sanitized.push(combinedMove);
+    }
+
+    return sanitized;
+  }, [processedGame]);
 
   // Report whether the analysis contains any moves (tree has nodes beyond root).
   const lastDirtyRef = useRef<boolean | null>(null);
@@ -902,6 +943,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             cursorNodeId={state.cursorNodeId}
             selectedNodeId={state.selectedNodeId}
             players={players}
+            combinedMoves={combinedMovesForMoveTimes}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}
