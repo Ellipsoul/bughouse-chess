@@ -164,15 +164,20 @@ export function validateAndApplyBughouseHalfMove(
     }
   }
 
-  const moveResult = chess.move({
-    from: attempted.from,
-    to: attempted.to,
-    promotion: attempted.promotion,
-  });
-
-  if (!moveResult) {
+  let moveResult: Move | null = null;
+  try {
+    moveResult = chess.move({
+      from: attempted.from,
+      to: attempted.to,
+      promotion: attempted.promotion,
+    });
+  } catch {
+    // chess.js throws on invalid move objects (e.g. illegal or malformed from/to).
+    // In analysis mode we want a graceful, user-facing rejection instead of a runtime error.
     return { type: "error", message: "Illegal move." };
   }
+
+  if (!moveResult) return { type: "error", message: "Illegal move." };
 
   // Update promoted markers (for “promoted pieces capture as pawn” rule).
   const promotedSet = promotedSquares[boardKey];
@@ -243,7 +248,12 @@ export function validateAndApplyMoveFromNotation(
   const converted = validateAndConvertMove(rawMove, chess);
   if (!converted) return { type: "error", message: `Could not parse move: ${rawMove}` };
 
-  const result = chess.move(converted);
+  let result: Move | null = null;
+  try {
+    result = chess.move(converted);
+  } catch {
+    return { type: "error", message: `Illegal move: ${rawMove}` };
+  }
   if (!result) return { type: "error", message: `Illegal move: ${rawMove}` };
   chess.undo();
 

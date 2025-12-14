@@ -320,7 +320,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({ gameData, isLoading
         return "snapback";
       }
 
-      toast.error(result.message);
+      if (result.message === "Illegal move.") {
+        toast("Illegal move", { id: "illegal-move", duration: 1400 });
+      } else {
+        toast.error(result.message);
+      }
       return "snapback";
     },
     [tryApplyMove],
