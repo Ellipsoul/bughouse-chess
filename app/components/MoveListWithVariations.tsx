@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
 
@@ -41,16 +41,34 @@ export default function MoveListWithVariations({
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
 }: MoveListWithVariationsProps) {
-  const selectedNode = tree.nodesById[selectedNodeId];
+  const [contextMenu, setContextMenu] = useState<{
+    open: boolean;
+    nodeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
-  const canPromoteSelected = useMemo(() => {
-    if (!selectedNode?.parentId) return false;
-    const parent = tree.nodesById[selectedNode.parentId];
-    if (!parent) return false;
-    return parent.mainChildId !== selectedNodeId;
-  }, [selectedNode?.parentId, selectedNodeId, tree.nodesById]);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  const canTruncateSelected = Boolean(selectedNode && selectedNodeId !== tree.rootId);
+  const canPromoteNode = useCallback(
+    (nodeId: string) => {
+      const node = tree.nodesById[nodeId];
+      if (!node?.parentId) return false;
+      const parent = tree.nodesById[node.parentId];
+      if (!parent) return false;
+      return parent.mainChildId !== nodeId;
+    },
+    [tree.nodesById],
+  );
+
+  const canTruncateNode = useCallback(
+    (nodeId: string) => {
+      if (nodeId === tree.rootId) return false;
+      const node = tree.nodesById[nodeId];
+      return Boolean(node && node.children.length > 0);
+    },
+    [tree.nodesById, tree.rootId],
+  );
 
   const mainline = useMemo<MainlineRow[]>(() => {
     const rows: MainlineRow[] = [];
@@ -163,6 +181,17 @@ export default function MoveListWithVariations({
           role="button"
           tabIndex={0}
           onClick={() => onSelectNode(nodeId)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelectNode(nodeId);
+            setContextMenu({
+              open: true,
+              nodeId,
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -225,38 +254,96 @@ export default function MoveListWithVariations({
     [renderMoveToken, tree.nodesById],
   );
 
+  // Close context menu on outside click / Escape.
+  useEffect(() => {
+    if (!contextMenu?.open) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) {
+        closeContextMenu();
+        return;
+      }
+      // If the user clicked on the menu itself, keep it open.
+      if (target.closest("[data-bh-context-menu='true']")) return;
+      closeContextMenu();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeContextMenu();
+    };
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeContextMenu, contextMenu?.open]);
+
+  const menu = contextMenu?.open ? contextMenu : null;
+  const menuCanPromote = menu ? canPromoteNode(menu.nodeId) : false;
+  const menuCanTruncate = menu ? canTruncateNode(menu.nodeId) : false;
+
+  // Basic viewport clamping so the menu doesn't render off-screen.
+  const menuPosition = useMemo(() => {
+    if (!menu) return null;
+    const width = 210;
+    const height = 92;
+    const margin = 8;
+    const safeWindow =
+      typeof window !== "undefined" ? window : { innerWidth: 1200, innerHeight: 800 };
+    const x = Math.min(menu.x, Math.max(margin, safeWindow.innerWidth - width - margin));
+    const y = Math.min(menu.y, Math.max(margin, safeWindow.innerHeight - height - margin));
+    return { x, y, width };
+  }, [menu]);
+
   return (
     <div className="flex flex-col h-full bg-gray-800 rounded-lg overflow-hidden border border-gray-700 w-full">
-      <div className="border-b border-gray-700 px-3 py-2">
-        <div className="text-xs font-semibold text-gray-300 tracking-wide uppercase">
-          Moves
-        </div>
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
-            onClick={() => onPromoteVariationOneLevel(selectedNodeId)}
-            disabled={!canPromoteSelected}
-            title="Promote selected variation one level closer to mainline"
-          >
-            Promote
-          </button>
-          <button
-            type="button"
-            className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
-            onClick={() => onTruncateAfterNode(selectedNodeId)}
-            disabled={!canTruncateSelected}
-            title="Delete all moves after the selected move"
-          >
-            Truncate after
-          </button>
-        </div>
-      </div>
-
       <div
         ref={containerRef}
         className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 relative"
+        onContextMenu={(e) => {
+          // Disable default context menu inside the move list.
+          e.preventDefault();
+        }}
       >
+        {menu && menuPosition && (
+          <div
+            data-bh-context-menu="true"
+            className="fixed z-50 bg-gray-900 border border-gray-700 rounded-md shadow-xl overflow-hidden"
+            style={{ left: menuPosition.x, top: menuPosition.y, width: menuPosition.width }}
+            role="menu"
+            aria-label="Move actions"
+          >
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
+                menuCanTruncate ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanTruncate}
+              onClick={() => {
+                onTruncateAfterNode(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Truncate after
+            </button>
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm",
+                menuCanPromote ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanPromote}
+              onClick={() => {
+                onPromoteVariationOneLevel(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Promote variation
+            </button>
+          </div>
+        )}
+
         <table className="w-full text-sm border-collapse table-fixed">
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
@@ -308,6 +395,17 @@ export default function MoveListWithVariations({
                   <tr
                     ref={isCursor ? setActiveElementRef(row.nodeId) : undefined}
                     onClick={() => onSelectNode(row.nodeId)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelectNode(row.nodeId);
+                      setContextMenu({
+                        open: true,
+                        nodeId: row.nodeId,
+                        x: e.clientX,
+                        y: e.clientY,
+                      });
+                    }}
                     className={[
                       "cursor-pointer transition-colors border-b border-gray-700/30",
                       isCursor
