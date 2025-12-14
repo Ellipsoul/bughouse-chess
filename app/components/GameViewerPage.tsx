@@ -13,6 +13,7 @@ import {
 import toast from "react-hot-toast";
 import { ChessGame, fetchChessGame, findPartnerGameId } from "../actions";
 import BughouseAnalysis from "./BughouseAnalysis";
+import { APP_TOOLTIP_ID } from "../utils/tooltips";
 
 interface GameViewerPageProps {
   /**
@@ -189,7 +190,8 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
           target="_blank"
           rel="noreferrer noopener"
           aria-label="View source code on GitHub"
-          title="View source code on GitHub"
+          data-tooltip-id={APP_TOOLTIP_ID}
+          data-tooltip-content="View source code on GitHub"
           className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
         >
           <svg

@@ -70,6 +70,11 @@ interface ChessBoardProps {
     side: BughouseSide;
     piece: BughousePieceType;
   }) => "snapback" | void;
+  /**
+   * When true, indicates a reserve piece is currently selected/armed for placement.
+   * We use this to provide a global pointer cursor on the board for clearer affordance.
+   */
+  dropCursorActive?: boolean;
 }
 
 type PieceColor = "w" | "b";
@@ -124,6 +129,7 @@ export default function ChessBoard(
     onAttemptMove,
     onSquareClick,
     onAttemptReserveDrop,
+    dropCursorActive = false,
   }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
@@ -291,6 +297,17 @@ export default function ChessBoard(
       }
     });
   }, [boardId, promotedSquares, squareColorMap]);
+
+  // Provide a pointer cursor on the board when a reserve piece is armed.
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+    if (dropCursorActive) {
+      boardElement.classList.add("bh-drop-cursor-active");
+    } else {
+      boardElement.classList.remove("bh-drop-cursor-active");
+    }
+  }, [boardId, dropCursorActive]);
 
   // Delegate square click handling (for click-to-drop).
   useEffect(() => {

@@ -19,6 +19,7 @@ import { useAnalysisState } from "./useAnalysisState";
 import VariationSelector from "./VariationSelector";
 import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
+import { TooltipAnchor } from "./TooltipAnchor";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -639,6 +640,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 size={boardSize}
                 flip={isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.A}
+                dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "A")}
                 draggable
                 onDragStart={handleDragStart}
                 onAttemptMove={handleAttemptMove}
@@ -661,6 +663,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 size={boardSize}
                 flip={!isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.B}
+                dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "B")}
                 draggable
                 onDragStart={handleDragStart}
                 onAttemptMove={handleAttemptMove}
@@ -697,57 +700,65 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             style={{ width: controlsWidth }}
           >
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleStart}
-                disabled={!canGoBack}
-                className={controlButtonBaseClass}
-                title="Start"
-                aria-label="Jump to start"
-                type="button"
-              >
-                <SkipBack aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handlePrevious}
-                disabled={!canGoBack}
-                className={controlButtonBaseClass}
-                title="Previous"
-                aria-label="Previous move"
-                type="button"
-              >
-                <StepBack aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={!canGoForward}
-                className={controlButtonBaseClass}
-                title="Next"
-                aria-label="Next move"
-                type="button"
-              >
-                <StepForward aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleEnd}
-                disabled={!canGoForward}
-                className={controlButtonBaseClass}
-                title="End"
-                aria-label="Jump to end"
-                type="button"
-              >
-                <SkipForward aria-hidden className="h-5 w-5" />
-              </button>
+              <TooltipAnchor content="Jump to start (↑)">
+                <button
+                  onClick={handleStart}
+                  disabled={!canGoBack}
+                  className={controlButtonBaseClass}
+                  aria-label="Jump to start"
+                  type="button"
+                >
+                  <SkipBack aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Previous move (←)">
+                <button
+                  onClick={handlePrevious}
+                  disabled={!canGoBack}
+                  className={controlButtonBaseClass}
+                  aria-label="Previous move"
+                  type="button"
+                >
+                  <StepBack aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Next move (→)">
+                <button
+                  onClick={handleNext}
+                  disabled={!canGoForward}
+                  className={controlButtonBaseClass}
+                  aria-label="Next move"
+                  type="button"
+                >
+                  <StepForward aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Jump to end (↓)">
+                <button
+                  onClick={handleEnd}
+                  disabled={!canGoForward}
+                  className={controlButtonBaseClass}
+                  aria-label="Jump to end"
+                  type="button"
+                >
+                  <SkipForward aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
             </div>
 
-            <button
-              onClick={toggleBoardsFlipped}
-              className={`${controlButtonBaseClass} absolute right-1 bottom-0`}
-              title="Flip boards (F)"
-              aria-label="Flip boards"
-              type="button"
+            <TooltipAnchor
+              content="Flip boards (F)"
+              className="absolute right-1 bottom-0 inline-flex"
             >
-              <FlipVertical aria-hidden className="h-5 w-5" />
-            </button>
+              <button
+                onClick={toggleBoardsFlipped}
+                className={controlButtonBaseClass}
+                aria-label="Flip boards"
+                type="button"
+              >
+                <FlipVertical aria-hidden className="h-5 w-5" />
+              </button>
+            </TooltipAnchor>
           </div>
         </div>
 

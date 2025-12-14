@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
+import { TooltipAnchor } from "./TooltipAnchor";
 
 interface MoveListWithVariationsProps {
   tree: AnalysisTree;
@@ -559,34 +560,38 @@ export default function MoveListWithVariations({
             role="menu"
             aria-label="Move actions"
           >
-            <button
-              type="button"
-              className={[
-                "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
-                menuCanTruncate ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
-              ].join(" ")}
-              disabled={!menuCanTruncate}
-              onClick={() => {
-                onTruncateAfterNode(menu.nodeId);
-                closeContextMenu();
-              }}
-            >
-              Truncate after
-            </button>
-            <button
-              type="button"
-              className={[
-                "w-full text-left px-3 py-2 text-sm",
-                menuCanPromote ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
-              ].join(" ")}
-              disabled={!menuCanPromote}
-              onClick={() => {
-                onPromoteVariationOneLevel(menu.nodeId);
-                closeContextMenu();
-              }}
-            >
-              Promote variation
-            </button>
+            <TooltipAnchor content="Delete all moves after this node">
+              <button
+                type="button"
+                className={[
+                  "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
+                  menuCanTruncate ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+                ].join(" ")}
+                disabled={!menuCanTruncate}
+                onClick={() => {
+                  onTruncateAfterNode(menu.nodeId);
+                  closeContextMenu();
+                }}
+              >
+                Truncate after
+              </button>
+            </TooltipAnchor>
+            <TooltipAnchor content="Promote this variation one level toward the mainline">
+              <button
+                type="button"
+                className={[
+                  "w-full text-left px-3 py-2 text-sm",
+                  menuCanPromote ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+                ].join(" ")}
+                disabled={!menuCanPromote}
+                onClick={() => {
+                  onPromoteVariationOneLevel(menu.nodeId);
+                  closeContextMenu();
+                }}
+              >
+                Promote variation
+              </button>
+            </TooltipAnchor>
           </div>
         )}
 

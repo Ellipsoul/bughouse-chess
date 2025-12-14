@@ -10,6 +10,7 @@
     "format": "eslint . --fix"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.0",
     "chess.js": "^1.4.0",
     "chessboardjs": "^0.0.1",
     "jquery": "^3.7.1",
@@ -18,7 +19,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
-    "@vercel/analytics": "^1.6.0"
+    "react-tooltip": "^5.30.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",

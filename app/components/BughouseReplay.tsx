@@ -5,6 +5,7 @@ import { FlipVertical, SkipBack, SkipForward, StepBack, StepForward } from "luci
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
+import { TooltipAnchor } from "./TooltipAnchor";
 import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState, BughousePlayer } from "../types/bughouse";
@@ -322,57 +323,65 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             style={{ width: controlsWidth }}
           >
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleStart}
-                disabled={!replayController.canMoveBackward()}
-                className={controlButtonBaseClass}
-                title="Start"
-                aria-label="Jump to start"
-                type="button"
-              >
-                <SkipBack aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handlePreviousMove}
-                disabled={!replayController.canMoveBackward()}
-                className={controlButtonBaseClass}
-                title="Previous"
-                aria-label="Previous move"
-                type="button"
-              >
-                <StepBack aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleNextMove}
-                disabled={!replayController.canMoveForward()}
-                className={controlButtonBaseClass}
-                title="Next"
-                aria-label="Next move"
-                type="button"
-              >
-                <StepForward aria-hidden className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleEnd}
-                disabled={!replayController.canMoveForward()}
-                className={controlButtonBaseClass}
-                title="End"
-                aria-label="Jump to end"
-                type="button"
-              >
-                <SkipForward aria-hidden className="h-5 w-5" />
-              </button>
+              <TooltipAnchor content="Jump to start (↑)">
+                <button
+                  onClick={handleStart}
+                  disabled={!replayController.canMoveBackward()}
+                  className={controlButtonBaseClass}
+                  aria-label="Jump to start"
+                  type="button"
+                >
+                  <SkipBack aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Previous move (←)">
+                <button
+                  onClick={handlePreviousMove}
+                  disabled={!replayController.canMoveBackward()}
+                  className={controlButtonBaseClass}
+                  aria-label="Previous move"
+                  type="button"
+                >
+                  <StepBack aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Next move (→)">
+                <button
+                  onClick={handleNextMove}
+                  disabled={!replayController.canMoveForward()}
+                  className={controlButtonBaseClass}
+                  aria-label="Next move"
+                  type="button"
+                >
+                  <StepForward aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Jump to end (↓)">
+                <button
+                  onClick={handleEnd}
+                  disabled={!replayController.canMoveForward()}
+                  className={controlButtonBaseClass}
+                  aria-label="Jump to end"
+                  type="button"
+                >
+                  <SkipForward aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
             </div>
 
-            <button
-              onClick={toggleBoardsFlipped}
-              className={`${controlButtonBaseClass} absolute right-1 bottom-0`}
-              title="Flip boards (F)"
-              aria-label="Flip boards"
-              type="button"
+            <TooltipAnchor
+              content="Flip boards (F)"
+              className="absolute right-1 bottom-0 inline-flex"
             >
-              <FlipVertical aria-hidden className="h-5 w-5" />
-            </button>
+              <button
+                onClick={toggleBoardsFlipped}
+                className={controlButtonBaseClass}
+                aria-label="Flip boards"
+                type="button"
+              >
+                <FlipVertical aria-hidden className="h-5 w-5" />
+              </button>
+            </TooltipAnchor>
           </div>
         </div>
 

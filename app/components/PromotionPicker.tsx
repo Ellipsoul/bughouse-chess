@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { BughousePromotionPiece } from "../types/analysis";
+import { APP_TOOLTIP_ID } from "../utils/tooltips";
 
 interface PromotionPickerProps {
   allowed: BughousePromotionPiece[];
@@ -40,6 +41,8 @@ export default function PromotionPicker({ allowed, onPick, onCancel }: Promotion
             type="button"
             className="text-xs text-gray-300 hover:text-white"
             onClick={onCancel}
+            data-tooltip-id={APP_TOOLTIP_ID}
+            data-tooltip-content="Cancel promotion (Esc)"
           >
             Esc
           </button>
@@ -56,6 +59,8 @@ export default function PromotionPicker({ allowed, onPick, onCancel }: Promotion
                 type="button"
                 className="px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200 hover:bg-gray-700/70 text-sm"
                 onClick={() => onPick(p)}
+                data-tooltip-id={APP_TOOLTIP_ID}
+                data-tooltip-content={`Promote to ${pieceLabels[p]}`}
               >
                 {pieceLabels[p]}
               </button>

@@ -3,6 +3,7 @@
 import React from "react";
 import type { AnalysisTree } from "../types/analysis";
 import type { VariationSelectorState } from "./useAnalysisState";
+import { APP_TOOLTIP_ID } from "../utils/tooltips";
 
 interface VariationSelectorProps {
   tree: AnalysisTree;
@@ -52,6 +53,8 @@ export default function VariationSelector({
           type="button"
           className="text-xs text-gray-300 hover:text-white"
           onClick={onCancel}
+          data-tooltip-id={APP_TOOLTIP_ID}
+          data-tooltip-content="Cancel (Esc)"
         >
           Esc
         </button>
@@ -74,7 +77,12 @@ export default function VariationSelector({
                   }
                   onClick={() => onSelectIndex(idx)}
                   onDoubleClick={onAccept}
-                  title={mv ? `${mv.board} ${mv.san}` : "Move"}
+                  data-tooltip-id={APP_TOOLTIP_ID}
+                  data-tooltip-content={
+                    mv
+                      ? `Select ${mv.board} ${mv.san} (double-click to accept)`
+                      : "Select move"
+                  }
                 >
                   {mv ? (
                     <div className="flex items-center gap-2">
@@ -100,6 +108,8 @@ export default function VariationSelector({
             type="button"
             className="px-2 py-1 text-xs rounded bg-gray-800 border border-gray-700 text-gray-200 hover:bg-gray-700"
             onClick={onCancel}
+            data-tooltip-id={APP_TOOLTIP_ID}
+            data-tooltip-content="Cancel (Esc)"
           >
             Cancel
           </button>
@@ -107,6 +117,8 @@ export default function VariationSelector({
             type="button"
             className="px-2 py-1 text-xs rounded bg-mariner-600 border border-mariner-400 text-white hover:bg-mariner-500"
             onClick={onAccept}
+            data-tooltip-id={APP_TOOLTIP_ID}
+            data-tooltip-content="Accept and advance (Enter)"
           >
             Enter
           </button>

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo } from "react";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
+import { TooltipAnchor } from "./TooltipAnchor";
 
 interface MoveTreeProps {
   tree: AnalysisTree;
@@ -196,24 +197,26 @@ export default function MoveTree({
           Move Tree
         </div>
         <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
-            onClick={() => onPromoteVariationOneLevel(selectedNodeId)}
-            disabled={!canPromoteSelected}
-            title="Promote selected variation one level closer to mainline"
-          >
-            Promote
-          </button>
-          <button
-            type="button"
-            className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
-            onClick={() => onTruncateAfterNode(selectedNodeId)}
-            disabled={!canTruncateSelected}
-            title="Delete all moves after the selected move"
-          >
-            Truncate after
-          </button>
+          <TooltipAnchor content="Promote selected variation one level closer to mainline">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
+              onClick={() => onPromoteVariationOneLevel(selectedNodeId)}
+              disabled={!canPromoteSelected}
+            >
+              Promote
+            </button>
+          </TooltipAnchor>
+          <TooltipAnchor content="Delete all moves after the selected move">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
+              onClick={() => onTruncateAfterNode(selectedNodeId)}
+              disabled={!canTruncateSelected}
+            >
+              Truncate after
+            </button>
+          </TooltipAnchor>
         </div>
       </div>
 
