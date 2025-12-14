@@ -17,9 +17,7 @@ into a single timeline, and gives you an interactive two-board analysis UI with
   game.
 - **Auto-detect the partner board**: if chess.com provides a `partnerGameId`, we
   use it; otherwise the app probes nearby IDs to find the paired bughouse board.
-- **Open games via URL**:
-  - **Path**: `/[gameId]` (example: `/159878252255`)
-  - **Query**: `?gameId=...` or `?gameid=...`
+- **Open games via URL**: `https://bughouse.aronteh.com/?gameId=159878252255`
 
 ### Replay a full two-board bughouse match
 
