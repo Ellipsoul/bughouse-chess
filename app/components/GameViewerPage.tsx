@@ -193,12 +193,6 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
             </div>
           )}
 
-          {!gameData && !isPending && !error && (
-            <div className="w-full mb-4 text-center text-gray-400 text-sm">
-              No game loaded — start analyzing from the initial position, or load a chess.com game above.
-            </div>
-          )}
-
           <BughouseAnalysis gameData={gameData} isLoading={isPending} />
         </div>
       </main>
