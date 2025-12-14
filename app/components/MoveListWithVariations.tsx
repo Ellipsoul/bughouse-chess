@@ -24,6 +24,17 @@ type MainlineRow = {
   nodeBeforeId: string;
   node: AnalysisNode;
   alternativeChildIds: string[];
+  /**
+   * Board-local ply index (1-indexed) for this move on its board.
+   * Example: white's first move on board A => 1, black's first move on A => 2.
+   */
+  plyOnBoard: number;
+  /**
+   * UI label shown in the left-side “drawer” column.
+   * - White:  `A1`, `B3`
+   * - Black:  `...A1`, `...B9`
+   */
+  moveNumberLabel: string;
 };
 
 /**
@@ -73,6 +84,8 @@ export default function MoveListWithVariations({
   const mainline = useMemo<MainlineRow[]>(() => {
     const rows: MainlineRow[] = [];
     let nodeId = tree.rootId;
+    let plyA = 0;
+    let plyB = 0;
 
     while (true) {
       const nodeBefore = tree.nodesById[nodeId];
@@ -81,11 +94,22 @@ export default function MoveListWithVariations({
       const child = tree.nodesById[childId];
       if (!child?.incomingMove) break;
 
+      const board = child.incomingMove.board;
+      const side = child.incomingMove.side;
+      const nextPlyOnBoard = board === "A" ? (plyA += 1) : (plyB += 1);
+      const fullmoveNumber = Math.floor((nextPlyOnBoard - 1) / 2) + 1;
+      const moveNumberLabel =
+        side === "white"
+          ? `${board}${fullmoveNumber}`
+          : `${board}${fullmoveNumber}'`;
+
       rows.push({
         nodeId: childId,
         nodeBeforeId: nodeId,
         node: child,
         alternativeChildIds: nodeBefore.children.filter((id) => id !== childId),
+        plyOnBoard: nextPlyOnBoard,
+        moveNumberLabel,
       });
 
       nodeId = childId;
@@ -168,13 +192,25 @@ export default function MoveListWithVariations({
   }, [formatMoveListPlayerName]);
 
   const renderMoveToken = useCallback(
-    (nodeId: string) => {
+    (
+      nodeId: string,
+      options: {
+        /**
+         * Overrides the left mini-label inside the token (default is the board letter).
+         * Pass `null` to hide it entirely.
+         */
+        leadingLabel?: string | null;
+      } = {},
+    ) => {
       const node = tree.nodesById[nodeId];
       const move = node?.incomingMove;
       if (!node || !move) return null;
 
       const isSelected = nodeId === selectedNodeId;
       const isCursor = nodeId === cursorNodeId;
+      const leadingLabel = Object.prototype.hasOwnProperty.call(options, "leadingLabel")
+        ? options.leadingLabel
+        : move.board;
 
       return (
         <span
@@ -207,12 +243,94 @@ export default function MoveListWithVariations({
           }}
           title={`${move.board} ${move.san}`}
         >
-          <span className="text-[10px] font-bold text-gray-400">{move.board}</span>
+          {leadingLabel ? (
+            <span className="text-[10px] font-bold text-gray-400">{leadingLabel}</span>
+          ) : null}
           <span className="leading-5">{move.san}</span>
         </span>
       );
     },
     [cursorNodeId, onSelectNode, selectedNodeId, setActiveElementRef, tree.nodesById],
+  );
+
+  /**
+   * Compute the 1-indexed ply count on a given board for a node by walking parents.
+   *
+   * This is only used for move-number prefixes in variation text blocks, so we keep it
+   * simple and memoize per-render via a Map.
+   */
+  const plyCountCacheRef = useRef<Map<string, { A: number; B: number }>>(new Map());
+  useEffect(() => {
+    plyCountCacheRef.current = new Map();
+  }, [tree.nodesById]);
+
+  const getBoardPlyCountsAtNode = useCallback(
+    (nodeId: string): { A: number; B: number } => {
+      const cache = plyCountCacheRef.current;
+      const cached = cache.get(nodeId);
+      if (cached) return cached;
+
+      // Walk up until we hit a cached ancestor (or the root), then backfill.
+      const path: string[] = [];
+      let cursorId: string | null = nodeId;
+      let base: { A: number; B: number } = { A: 0, B: 0 };
+
+      while (cursorId) {
+        const hit = cache.get(cursorId);
+        if (hit) {
+          base = hit;
+          break;
+        }
+        const currentNode: AnalysisNode | undefined = tree.nodesById[cursorId as string];
+        if (!currentNode || !currentNode.parentId) {
+          base = { A: 0, B: 0 };
+          break;
+        }
+        path.push(cursorId);
+        cursorId = currentNode.parentId;
+      }
+
+      let counts = base;
+      for (let i = path.length - 1; i >= 0; i -= 1) {
+        const id = path[i];
+        const currentNode: AnalysisNode | undefined = tree.nodesById[id];
+        const mv = currentNode?.incomingMove;
+        counts = {
+          A: counts.A + (mv?.board === "A" ? 1 : 0),
+          B: counts.B + (mv?.board === "B" ? 1 : 0),
+        };
+        cache.set(id, counts);
+      }
+
+      cache.set(nodeId, cache.get(nodeId) ?? counts);
+      return cache.get(nodeId) ?? counts;
+    },
+    [tree.nodesById],
+  );
+
+  const getMoveNumberLabelForNode = useCallback(
+    (nodeId: string): { board: "A" | "B"; side: "white" | "black"; plyOnBoard: number; label: string } | null => {
+      const node = tree.nodesById[nodeId];
+      const mv = node?.incomingMove;
+      if (!node || !mv) return null;
+      const counts = getBoardPlyCountsAtNode(nodeId);
+      const plyOnBoard = mv.board === "A" ? counts.A : counts.B;
+      const fullmoveNumber = Math.floor((plyOnBoard - 1) / 2) + 1;
+      // For variation text blocks we prefer traditional PGN-like numbering for black moves.
+      // (The mainline gutter uses a different style.)
+      const label =
+        mv.side === "white" ? `${mv.board}${fullmoveNumber}` : `...${mv.board}${fullmoveNumber}`;
+      return { board: mv.board, side: mv.side, plyOnBoard, label };
+    },
+    [getBoardPlyCountsAtNode, tree.nodesById],
+  );
+
+  const getVariationTokenLeadingLabel = useCallback(
+    (nodeId: string, opts: { showNumber: boolean }) => {
+      if (!opts.showNumber) return null;
+      return getMoveNumberLabelForNode(nodeId)?.label ?? null;
+    },
+    [getMoveNumberLabelForNode],
   );
 
   const renderVariationLine = useCallback(
@@ -222,10 +340,28 @@ export default function MoveListWithVariations({
 
       const tokens: React.ReactNode[] = [];
       let node: AnalysisNode | undefined = startNode;
+      let prevNumberInfo: ReturnType<typeof getMoveNumberLabelForNode> = null;
 
       while (node) {
         const current: AnalysisNode = node;
-        tokens.push(renderMoveToken(current.id));
+        const currentInfo = getMoveNumberLabelForNode(current.id);
+        const shouldHideBlackNumber =
+          Boolean(prevNumberInfo && currentInfo) &&
+          currentInfo?.side === "black" &&
+          prevNumberInfo?.side === "white" &&
+          currentInfo.board === prevNumberInfo.board &&
+          currentInfo.plyOnBoard === prevNumberInfo.plyOnBoard + 1;
+
+        // In variation text, show move numbers as a prefix except when a black move
+        // immediately follows the corresponding white move on the same board.
+        const showNumber = !shouldHideBlackNumber;
+        tokens.push(
+          renderMoveToken(current.id, {
+            // Replace the existing board label with the move-number label (or hide it).
+            leadingLabel: getVariationTokenLeadingLabel(current.id, { showNumber }),
+          }),
+        );
+        prevNumberInfo = currentInfo;
 
         const nonMainChildren = current.children.filter(
           (id: string) => id !== current.mainChildId,
@@ -258,7 +394,7 @@ export default function MoveListWithVariations({
 
       return <span className="inline">{tokens}</span>;
     },
-    [renderMoveToken, tree.nodesById],
+    [getMoveNumberLabelForNode, getVariationTokenLeadingLabel, renderMoveToken, tree.nodesById],
   );
 
   // Close context menu on outside click / Escape.
@@ -352,9 +488,17 @@ export default function MoveListWithVariations({
         )}
 
         <table className="w-full text-sm border-collapse table-fixed">
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[calc((100%-2.5rem)/4)]" />
+            <col className="w-[calc((100%-2.5rem)/4)]" />
+            <col className="w-[calc((100%-2.5rem)/4)]" />
+            <col className="w-[calc((100%-2.5rem)/4)]" />
+          </colgroup>
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
             <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
+              <th className="bg-gray-200 text-gray-600 w-10" />
               <th colSpan={2} className="bg-gray-200 text-gray-600">
                 Left Board
               </th>
@@ -364,6 +508,7 @@ export default function MoveListWithVariations({
             </tr>
             {/* Row 2: Player Names */}
             <tr className="h-7 text-[8px] font-semibold">
+              <th className="bg-gray-200 text-gray-600 px-1 w-10" />
               <th className="bg-white text-black px-1 w-1/4">
                 {renderPlayerHeader(players.aWhite)}
               </th>
@@ -422,6 +567,17 @@ export default function MoveListWithVariations({
                           : "hover:bg-gray-700/50",
                     ].join(" ")}
                   >
+                    {/* Move-number “drawer” column */}
+                    <td
+                      className={[
+                        "p-1 text-center align-middle bg-gray-900/35 text-[10px] font-mono text-gray-400",
+                        "border-r border-gray-700/40",
+                      ].join(" ")}
+                      title={`Move number on board ${move.board}`}
+                    >
+                      {row.moveNumberLabel}
+                    </td>
+
                     {[0, 1, 2, 3].map((col) => {
                       let borderClass = "";
                       if (col === 0) borderClass = "border-r border-dashed border-gray-600/50";
@@ -432,7 +588,7 @@ export default function MoveListWithVariations({
                         <td
                           key={col}
                           className={[
-                            "relative p-1 text-center h-8 w-1/4",
+                            "relative p-1 text-center h-8",
                             col === colIndex
                               ? isCursor
                                 ? "text-amber-200 font-bold"
@@ -453,6 +609,7 @@ export default function MoveListWithVariations({
 
                   {hasVariations && (
                     <tr className="border-b border-gray-700/30">
+                      <td className="p-1 bg-gray-900/35 border-r border-gray-700/40" />
                       <td colSpan={4} className="p-2 bg-gray-900/40">
                         <div className="text-[12px] leading-6 text-gray-200">
                           {row.alternativeChildIds.map((childId) => (
@@ -472,6 +629,7 @@ export default function MoveListWithVariations({
 
             {mainline.length === 0 && (
               <tr>
+                <td className="p-1 bg-gray-900/35 border-r border-gray-700/40" />
                 <td colSpan={4} className="p-4 text-center text-gray-500 italic">
                   No moves yet
                 </td>
