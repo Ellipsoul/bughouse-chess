@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import {
+  ChevronLeft,
   FlipVertical,
   SkipBack,
   SkipForward,
@@ -370,20 +371,38 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   }, [getBoardMoveCountsAtNode, processedGame, state.cursorNodeId]);
 
   const renderPlayerBar = useCallback(
-    (player: BughousePlayer, clockValue?: number) => (
+    (
+      player: BughousePlayer,
+      clockValue?: number,
+      options: {
+        /**
+         * Whether this player is currently to-move for the relevant board.
+         * Used for a subtle, always-correct visual indicator during analysis.
+         */
+        isToMove?: boolean;
+      } = {},
+    ) => (
       <div
         className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
         style={{ width: boardSize }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="truncate min-w-0" title={player.username}>
-            {player.username}
-          </span>
-          {typeof player.rating === "number" && Number.isFinite(player.rating) && (
-            <span className="shrink-0 text-sm font-semibold text-white/60">
-              ({Math.round(player.rating)})
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate min-w-0" title={player.username}>
+              {player.username}
             </span>
-          )}
+            {typeof player.rating === "number" && Number.isFinite(player.rating) && (
+              <span className="shrink-0 text-sm font-semibold text-white/60">
+                ({Math.round(player.rating)})
+              </span>
+            )}
+          </div>
+          {options.isToMove ? (
+            <>
+              <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-mariner-300" />
+              <span className="sr-only">To move</span>
+            </>
+          ) : null}
         </div>
         {shouldRenderClocks && typeof clockValue === "number" ? (
           <span className="font-mono text-lg tabular-nums text-white/90">
@@ -401,6 +420,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     const turn = new Chess(fen).turn();
     return turn === "w" ? "white" : "black";
   }, []);
+
+  const sideToMoveA = useMemo(
+    () => getSideToMove(currentPosition.fenA),
+    [currentPosition.fenA, getSideToMove],
+  );
+  const sideToMoveB = useMemo(
+    () => getSideToMove(currentPosition.fenB),
+    [currentPosition.fenB, getSideToMove],
+  );
 
   const handleDragStart = useCallback(
     (payload: { board: "A" | "B"; source: Square; piece: string }) => {
@@ -632,8 +660,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             {/* Board A */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white)
-                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black)}
+                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, { isToMove: sideToMoveA === "white" })
+                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, { isToMove: sideToMoveA === "black" })}
               <ChessBoard
                 fen={currentPosition.fenA}
                 boardName="A"
@@ -648,15 +676,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black)
-                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white)}
+                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, { isToMove: sideToMoveA === "black" })
+                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, { isToMove: sideToMoveA === "white" })}
             </div>
 
             {/* Board B */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black)
-                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white)}
+                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, { isToMove: sideToMoveB === "black" })
+                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, { isToMove: sideToMoveB === "white" })}
               <ChessBoard
                 fen={currentPosition.fenB}
                 boardName="B"
@@ -671,8 +699,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white)
-                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black)}
+                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, { isToMove: sideToMoveB === "white" })
+                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, { isToMove: sideToMoveB === "black" })}
             </div>
 
             {/* Right Reserves (Board B) */}
