@@ -364,7 +364,8 @@ export function useAnalysisState(): UseAnalysisStateResult {
       const tree: AnalysisTree = { rootId, nodesById };
       dispatch({
         type: "REPLACE_TREE",
-        payload: { tree, cursorNodeId: cursorId, selectedNodeId: cursorId },
+        // Build the full mainline, but keep the UI at the starting position.
+        payload: { tree, cursorNodeId: rootId, selectedNodeId: rootId },
       });
       return { ok: true };
     },
