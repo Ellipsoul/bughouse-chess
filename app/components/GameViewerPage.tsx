@@ -49,7 +49,6 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
       partnerId: string | null;
     } | null
   >(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
@@ -67,7 +66,7 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
       const trimmedId = requestedGameId.trim();
 
       if (!trimmedId) {
-        setError("Game ID is required");
+        toast.error("Game ID is required");
         return;
       }
 
@@ -80,8 +79,6 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
       }
 
       startTransition(() => {
-        setError(null);
-
         const loadPromise = (async () => {
           const originalGame = await fetchChessGame(trimmedId);
           const partnerId = await findPartnerGameId(trimmedId);
@@ -110,7 +107,9 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
             setGameId(clearInput ? "" : trimmedId);
           })
           .catch((err: unknown) => {
-            setError(err instanceof Error ? err.message : "An error occurred");
+            // `toast.promise` already displays the error; avoid rendering an inline banner
+            // that would shift the board layout.
+            toast.error(err instanceof Error ? err.message : "An error occurred");
           });
       });
     },
@@ -214,12 +213,6 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
 
       <main className="flex-1 w-full flex">
         <div className="flex flex-col justify-center flex-1 max-w-[1600px] mx-auto p-4">
-          {error && (
-            <div className="w-full p-4 mb-6 text-red-300 bg-red-900/20 rounded-lg border border-red-800 text-center">
-              {error}
-            </div>
-          )}
-
           <BughouseAnalysis
             gameData={gameData}
             isLoading={isPending}
