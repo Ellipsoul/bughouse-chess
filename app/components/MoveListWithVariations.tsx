@@ -150,15 +150,22 @@ export default function MoveListWithVariations({
     }
   }, [cursorNodeId, cursorRowIndex, tree.rootId]);
 
+  const formatMoveListPlayerName = useCallback((username: string) => {
+    // The board UI uses "(A)/(B)" placeholders for the initial empty analysis state.
+    // In the move list header, board ownership is already implied by the 4 columns,
+    // so these suffixes add noise.
+    return username.replace(/\s+\([AB]\)\s*$/, "");
+  }, []);
+
   const renderPlayerHeader = useCallback((player: BughousePlayer) => {
     return (
       <div className="flex items-center justify-center gap-1 min-w-0">
-        <span className="truncate min-w-0" title={player.username}>
-          {player.username}
+        <span className="truncate min-w-0" title={formatMoveListPlayerName(player.username)}>
+          {formatMoveListPlayerName(player.username)}
         </span>
       </div>
     );
-  }, []);
+  }, [formatMoveListPlayerName]);
 
   const renderMoveToken = useCallback(
     (nodeId: string) => {
