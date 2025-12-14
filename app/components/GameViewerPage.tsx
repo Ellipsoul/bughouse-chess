@@ -31,7 +31,7 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
   const pathGameId = initialGameId?.trim();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
   const autoLoadGameId = pathGameId ?? queryGameId?.trim();
-  const defaultSampleGameId = "159878252255";
+  const defaultSampleGameId = "160064848971";
   const shouldSeedWithSample = !autoLoadGameId;
 
   /**
