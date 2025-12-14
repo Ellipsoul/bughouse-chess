@@ -142,7 +142,7 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <header className="w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
+      <header className="relative w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
         <div className="max-w-[1600px] mx-auto flex items-center gap-6 w-full">
           <div className="flex items-center gap-2">
             <Image
@@ -176,12 +176,38 @@ export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
           </form>
 
           {loadedGameId && (
-            <div className="ml-auto text-base text-gray-300">
+            <div className="ml-auto mr-12 sm:mr-14 text-base text-gray-300">
               <span className="font-medium text-gray-100">Game ID:</span>{" "}
               <span className="text-gray-100 font-bold">{loadedGameId}</span>
             </div>
           )}
         </div>
+
+        {/* Keep the GitHub link out of the way: pinned to the far right edge. */}
+        <a
+          href="https://github.com/Ellipsoul/bughouse-chess"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="View source code on GitHub"
+          title="View source code on GitHub"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-github-icon lucide-github"
+          >
+            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+            <path d="M9 18c-4.51 2-5-2-7-2" />
+          </svg>
+        </a>
       </header>
 
       <main className="flex-1 w-full flex">
