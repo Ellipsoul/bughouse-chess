@@ -10,6 +10,7 @@ import type {
   BughouseSide,
 } from "../../types/analysis";
 import { validateAndConvertMove } from "../moveConverter";
+import { getBughouseCheckSuffix, isBughouseCheckmate, normalizeSanSuffixForBughouse } from "../bughouseCheckmate";
 
 type ValidationOk = { type: "ok"; move: BughouseHalfMove; next: BughousePositionSnapshot };
 type ValidationError = { type: "error"; message: string };
@@ -30,9 +31,9 @@ export type ValidateAndApplyResult = ValidationOk | ValidationError | Validation
  */
 export function isBughouseOverByCheckmate(position: BughousePositionSnapshot): boolean {
   const a = new Chess(position.fenA);
-  if (a.isCheckmate()) return true;
+  if (isBughouseCheckmate(a)) return true;
   const b = new Chess(position.fenB);
-  return b.isCheckmate();
+  return isBughouseCheckmate(b);
 }
 
 /**
@@ -150,7 +151,7 @@ export function validateAndApplyBughouseHalfMove(
     // chess.js does not model bughouse drops as moves, so we must manually switch turn and clear EP.
     forceToggleTurnAndClearEnPassant(chess);
 
-    const suffix = getCheckSuffix(chess);
+    const suffix = getBughouseCheckSuffix(chess);
     const san = `${piece.toUpperCase()}@${to}${suffix}`;
     reserves[boardKey][attempted.side][piece] = Math.max(0, count - 1);
 
@@ -234,7 +235,7 @@ export function validateAndApplyBughouseHalfMove(
       (reserves[otherBoardKey][receivingColor][capturedPiece] ?? 0) + 1;
   }
 
-  const san = moveResult.san;
+  const san = normalizeSanSuffixForBughouse({ san: moveResult.san, board: chess });
   const edgeMove: BughouseHalfMove = {
     board: boardKey,
     side: sideToMove,
@@ -349,12 +350,6 @@ function buildDropKey(
   to: Square,
 ): string {
   return `${board}:drop:${side}:${piece}@${to}`;
-}
-
-function getCheckSuffix(board: Chess): "" | "+" | "#" {
-  if (board.isCheckmate()) return "#";
-  if (board.inCheck()) return "+";
-  return "";
 }
 
 function forceToggleTurnAndClearEnPassant(chess: Chess) {

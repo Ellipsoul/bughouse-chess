@@ -1,6 +1,7 @@
 import { Chess, PieceSymbol, Color, Square } from 'chess.js';
 import { BoardClocks, BughouseMove, BughouseGameState, BughousePlayer, ProcessedGameData, PieceReserves } from '../types/bughouse';
 import { validateAndConvertMove } from './moveConverter';
+import { getBughouseCheckSuffix, normalizeSanSuffixForBughouse } from './bughouseCheckmate';
 
 interface BughouseHistoryState {
   fenA: string;
@@ -45,9 +46,7 @@ export class BughouseReplayController {
    * - `board.isCheckmate()` means the opponent is checkmated ⇒ the move was mate (`#`)
    */
   private getCheckSuffix(board: Chess): '' | '+' | '#' {
-    if (board.isCheckmate()) return '#';
-    if (board.inCheck()) return '+';
-    return '';
+    return getBughouseCheckSuffix(board);
   }
 
   /**
@@ -192,7 +191,7 @@ export class BughouseReplayController {
           const normalized = move.move.replace(/0/g, 'O');
           const result = board.move(normalized);
           if (result) {
-            move.move = result.san;
+            move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
           }
         } catch (e) {
           console.error('Sanitize castle error', e);
@@ -205,7 +204,7 @@ export class BughouseReplayController {
           if (validStr) {
             const result = board.move(validStr);
             if (result) {
-              move.move = result.san;
+              move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
             }
           }
         } catch (e) {
@@ -360,6 +359,9 @@ export class BughouseReplayController {
 
         const result = board.move(convertedMove);
         if (result) {
+          // Ensure notation uses bughouse-aware `+/#` (chess.js `#` is regular-chess checkmate).
+          move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
+
           const promotedSet = this.promotedPieces[boardKey];
           const movingPromoted = promotedSet.has(result.from);
           const capturedSquare = this.resolveCapturedSquare(result);
@@ -461,6 +463,8 @@ export class BughouseReplayController {
       const normalizedMove = move.move.replace(/0/g, 'O');
       const result = board.move(normalizedMove);
       if (result) {
+         // Ensure notation uses bughouse-aware `+/#` (chess.js `#` is regular-chess checkmate).
+         move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
          this.updateGameState(move);
          return true;
       }
