@@ -16,22 +16,13 @@ import BughouseAnalysis from "./BughouseAnalysis";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import Link from "next/link";
 
-interface GameViewerPageProps {
-  /**
-   * Optional game ID derived from the URL path. When provided, the viewer will
-   * auto-load the game on first render without requiring manual input.
-   */
-  initialGameId?: string;
-}
-
 /**
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
  */
-export default function GameViewerPage({ initialGameId }: GameViewerPageProps) {
+export default function GameViewerPage() {
   const searchParams = useSearchParams();
-  const pathGameId = initialGameId?.trim();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
-  const autoLoadGameId = pathGameId ?? queryGameId?.trim();
+  const autoLoadGameId = queryGameId?.trim();
   const defaultSampleGameId = "160064848971";
   const shouldSeedWithSample = !autoLoadGameId;
 
