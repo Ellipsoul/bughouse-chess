@@ -54,7 +54,7 @@ into a single timeline, and gives you an interactive two-board analysis UI with
 
 - **Arrow keys**: navigate moves (and variations when applicable).
 - **Up/Down**: jump to start/end of the current line.
-- **Flip boards**: press **F** (or use the flip button).
+- **Flip boards**: press **f** (or use the flip button).
 - **Toasts**: clear feedback for load states, illegal moves, promotions, etc.
 
 ## Technologies Used

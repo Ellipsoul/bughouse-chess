@@ -918,7 +918,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             </div>
 
             <TooltipAnchor
-              content="Flip boards (F)"
+              content="Flip boards (f)"
               className="absolute right-1 bottom-0 inline-flex"
             >
               <button
