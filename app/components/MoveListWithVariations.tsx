@@ -544,11 +544,34 @@ export default function MoveListWithVariations({
         );
         prevNumberInfo = currentInfo;
 
-        const nonMainChildren = current.children.filter(
-          (id: string) => id !== current.mainChildId,
-        );
-        for (const childId of nonMainChildren) {
-          nested.push(renderVariationBlock(childId, depth + 1));
+        const nonMainChildren = current.children.filter((id: string) => id !== current.mainChildId);
+
+        /**
+         * Important indentation invariant:
+         *
+         * When we hit a branching node, we want *all* continuations (the "main" continuation
+         * and the alternative ones) to render at the same indentation level under the
+         * branching move. Otherwise, a later branch inside the main continuation can end
+         * up with the same indentation as an earlier sibling continuation, which makes
+         * the tree visually ambiguous.
+         *
+         * So: once we encounter any alternatives at `current`, we stop extending the
+         * current single-line sequence and instead render *every* continuation as a
+         * nested variation block.
+         */
+        if (nonMainChildren.length > 0) {
+          const continuationIds = [
+            // Include the "main" continuation first so it stays visually primary.
+            current.mainChildId,
+            ...nonMainChildren,
+          ].filter((id): id is string => typeof id === "string" && id.length > 0);
+
+          for (const childId of continuationIds) {
+            nested.push(renderVariationBlock(childId, depth + 1));
+          }
+
+          // Stop the current line at the branching move; continuations render below.
+          break;
         }
 
         const nextId: string | null = current.mainChildId;
