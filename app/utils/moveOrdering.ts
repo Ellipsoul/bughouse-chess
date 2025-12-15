@@ -4,6 +4,47 @@ import { ChessGame } from "../actions";
 import { parseChessComCompressedMoveList } from "../chesscom_movelist_parse";
 
 /**
+ * chess.com exposes bughouse player identities as "top" and "bottom" *plus* an explicit `color`.
+ * The "top/bottom" seating can vary depending on the viewer context, so we must derive
+ * White/Black by the provided `color` field rather than assuming a fixed mapping.
+ */
+function getPlayersByColor(game: ChessGame | null | undefined): {
+  white: { username: string; rating: number } | null;
+  black: { username: string; rating: number } | null;
+} {
+  if (!game) return { white: null, black: null };
+
+  const top = game.players.top;
+  const bottom = game.players.bottom;
+
+  const normalizedTopColor = String(top.color || "").toLowerCase();
+  const normalizedBottomColor = String(bottom.color || "").toLowerCase();
+
+  const asPlayer = (p: { username: string; rating: number }) => ({
+    username: p.username || "Unknown",
+    rating: p.rating,
+  });
+
+  if (normalizedTopColor === "white") {
+    return { white: asPlayer(top), black: asPlayer(bottom) };
+  }
+  if (normalizedTopColor === "black") {
+    return { white: asPlayer(bottom), black: asPlayer(top) };
+  }
+
+  // Fallback: sometimes the `color` field may be missing/empty in unexpected payloads.
+  // In that case, we preserve the legacy assumption (top=white, bottom=black) so the UI
+  // remains usable, but we still surface a warning in dev.
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[processGameData] Unexpected player colors from chess.com payload:",
+      { top: normalizedTopColor, bottom: normalizedBottomColor },
+    );
+  }
+  return { white: asPlayer(top), black: asPlayer(bottom) };
+}
+
+/**
  * Normalize two chess.com game payloads into a combined bughouse move timeline.
  * Timestamps are converted to deciseconds so boards can be merged chronologically.
  */
@@ -13,6 +54,9 @@ export function processGameData(
 ): ProcessedGameData {
   const initialTime = originalGame.game.baseTime1 || 300;
   const timeIncrement = originalGame.game.timeIncrement1 || 0;
+
+  const originalPlayers = getPlayersByColor(originalGame);
+  const partnerPlayers = getPlayersByColor(partnerGame);
 
   const result: ProcessedGameData = {
     originalGame: {
@@ -26,25 +70,38 @@ export function processGameData(
     combinedMoves: [],
     players: {
       aWhite: {
-        username: originalGame.players.top.username || "Unknown",
-        rating: originalGame.players.top.rating,
+        username: originalPlayers.white?.username || "Unknown",
+        rating: originalPlayers.white?.rating,
       },
       aBlack: {
-        username: originalGame.players.bottom.username || "Unknown",
-        rating: originalGame.players.bottom.rating,
+        username: originalPlayers.black?.username || "Unknown",
+        rating: originalPlayers.black?.rating,
       },
       bWhite: {
-        username: partnerGame?.players.top.username || "Unknown",
-        rating: partnerGame?.players.top.rating,
+        username: partnerPlayers.white?.username || "Unknown",
+        rating: partnerPlayers.white?.rating,
       },
       bBlack: {
-        username: partnerGame?.players.bottom.username || "Unknown",
-        rating: partnerGame?.players.bottom.rating,
+        username: partnerPlayers.black?.username || "Unknown",
+        rating: partnerPlayers.black?.rating,
       },
     },
     initialTime,
     timeIncrement,
   };
+
+  if (process.env.NODE_ENV !== "production") {
+    // Small sanity check to catch accidental regressions: by construction, `aWhite/aBlack`
+    // and `bWhite/bBlack` should be derived from the `color` field whenever it exists.
+    const ogTopColor = String(originalGame.players.top.color || "").toLowerCase();
+    const ogBottomColor = String(originalGame.players.bottom.color || "").toLowerCase();
+    if (ogTopColor === "black" && result.players.aWhite.username === originalGame.players.top.username) {
+      console.warn("[processGameData] Potential player-color inversion detected for board A.");
+    }
+    if (ogBottomColor === "white" && result.players.aBlack.username === originalGame.players.bottom.username) {
+      console.warn("[processGameData] Potential player-color inversion detected for board A.");
+    }
+  }
 
   // Process original game
   if (originalGame.game.moveList) {
