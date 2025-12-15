@@ -513,6 +513,18 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     [currentPosition.fenB, getSideToMove],
   );
 
+  const [dragLegalMoveHighlight, setDragLegalMoveHighlight] = useState<{
+    board: "A" | "B";
+    /**
+     * The FEN used to compute legal targets at drag start. If the position changes while
+     * dragging (e.g., navigation), we intentionally suppress the highlight rather than
+     * trying to keep it in sync.
+     */
+    fenAtDragStart: string;
+    from: Square;
+    targets: Square[];
+  } | null>(null);
+
   const handleDragStart = useCallback(
     (payload: { board: "A" | "B"; source: Square; piece: string }) => {
       if (state.pendingPromotion) {
@@ -526,13 +538,37 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       const fen = payload.board === "A" ? currentPosition.fenA : currentPosition.fenB;
       const sideToMove = getSideToMove(fen);
       const pieceColor = payload.piece.startsWith("w") ? "white" : "black";
-      return pieceColor === sideToMove;
+      if (pieceColor !== sideToMove) {
+        return false;
+      }
+
+      // Compute legal destinations for this piece and surface them as UI highlights.
+      // This only applies to board moves; reserve drops use a separate HTML5 DnD path.
+      const chess = new Chess(fen);
+      const moves = chess.moves({ square: payload.source, verbose: true }) as Array<{ to: string }>;
+      const targets = moves
+        .map((move) => move.to)
+        .filter((square): square is Square => /^[a-h][1-8]$/.test(square));
+
+      setDragLegalMoveHighlight(
+        targets.length > 0
+          ? { board: payload.board, fenAtDragStart: fen, from: payload.source, targets }
+          : null,
+      );
+      return true;
     },
     [currentPosition.fenA, currentPosition.fenB, getSideToMove, state.pendingDrop, state.pendingPromotion],
   );
 
+  const handleDragEnd = useCallback(() => {
+    setDragLegalMoveHighlight(null);
+  }, []);
+
   const handleAttemptMove = useCallback(
     (payload: { board: "A" | "B"; from: Square; to: Square; piece: string }) => {
+      // The drag interaction ended (even if the move is rejected / snapback).
+      setDragLegalMoveHighlight(null);
+
       const result = tryApplyMove({
         kind: "normal",
         board: payload.board,
@@ -794,8 +830,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 flip={isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.A}
                 dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "A")}
+                dragSourceSquare={
+                  dragLegalMoveHighlight?.board === "A" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenA
+                    ? dragLegalMoveHighlight.from
+                    : null
+                }
+                dragLegalTargets={
+                  dragLegalMoveHighlight?.board === "A" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenA
+                    ? dragLegalMoveHighlight.targets
+                    : []
+                }
                 draggable
                 onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
                 onAttemptReserveDrop={handleAttemptReserveDrop}
@@ -829,8 +876,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 flip={!isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.B}
                 dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "B")}
+                dragSourceSquare={
+                  dragLegalMoveHighlight?.board === "B" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenB
+                    ? dragLegalMoveHighlight.from
+                    : null
+                }
+                dragLegalTargets={
+                  dragLegalMoveHighlight?.board === "B" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenB
+                    ? dragLegalMoveHighlight.targets
+                    : []
+                }
                 draggable
                 onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 onAttemptMove={handleAttemptMove}
                 onSquareClick={handleSquareClick}
                 onAttemptReserveDrop={handleAttemptReserveDrop}

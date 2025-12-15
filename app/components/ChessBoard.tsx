@@ -42,6 +42,16 @@ interface ChessBoardProps {
   flip?: boolean;
   promotedSquares?: string[];
   /**
+   * When dragging a piece on the board (not reserve drops), highlight legal destination squares.
+   *
+   * This is purely a UI affordance: it does not validate or apply moves.
+   */
+  dragLegalTargets?: Square[];
+  /**
+   * Optional source square for the current drag, used for stronger affordance.
+   */
+  dragSourceSquare?: Square | null;
+  /**
    * When enabled, pieces are draggable and `onAttemptMove` is invoked via chessboard.js callbacks.
    */
   draggable?: boolean;
@@ -49,6 +59,13 @@ interface ChessBoardProps {
    * Called before a piece drag begins. Return `false` to prevent dragging.
    */
   onDragStart?: (payload: { board: BughouseBoardId; source: Square; piece: string }) => boolean;
+  /**
+   * Called when a piece drag interaction ends (drop, snapback, or no-op release).
+   *
+   * Note: chessboard.js does not expose a dedicated `onDragEnd` callback, so we invoke this
+   * from `onDrop` for all end states we can observe.
+   */
+  onDragEnd?: (payload: { board: BughouseBoardId }) => void;
   /**
    * Called when the user drops a piece. Return `"snapback"` to reject the move.
    *
@@ -124,8 +141,11 @@ export default function ChessBoard(
     size = 400,
     flip = false,
     promotedSquares = [],
+    dragLegalTargets = [],
+    dragSourceSquare = null,
     draggable = false,
     onDragStart,
+    onDragEnd,
     onAttemptMove,
     onSquareClick,
     onAttemptReserveDrop,
@@ -139,6 +159,7 @@ export default function ChessBoard(
   const desiredFenRef = useRef(fen);
   const appliedFlipRef = useRef<boolean | null>(null);
   const onDragStartRef = useRef(onDragStart);
+  const onDragEndRef = useRef(onDragEnd);
   const onAttemptMoveRef = useRef(onAttemptMove);
   const onSquareClickRef = useRef(onSquareClick);
   const onAttemptReserveDropRef = useRef(onAttemptReserveDrop);
@@ -155,6 +176,10 @@ export default function ChessBoard(
   useEffect(() => {
     onDragStartRef.current = onDragStart;
   }, [onDragStart]);
+
+  useEffect(() => {
+    onDragEndRef.current = onDragEnd;
+  }, [onDragEnd]);
 
   useEffect(() => {
     onAttemptMoveRef.current = onAttemptMove;
@@ -206,6 +231,10 @@ export default function ChessBoard(
           return handler({ board: boardName, source: source as Square, piece });
         },
         onDrop: (source: string, target: string, piece: string) => {
+          // Ensure any transient UI affordances (like legal-move highlights) are cleared.
+          // We intentionally do this before returning so it runs on snapbacks and no-op drops too.
+          onDragEndRef.current?.({ board: boardName });
+
           const handler = onAttemptMoveRef.current;
           if (!handler) return;
           // chessboard.js calls onDrop even when the user simply clicks a piece
@@ -308,6 +337,34 @@ export default function ChessBoard(
       boardElement.classList.remove("bh-drop-cursor-active");
     }
   }, [boardId, dropCursorActive]);
+
+  // Highlight legal target squares while dragging a piece on the board (not reserve drops).
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    // Clear previous highlights (both target squares and the drag source).
+    boardElement.querySelectorAll(".bh-legal-target-square").forEach((el) => {
+      el.classList.remove("bh-legal-target-square");
+    });
+    boardElement.querySelectorAll(".bh-legal-source-square").forEach((el) => {
+      el.classList.remove("bh-legal-source-square");
+    });
+
+    if (dragSourceSquare) {
+      const sourceEl = boardElement.querySelector(`[data-square="${dragSourceSquare}"]`);
+      if (sourceEl instanceof HTMLElement) {
+        sourceEl.classList.add("bh-legal-source-square");
+      }
+    }
+
+    for (const square of dragLegalTargets) {
+      const squareEl = boardElement.querySelector(`[data-square="${square}"]`);
+      if (squareEl instanceof HTMLElement) {
+        squareEl.classList.add("bh-legal-target-square");
+      }
+    }
+  }, [boardId, dragLegalTargets, dragSourceSquare]);
 
   // Delegate square click handling (for click-to-drop).
   useEffect(() => {
