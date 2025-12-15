@@ -13,8 +13,10 @@ import {
 import toast from "react-hot-toast";
 import type { ChessGame } from "../actions";
 import { processGameData } from "../utils/moveOrdering";
+import { deriveBughouseConclusionSummary } from "../utils/gameConclusion";
 import type { BughouseMove } from "../types/bughouse";
 import type { BughousePlayer } from "../types/bughouse";
+import type { AnalysisNode } from "../types/analysis";
 import {
   createInitialPositionSnapshot,
   validateAndApplyMoveFromNotation,
@@ -120,6 +122,52 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const players = processedGame?.players ?? PLACEHOLDER_PLAYERS;
   const shouldRenderClocks = Boolean(processedGame);
+
+  const mainlineMoveCount = useMemo(() => {
+    let count = 0;
+    let nodeId: string | null = state.tree.rootId;
+    while (nodeId) {
+      const analysisNode: AnalysisNode | undefined = state.tree.nodesById[nodeId];
+      const nextMainlineNodeId: string | null = analysisNode?.mainChildId ?? null;
+      if (!nextMainlineNodeId) break;
+      count += 1;
+      nodeId = nextMainlineNodeId;
+    }
+    return count;
+  }, [state.tree.nodesById, state.tree.rootId]);
+
+  const gameConclusionFooter = useMemo(() => {
+    if (!gameData || !processedGame) return null;
+    const expectedMainlineMoveCount = processedGame.combinedMoves.length;
+
+    // Only show the game conclusion when:
+    // - a game is loaded
+    // - chess.com reports a conclusion
+    // - the current analysis mainline still matches the originally loaded mainline
+    //   (hide when the user truncates or extends beyond the final mainline move)
+    const summary = deriveBughouseConclusionSummary(gameData.original, gameData.partner);
+    if (!summary) return null;
+    if (expectedMainlineMoveCount <= 0) return null;
+    if (mainlineMoveCount !== expectedMainlineMoveCount) return null;
+
+    return (
+      <div className="px-3 py-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="text-[10px] uppercase tracking-wider text-gray-400">
+            Game result
+          </div>
+          <div className="text-[10px] text-gray-500">
+            Source: Board {summary.sourceBoard}
+          </div>
+        </div>
+        <div className="mt-1 text-sm text-gray-100">
+          <span className="font-semibold">{summary.result}</span>
+          <span className="text-gray-400"> — </span>
+          <span className="text-gray-200">{summary.reason}</span>
+        </div>
+      </div>
+    );
+  }, [gameData, mainlineMoveCount, processedGame]);
 
   /**
    * The chess.com `moveList` parsing yields “SAN-ish” strings (often including source squares,
@@ -1002,6 +1050,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             selectedNodeId={state.selectedNodeId}
             players={players}
             combinedMoves={combinedMovesForMoveTimes}
+            footer={gameConclusionFooter}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}

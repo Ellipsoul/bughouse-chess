@@ -20,6 +20,10 @@ interface MoveListWithVariationsProps {
    * If not provided, move times will not be displayed.
    */
   combinedMoves?: BughouseMove[];
+  /**
+   * Optional footer rendered *below* the scrollable move list (e.g. game metadata).
+   */
+  footer?: React.ReactNode;
   onSelectNode: (nodeId: string) => void;
   onPromoteVariationOneLevel: (nodeId: string) => void;
   onTruncateAfterNode: (nodeId: string) => void;
@@ -55,6 +59,7 @@ export default function MoveListWithVariations({
   selectedNodeId,
   players,
   combinedMoves,
+  footer,
   onSelectNode,
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
@@ -864,6 +869,9 @@ export default function MoveListWithVariations({
           </tbody>
         </table>
       </div>
+      {footer ? (
+        <div className="shrink-0 border-t border-gray-700 bg-gray-900/25">{footer}</div>
+      ) : null}
     </div>
   );
 }
