@@ -18,6 +18,31 @@ import Link from "next/link";
 import { Share } from "lucide-react";
 
 /**
+ * Sanitizes a "game id" input value that may be either a raw chess.com game id
+ * or a full URL (or any other string containing `/` path segments).
+ *
+ * Per chess.com examples like `https://www.chess.com/game/live/160407448121`,
+ * we extract **everything after the last slash (`/`)**.
+ *
+ * We also defensively strip query/hash fragments and trailing slashes to avoid
+ * common copy/paste artifacts like:
+ * - `https://www.chess.com/game/live/160407448121?foo=bar`
+ * - `https://www.chess.com/game/live/160407448121/`
+ */
+function sanitizeChessComGameIdInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+
+  // Remove `?query` / `#hash` fragments (not part of the game id).
+  const withoutQueryOrHash = trimmed.split(/[?#]/, 1)[0] ?? "";
+  const withoutTrailingSlashes = withoutQueryOrHash.replace(/\/+$/g, "");
+
+  const lastSlashIdx = withoutTrailingSlashes.lastIndexOf("/");
+  if (lastSlashIdx === -1) return withoutTrailingSlashes;
+  return withoutTrailingSlashes.slice(lastSlashIdx + 1);
+}
+
+/**
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
  */
 export default function GameViewerPage() {
@@ -110,7 +135,7 @@ export default function GameViewerPage() {
       options: { skipConfirm?: boolean; clearInput?: boolean } = {},
     ) => {
       const { skipConfirm = false, clearInput = true } = options;
-      const trimmedId = requestedGameId.trim();
+      const trimmedId = sanitizeChessComGameIdInput(requestedGameId);
 
       if (!trimmedId) {
         toast.error("Game ID is required");
@@ -208,7 +233,7 @@ export default function GameViewerPage() {
                 type="text"
                 value={gameId}
                 onChange={(e) => setGameId(e.target.value)}
-                placeholder="Enter chess.com Game ID"
+                placeholder="Enter chess.com Game ID or URL"
                 className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
                 disabled={isPending}
               />
