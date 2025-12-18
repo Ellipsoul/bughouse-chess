@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BughouseMove, BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
+import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
 import { TooltipAnchor } from "./TooltipAnchor";
 
 interface MoveListWithVariationsProps {
@@ -75,11 +76,14 @@ export default function MoveListWithVariations({
 
   const canPromoteNode = useCallback(
     (nodeId: string) => {
-      const node = tree.nodesById[nodeId];
-      if (!node?.parentId) return false;
-      const parent = tree.nodesById[node.parentId];
+      const headId = findContainingVariationHeadNodeId(tree.nodesById, nodeId);
+      if (!headId) return false;
+
+      const head = tree.nodesById[headId];
+      if (!head?.parentId) return false;
+      const parent = tree.nodesById[head.parentId];
       if (!parent) return false;
-      return parent.mainChildId !== nodeId;
+      return parent.mainChildId !== headId;
     },
     [tree.nodesById],
   );

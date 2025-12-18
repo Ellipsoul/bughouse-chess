@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo } from "react";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
+import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
 import { TooltipAnchor } from "./TooltipAnchor";
 
 interface MoveTreeProps {
@@ -30,11 +31,15 @@ export default function MoveTree({
   const selectedNode = tree.nodesById[selectedNodeId];
 
   const canPromoteSelected = useMemo(() => {
-    if (!selectedNode?.parentId) return false;
-    const parent = tree.nodesById[selectedNode.parentId];
+    const headId = findContainingVariationHeadNodeId(tree.nodesById, selectedNodeId);
+    if (!headId) return false;
+
+    const head = tree.nodesById[headId];
+    if (!head?.parentId) return false;
+    const parent = tree.nodesById[head.parentId];
     if (!parent) return false;
-    return parent.mainChildId !== selectedNodeId;
-  }, [selectedNode?.parentId, selectedNodeId, tree.nodesById]);
+    return parent.mainChildId !== headId;
+  }, [selectedNodeId, tree.nodesById]);
 
   const canTruncateSelected = Boolean(selectedNode && selectedNodeId !== tree.rootId);
 

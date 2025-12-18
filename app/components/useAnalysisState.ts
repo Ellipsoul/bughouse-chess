@@ -16,6 +16,7 @@ import {
   validateAndApplyMoveFromNotation,
   type ValidateAndApplyResult,
 } from "../utils/analysis/applyMove";
+import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
 
 export interface PendingDropSelection {
   board: BughouseBoardId;
@@ -538,14 +539,17 @@ export function useAnalysisState(): UseAnalysisStateResult {
 
   const promoteVariationOneLevel = useCallback(
     (nodeId: string) => {
-      const node = internalState.tree.nodesById[nodeId];
+      const headId =
+        findContainingVariationHeadNodeId(internalState.tree.nodesById, nodeId) ?? nodeId;
+
+      const node = internalState.tree.nodesById[headId];
       if (!node?.parentId) return;
       const parent = internalState.tree.nodesById[node.parentId];
       if (!parent) return;
-      if (!parent.children.includes(nodeId)) return;
-      if (parent.mainChildId === nodeId) return;
+      if (!parent.children.includes(headId)) return;
+      if (parent.mainChildId === headId) return;
 
-      const nextParent: AnalysisNode = { ...parent, mainChildId: nodeId };
+      const nextParent: AnalysisNode = { ...parent, mainChildId: headId };
       dispatch({
         type: "REPLACE_TREE",
         payload: {
