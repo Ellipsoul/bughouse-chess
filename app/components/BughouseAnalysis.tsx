@@ -18,6 +18,7 @@ import type { BughouseMove } from "../types/bughouse";
 import type { BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode } from "../types/analysis";
 import { buildBughouseClockTimeline } from "../utils/analysis/buildBughouseClockTimeline";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
 import {
   createInitialPositionSnapshot,
   validateAndApplyMoveFromNotation,
@@ -442,6 +443,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     (
       player: BughousePlayer,
       clockValue?: number,
+      team?: "AWhite_BBlack" | "ABlack_BWhite",
       options: {
         /**
          * Whether this player is currently to-move for the relevant board.
@@ -454,11 +456,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
          */
         clocksFrozen?: boolean;
       } = {},
-    ) => (
-      <div
-        className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
-        style={{ width: boardSize }}
-      >
+    ) => {
+      const diffDeciseconds = clockSnapshot ? getTeamTimeDiffDeciseconds(clockSnapshot) : 0;
+      const tint =
+        team && clockSnapshot
+          ? getClockTintClasses({ diffDeciseconds, team, isFrozen: options.clocksFrozen })
+          : null;
+      const neutralText = options.clocksFrozen ? "text-white/55" : "text-white/90";
+
+      return (
+        <div
+          className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
+          style={{ width: boardSize }}
+        >
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="truncate min-w-0" title={player.username}>
@@ -482,8 +492,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             className={[
               "font-mono text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
               options.clocksFrozen
-                ? "bg-gray-950/40 text-white/55 ring-1 ring-white/5"
-                : "bg-transparent text-white/90",
+                ? "bg-gray-950/40"
+                : "bg-transparent",
+              tint ?? neutralText,
             ].join(" ")}
           >
             {options.clocksFrozen ? (
@@ -495,8 +506,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           <span className="font-mono text-lg tabular-nums text-white/60" />
         )}
       </div>
-    ),
-    [boardSize, formatClock, shouldRenderClocks],
+      );
+    },
+    [boardSize, clockSnapshot, formatClock, shouldRenderClocks],
   );
 
   const getSideToMove = useCallback((fen: string): "white" | "black" => {
@@ -815,11 +827,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             {/* Board A */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, {
+                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
                     isToMove: sideToMoveA === "white",
                     clocksFrozen: areClocksFrozen,
                   })
-                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, {
+                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
                     isToMove: sideToMoveA === "black",
                     clocksFrozen: areClocksFrozen,
                   })}
@@ -848,11 +860,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, {
+                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
                     isToMove: sideToMoveA === "black",
                     clocksFrozen: areClocksFrozen,
                   })
-                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, {
+                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
                     isToMove: sideToMoveA === "white",
                     clocksFrozen: areClocksFrozen,
                   })}
@@ -861,11 +873,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             {/* Board B */}
             <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
               {isBoardsFlipped
-                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, {
+                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
                     isToMove: sideToMoveB === "black",
                     clocksFrozen: areClocksFrozen,
                   })
-                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, {
+                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
                     isToMove: sideToMoveB === "white",
                     clocksFrozen: areClocksFrozen,
                   })}
@@ -894,11 +906,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 onAttemptReserveDrop={handleAttemptReserveDrop}
               />
               {isBoardsFlipped
-                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, {
+                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
                     isToMove: sideToMoveB === "white",
                     clocksFrozen: areClocksFrozen,
                   })
-                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, {
+                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
                     isToMove: sideToMoveB === "black",
                     clocksFrozen: areClocksFrozen,
                   })}

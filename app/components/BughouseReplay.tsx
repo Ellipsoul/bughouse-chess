@@ -10,6 +10,7 @@ import { processGameData } from "../utils/moveOrdering";
 import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState, BughousePlayer } from "../types/bughouse";
 import { ChessGame } from "../actions";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
 
 interface BughouseReplayProps {
   gameData: {
@@ -197,7 +198,13 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   }, []);
 
   const renderPlayerBar = useCallback(
-    (player: BughousePlayer, clockValue?: number) => (
+    (player: BughousePlayer, clockValue: number | undefined, team: "AWhite_BBlack" | "ABlack_BWhite") => {
+      const diffDeciseconds =
+        gameState ? getTeamTimeDiffDeciseconds({ A: gameState.boardA.clocks, B: gameState.boardB.clocks }) : 0;
+      const tint = getClockTintClasses({ diffDeciseconds, team });
+      const neutral = "text-white/90";
+
+      return (
       <div
         className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
         style={{ width: boardSize }}
@@ -219,12 +226,18 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </span>
           )}
         </div>
-        <span className="font-mono text-lg tabular-nums">
+        <span
+          className={[
+            "font-mono text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
+            tint ?? neutral,
+          ].join(" ")}
+        >
           {formatClock(clockValue)}
         </span>
       </div>
-    ),
-    [boardSize, formatClock, formatElo],
+      );
+    },
+    [boardSize, formatClock, formatElo, gameState],
   );
 
   return (
@@ -254,10 +267,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 ? renderPlayerBar(
                     gameState.players.aWhite,
                     gameState.boardA.clocks.white,
+                    "AWhite_BBlack",
                   )
                 : renderPlayerBar(
                     gameState.players.aBlack,
                     gameState.boardA.clocks.black,
+                    "ABlack_BWhite",
                   )}
               <ChessBoard
                 fen={gameState.boardA.fen}
@@ -270,10 +285,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 ? renderPlayerBar(
                     gameState.players.aBlack,
                     gameState.boardA.clocks.black,
+                    "ABlack_BWhite",
                   )
                 : renderPlayerBar(
                     gameState.players.aWhite,
                     gameState.boardA.clocks.white,
+                    "AWhite_BBlack",
                   )}
             </div>
 
@@ -283,10 +300,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 ? renderPlayerBar(
                     gameState.players.bBlack,
                     gameState.boardB.clocks.black,
+                    "AWhite_BBlack",
                   )
                 : renderPlayerBar(
                     gameState.players.bWhite,
                     gameState.boardB.clocks.white,
+                    "ABlack_BWhite",
                   )}
               <ChessBoard
                 fen={gameState.boardB.fen}
@@ -299,10 +318,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 ? renderPlayerBar(
                     gameState.players.bWhite,
                     gameState.boardB.clocks.white,
+                    "ABlack_BWhite",
                   )
                 : renderPlayerBar(
                     gameState.players.bBlack,
                     gameState.boardB.clocks.black,
+                    "AWhite_BBlack",
                   )}
             </div>
 
