@@ -15,6 +15,7 @@ import { ChessGame, fetchChessGame, findPartnerGameId } from "../actions";
 import BughouseAnalysis from "./BughouseAnalysis";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import Link from "next/link";
+import { Share } from "lucide-react";
 
 /**
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
@@ -45,6 +46,60 @@ export default function GameViewerPage() {
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
+
+  /**
+   * The canonical public base URL we want users to share (rather than a localhost/dev URL).
+   * Keep this in sync with deployment.
+   */
+  const SHARE_BASE_URL = "https://bughouse.aronteh.com/";
+
+  /**
+   * Copies text to the user's clipboard with a modern API when available, and a safe
+   * fallback for older browsers / restricted contexts.
+   */
+  const copyToClipboard = useCallback(async (text: string) => {
+    if (typeof window === "undefined") return false;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fallback: temporarily inject a textarea for execCommand("copy").
+      try {
+        const el = document.createElement("textarea");
+        el.value = text;
+        el.setAttribute("readonly", "true");
+        el.style.position = "fixed";
+        el.style.top = "-9999px";
+        el.style.left = "-9999px";
+        document.body.appendChild(el);
+        el.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(el);
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }, []);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!loadedGameId) {
+      toast.error("No game loaded to share yet");
+      return;
+    }
+
+    const url = new URL(SHARE_BASE_URL);
+    url.searchParams.set("gameId", loadedGameId);
+
+    const ok = await copyToClipboard(url.toString());
+    if (!ok) {
+      toast.error("Failed to copy link");
+      return;
+    }
+
+    toast.success("Game URL copied to clipboard!");
+  }, [SHARE_BASE_URL, copyToClipboard, loadedGameId]);
 
   /**
    * Fetches the primary game (and partner game when available) then updates UI state.
@@ -168,9 +223,20 @@ export default function GameViewerPage() {
           </form>
 
           {loadedGameId && (
-            <div className="ml-auto mr-12 sm:mr-14 text-base text-gray-300">
-              <span className="font-medium text-gray-100">Game ID:</span>{" "}
-              <span className="text-gray-100 font-bold">{loadedGameId}</span>
+            <div className="ml-auto mr-12 sm:mr-14 inline-flex items-center gap-2 text-sm">
+              <span className="font-medium text-gray-200">Game ID:</span>
+              <button
+                type="button"
+                onClick={() => void handleCopyShareLink()}
+                aria-label={`Copy share link for game ${loadedGameId}`}
+                data-tooltip-id={APP_TOOLTIP_ID}
+                data-tooltip-content="Copy share link"
+                data-tooltip-place="bottom"
+                className="inline-flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/60 px-3 py-1.5 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+              >
+                <span className="font-bold text-gray-50">{loadedGameId}</span>
+                <Share className="h-4 w-4 text-gray-200" aria-hidden="true" />
+              </button>
             </div>
           )}
         </div>
