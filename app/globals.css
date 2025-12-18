@@ -103,3 +103,18 @@ body {
 .bh-drop-cursor-active [data-square] {
   cursor: pointer;
 }
+
+/* -------------------------------------------------------------------------- */
+/* chessboard.js styling overrides                                             */
+/* -------------------------------------------------------------------------- */
+/**
+ * chessboard.js renders the board with a hard-coded border via `.board-b72b1`.
+ *
+ * For our UI, we prefer borderless boards and a very subtle corner rounding.
+ * `overflow: hidden` ensures the squares/pieces are clipped to the rounded corners.
+ */
+.board-b72b1 {
+  border: 0 !important;
+  border-radius: 2px;
+  overflow: hidden;
+}
