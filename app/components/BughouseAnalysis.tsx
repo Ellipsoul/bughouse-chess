@@ -358,6 +358,32 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const canGoBack = state.cursorNodeId !== state.tree.rootId;
   const canGoForward = Boolean(state.tree.nodesById[state.cursorNodeId]?.children.length);
 
+  const lastMoveHighlightsByBoard = useMemo(() => {
+    const findLastMoveForBoard = (board: "A" | "B") => {
+      let nodeId: string | null = state.cursorNodeId;
+      while (nodeId) {
+        const node = state.tree.nodesById[nodeId];
+        const move = node?.incomingMove;
+        if (move && move.board === board) {
+          if (move.kind === "normal" && move.normal) {
+            return { from: move.normal.from, to: move.normal.to };
+          }
+          if (move.kind === "drop" && move.drop) {
+            return { from: null as Square | null, to: move.drop.to };
+          }
+          return null;
+        }
+        nodeId = node?.parentId ?? null;
+      }
+      return null;
+    };
+
+    return {
+      A: findLastMoveForBoard("A"),
+      B: findLastMoveForBoard("B"),
+    };
+  }, [state.cursorNodeId, state.tree.nodesById]);
+
   const handleStart = useCallback(() => {
     selectNode(state.tree.rootId);
   }, [selectNode, state.tree.rootId]);
@@ -841,6 +867,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 size={boardSize}
                 flip={isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.A}
+                lastMoveFromSquare={
+                  lastMoveHighlightsByBoard.A?.from ?? null
+                }
+                lastMoveToSquare={
+                  lastMoveHighlightsByBoard.A?.to ?? null
+                }
                 dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "A")}
                 dragSourceSquare={
                   dragLegalMoveHighlight?.board === "A" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenA
@@ -887,6 +919,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 size={boardSize}
                 flip={!isBoardsFlipped}
                 promotedSquares={currentPosition.promotedSquares.B}
+                lastMoveFromSquare={
+                  lastMoveHighlightsByBoard.B?.from ?? null
+                }
+                lastMoveToSquare={
+                  lastMoveHighlightsByBoard.B?.to ?? null
+                }
                 dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "B")}
                 dragSourceSquare={
                   dragLegalMoveHighlight?.board === "B" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenB

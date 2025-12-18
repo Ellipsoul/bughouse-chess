@@ -42,6 +42,18 @@ interface ChessBoardProps {
   flip?: boolean;
   promotedSquares?: string[];
   /**
+   * Highlight the most recently played move (origin + destination squares).
+   *
+   * This is a persistent UI affordance: it should remain visible even when the user
+   * is not actively interacting with the board (e.g. no dragging).
+   *
+   * - For normal moves, pass both `lastMoveFromSquare` and `lastMoveToSquare`.
+   * - For bughouse drops, pass `lastMoveToSquare` and leave `lastMoveFromSquare` null.
+   * - Pass nulls to clear the highlight (e.g. start position).
+   */
+  lastMoveFromSquare?: Square | null;
+  lastMoveToSquare?: Square | null;
+  /**
    * When dragging a piece on the board (not reserve drops), highlight legal destination squares.
    *
    * This is purely a UI affordance: it does not validate or apply moves.
@@ -141,6 +153,8 @@ export default function ChessBoard(
     size = 400,
     flip = false,
     promotedSquares = [],
+    lastMoveFromSquare = null,
+    lastMoveToSquare = null,
     dragLegalTargets = [],
     dragSourceSquare = null,
     draggable = false,
@@ -365,6 +379,34 @@ export default function ChessBoard(
       }
     }
   }, [boardId, dragLegalTargets, dragSourceSquare]);
+
+  // Highlight the last played move (origin + destination squares) persistently.
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    // Clear previous highlight.
+    boardElement.querySelectorAll(".bh-last-move-from-square").forEach((el) => {
+      el.classList.remove("bh-last-move-from-square");
+    });
+    boardElement.querySelectorAll(".bh-last-move-to-square").forEach((el) => {
+      el.classList.remove("bh-last-move-to-square");
+    });
+
+    if (lastMoveFromSquare) {
+      const fromEl = boardElement.querySelector(`[data-square="${lastMoveFromSquare}"]`);
+      if (fromEl instanceof HTMLElement) {
+        fromEl.classList.add("bh-last-move-from-square");
+      }
+    }
+
+    if (lastMoveToSquare) {
+      const toEl = boardElement.querySelector(`[data-square="${lastMoveToSquare}"]`);
+      if (toEl instanceof HTMLElement) {
+        toEl.classList.add("bh-last-move-to-square");
+      }
+    }
+  }, [boardId, lastMoveFromSquare, lastMoveToSquare, fen, flip]);
 
   // Delegate square click handling (for click-to-drop).
   useEffect(() => {

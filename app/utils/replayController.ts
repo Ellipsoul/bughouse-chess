@@ -21,7 +21,25 @@ interface BughouseHistoryState {
     A: string[];
     B: string[];
   };
+  lastMoveHighlightsByBoard: LastMoveHighlightsByBoard;
 }
+
+/**
+ * UI-oriented representation of the most recently applied global move.
+ *
+ * - `from` is null for bughouse drops (e.g. `P@e4`)
+ * - `to` is always present (destination square)
+ */
+export interface LastMoveHighlight {
+  board: "A" | "B";
+  from: Square | null;
+  to: Square;
+}
+
+export type LastMoveHighlightsByBoard = {
+  A: Omit<LastMoveHighlight, "board"> | null;
+  B: Omit<LastMoveHighlight, "board"> | null;
+};
 
 /**
  * Imperative controller that replays bughouse moves across two boards, tracking clocks,
@@ -45,6 +63,7 @@ export class BughouseReplayController {
   };
   private gameState: BughouseGameState;
   private history: BughouseHistoryState[] = [];
+  private lastMoveHighlightsByBoard: LastMoveHighlightsByBoard = { A: null, B: null };
 
   /**
    * Determine whether the last-applied move gives check/checkmate.
@@ -225,6 +244,15 @@ export class BughouseReplayController {
     return JSON.parse(JSON.stringify(this.pieceReserves));
   }
 
+  /**
+   * The last applied move per board at the controller's current global index.
+   *
+   * Intended for UI affordances like "highlight last move on each board".
+   */
+  public getLastMoveHighlightsByBoard(): LastMoveHighlightsByBoard {
+    return this.lastMoveHighlightsByBoard;
+  }
+
   public canMoveForward(): boolean {
     return this.currentMoveIndex < this.combinedMoves.length - 1;
   }
@@ -243,7 +271,11 @@ export class BughouseReplayController {
       pieceReserves: JSON.parse(JSON.stringify(this.pieceReserves)),
       boardAMoveCount: this.gameState.boardA.moves.length,
       boardBMoveCount: this.gameState.boardB.moves.length,
-      promotedSquares: this.clonePromotedPieces()
+      promotedSquares: this.clonePromotedPieces(),
+      lastMoveHighlightsByBoard: {
+        A: this.lastMoveHighlightsByBoard.A ? { ...this.lastMoveHighlightsByBoard.A } : null,
+        B: this.lastMoveHighlightsByBoard.B ? { ...this.lastMoveHighlightsByBoard.B } : null,
+      },
     });
 
     this.currentMoveIndex++;
@@ -266,6 +298,7 @@ export class BughouseReplayController {
       A: new Set(prevState.promotedSquares.A),
       B: new Set(prevState.promotedSquares.B)
     };
+    this.lastMoveHighlightsByBoard = prevState.lastMoveHighlightsByBoard;
 
     // Restore game state counters/arrays
     // We trim the moves array to the previous length
@@ -321,6 +354,11 @@ export class BughouseReplayController {
 
         const result = board.move(convertedMove);
         if (result) {
+          this.lastMoveHighlightsByBoard = {
+            ...this.lastMoveHighlightsByBoard,
+            [move.board]: { from: result.from as Square, to: result.to as Square },
+          };
+
           // Ensure notation uses bughouse-aware `+/#` (chess.js `#` is regular-chess checkmate).
           move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
 
@@ -388,6 +426,11 @@ export class BughouseReplayController {
       const success = board.put({ type: pieceType as PieceSymbol, color: color as Color }, square as Square);
 
       if (success) {
+        this.lastMoveHighlightsByBoard = {
+          ...this.lastMoveHighlightsByBoard,
+          [move.board]: { from: null, to: square as Square },
+        };
+
         // Dropped pieces are never promoted; ensure we clear any stale marker
         this.promotedPieces[move.board].delete(square);
 
@@ -425,6 +468,11 @@ export class BughouseReplayController {
       const normalizedMove = move.move.replace(/0/g, 'O');
       const result = board.move(normalizedMove);
       if (result) {
+         this.lastMoveHighlightsByBoard = {
+           ...this.lastMoveHighlightsByBoard,
+           [move.board]: { from: result.from as Square, to: result.to as Square },
+         };
+
          // Ensure notation uses bughouse-aware `+/#` (chess.js `#` is regular-chess checkmate).
          move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
          this.updateGameState(move);

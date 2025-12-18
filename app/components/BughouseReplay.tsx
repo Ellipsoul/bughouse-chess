@@ -41,6 +41,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [isBoardsFlipped, setIsBoardsFlipped] = useState(false);
 
+  const lastMoveHighlightsByBoard = replayController.getLastMoveHighlightsByBoard();
+
   /**
    * Global board orientation toggle.
    *
@@ -280,6 +282,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 size={boardSize}
                 flip={isBoardsFlipped}
                 promotedSquares={gameState.promotedSquares.A}
+                lastMoveFromSquare={
+                  lastMoveHighlightsByBoard.A?.from ?? null
+                }
+                lastMoveToSquare={
+                  lastMoveHighlightsByBoard.A?.to ?? null
+                }
               />
               {isBoardsFlipped
                 ? renderPlayerBar(
@@ -313,6 +321,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 size={boardSize}
                 flip={!isBoardsFlipped}
                 promotedSquares={gameState.promotedSquares.B}
+                lastMoveFromSquare={
+                  lastMoveHighlightsByBoard.B?.from ?? null
+                }
+                lastMoveToSquare={
+                  lastMoveHighlightsByBoard.B?.to ?? null
+                }
               />
               {isBoardsFlipped
                 ? renderPlayerBar(

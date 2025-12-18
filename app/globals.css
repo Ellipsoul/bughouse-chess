@@ -99,6 +99,15 @@ body {
   pointer-events: none;
 }
 
+/* Last-move highlight (persistent, even when not dragging) */
+.bh-last-move-from-square {
+  box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.4); /* subtle gold */
+}
+
+.bh-last-move-to-square {
+  box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.75); /* stronger gold */
+}
+
 /* When a reserve piece is armed for placement, show pointer across squares */
 .bh-drop-cursor-active [data-square] {
   cursor: pointer;
