@@ -74,6 +74,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     loadGameMainline,
     promoteVariationOneLevel,
     truncateAfterNode,
+    truncateFromNodeInclusive,
     closeVariationSelector,
     moveVariationSelectorIndex,
     setVariationSelectorIndex,
@@ -1054,6 +1055,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}
+            onTruncateFromNodeInclusive={truncateFromNodeInclusive}
           />
         </div>
       </div>

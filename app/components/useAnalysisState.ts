@@ -297,7 +297,22 @@ export interface UseAnalysisStateResult {
   cancelPendingPromotion: () => void;
   commitPromotion: (promotion: BughousePromotionPiece) => ValidateAndApplyResult;
   promoteVariationOneLevel: (nodeId: string) => void;
+  /**
+   * Delete all moves *after* the given node (exclusive).
+   *
+   * This preserves the selected node itself and simply clears its continuation(s)
+   * (both mainline and variations).
+   */
   truncateAfterNode: (nodeId: string) => void;
+  /**
+   * Delete the given node *and* everything after it (inclusive).
+   *
+   * This removes the node from its parent, deletes all descendants of the node,
+   * and rewires the parent so the remaining children (if any) stay discoverable.
+   *
+   * The root node cannot be deleted.
+   */
+  truncateFromNodeInclusive: (nodeId: string) => void;
 }
 
 /**
@@ -594,6 +609,47 @@ export function useAnalysisState(): UseAnalysisStateResult {
     [internalState.tree],
   );
 
+  const truncateFromNodeInclusive = useCallback(
+    (nodeId: string) => {
+      if (nodeId === internalState.tree.rootId) return;
+
+      const node = internalState.tree.nodesById[nodeId];
+      if (!node?.parentId) return;
+
+      const parent = internalState.tree.nodesById[node.parentId];
+      if (!parent) return;
+
+      // Delete the node itself plus everything below it (mainline continuation + variations).
+      const toDelete = [nodeId, ...collectDescendants(internalState.tree.nodesById, nodeId)];
+      const nextNodes: Record<string, AnalysisNode> = { ...internalState.tree.nodesById };
+      for (const delId of toDelete) {
+        delete nextNodes[delId];
+      }
+
+      // Detach from parent and keep the remaining subtree reachable.
+      const nextParentChildren = parent.children.filter((id) => id !== nodeId);
+      const nextParentMainChildId =
+        parent.mainChildId === nodeId
+          ? nextParentChildren[0] ?? null
+          : parent.mainChildId;
+      nextNodes[parent.id] = {
+        ...parent,
+        children: nextParentChildren,
+        mainChildId: nextParentMainChildId,
+      };
+
+      dispatch({
+        type: "REPLACE_TREE",
+        payload: {
+          tree: { rootId: internalState.tree.rootId, nodesById: nextNodes },
+          cursorNodeId: parent.id,
+          selectedNodeId: parent.id,
+        },
+      });
+    },
+    [internalState.tree],
+  );
+
   return {
     state,
     currentNode,
@@ -612,6 +668,7 @@ export function useAnalysisState(): UseAnalysisStateResult {
     commitPromotion,
     promoteVariationOneLevel,
     truncateAfterNode,
+    truncateFromNodeInclusive,
   };
 }
 

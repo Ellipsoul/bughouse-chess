@@ -11,7 +11,16 @@ interface MoveTreeProps {
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
   onPromoteVariationOneLevel: (nodeId: string) => void;
+  /**
+   * Delete all moves *after* the given node (exclusive).
+   * This keeps the selected move itself.
+   */
   onTruncateAfterNode: (nodeId: string) => void;
+  /**
+   * Delete the given node *and* everything after it (inclusive).
+   * This removes the selected move itself.
+   */
+  onTruncateFromNodeInclusive: (nodeId: string) => void;
 }
 
 /**
@@ -27,6 +36,7 @@ export default function MoveTree({
   onSelectNode,
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
+  onTruncateFromNodeInclusive,
 }: MoveTreeProps) {
   const selectedNode = tree.nodesById[selectedNodeId];
 
@@ -41,7 +51,10 @@ export default function MoveTree({
     return parent.mainChildId !== headId;
   }, [selectedNodeId, tree.nodesById]);
 
-  const canTruncateSelected = Boolean(selectedNode && selectedNodeId !== tree.rootId);
+  const canTruncateSelectedExclusive = Boolean(
+    selectedNode && selectedNodeId !== tree.rootId && selectedNode.children.length > 0,
+  );
+  const canTruncateSelectedInclusive = Boolean(selectedNode && selectedNodeId !== tree.rootId);
 
   const renderMoveToken = useCallback(
     (node: AnalysisNode) => {
@@ -217,9 +230,19 @@ export default function MoveTree({
               type="button"
               className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
               onClick={() => onTruncateAfterNode(selectedNodeId)}
-              disabled={!canTruncateSelected}
+              disabled={!canTruncateSelectedExclusive}
             >
-              Delete from here
+              Delete after here (keep move)
+            </button>
+          </TooltipAnchor>
+          <TooltipAnchor content="Delete the selected move and everything after it">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs rounded bg-gray-900 border border-gray-700 text-gray-200 disabled:text-gray-500 disabled:border-gray-800 disabled:bg-gray-900/60"
+              onClick={() => onTruncateFromNodeInclusive(selectedNodeId)}
+              disabled={!canTruncateSelectedInclusive}
+            >
+              Delete from here (include move)
             </button>
           </TooltipAnchor>
         </div>

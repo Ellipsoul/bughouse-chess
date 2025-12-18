@@ -27,7 +27,16 @@ interface MoveListWithVariationsProps {
   footer?: React.ReactNode;
   onSelectNode: (nodeId: string) => void;
   onPromoteVariationOneLevel: (nodeId: string) => void;
+  /**
+   * Delete all moves *after* the given node (exclusive).
+   * This keeps the selected move itself.
+   */
   onTruncateAfterNode: (nodeId: string) => void;
+  /**
+   * Delete the given node *and* everything after it (inclusive).
+   * This removes the selected move itself.
+   */
+  onTruncateFromNodeInclusive: (nodeId: string) => void;
 }
 
 type MainlineRow = {
@@ -64,6 +73,7 @@ export default function MoveListWithVariations({
   onSelectNode,
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
+  onTruncateFromNodeInclusive,
 }: MoveListWithVariationsProps) {
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
@@ -93,6 +103,14 @@ export default function MoveListWithVariations({
       if (nodeId === tree.rootId) return false;
       const node = tree.nodesById[nodeId];
       return Boolean(node && node.children.length > 0);
+    },
+    [tree.nodesById, tree.rootId],
+  );
+
+  const canTruncateNodeInclusive = useCallback(
+    (nodeId: string) => {
+      if (nodeId === tree.rootId) return false;
+      return Boolean(tree.nodesById[nodeId]);
     },
     [tree.nodesById, tree.rootId],
   );
@@ -647,12 +665,13 @@ export default function MoveListWithVariations({
   const menu = contextMenu?.open ? contextMenu : null;
   const menuCanPromote = menu ? canPromoteNode(menu.nodeId) : false;
   const menuCanTruncate = menu ? canTruncateNode(menu.nodeId) : false;
+  const menuCanTruncateInclusive = menu ? canTruncateNodeInclusive(menu.nodeId) : false;
 
   // Basic viewport clamping so the menu doesn't render off-screen.
   const menuPosition = useMemo(() => {
     if (!menu) return null;
     const width = 210;
-    const height = 92;
+    const height = 136;
     const margin = 8;
     const safeWindow =
       typeof window !== "undefined" ? window : { innerWidth: 1200, innerHeight: 800 };
@@ -679,7 +698,7 @@ export default function MoveListWithVariations({
             role="menu"
             aria-label="Move actions"
           >
-            <TooltipAnchor content="Delete all moves after this node">
+            <TooltipAnchor content="Delete all moves after this move (keeps this move)">
               <button
                 type="button"
                 className={[
@@ -692,7 +711,23 @@ export default function MoveListWithVariations({
                   closeContextMenu();
                 }}
               >
-                Delete from here
+                Delete after here (keep this move)
+              </button>
+            </TooltipAnchor>
+            <TooltipAnchor content="Delete this move and everything after it">
+              <button
+                type="button"
+                className={[
+                  "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
+                  menuCanTruncateInclusive ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+                ].join(" ")}
+                disabled={!menuCanTruncateInclusive}
+                onClick={() => {
+                  onTruncateFromNodeInclusive(menu.nodeId);
+                  closeContextMenu();
+                }}
+              >
+                Delete from here (including this move)
               </button>
             </TooltipAnchor>
             <TooltipAnchor content="Promote this variation one level toward the mainline">
