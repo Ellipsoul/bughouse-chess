@@ -1,7 +1,15 @@
 import { Chess, PieceSymbol, Color, Square } from 'chess.js';
-import { BoardClocks, BughouseMove, BughouseGameState, BughousePlayer, ProcessedGameData, PieceReserves } from '../types/bughouse';
+import {
+  BughouseClocksSnapshotByBoard,
+  BughouseMove,
+  BughouseGameState,
+  BughousePlayer,
+  ProcessedGameData,
+  PieceReserves,
+} from "../types/bughouse";
 import { validateAndConvertMove } from './moveConverter';
 import { getBughouseCheckSuffix, normalizeSanSuffixForBughouse } from './bughouseCheckmate';
+import { buildBughouseClockTimeline } from "./analysis/buildBughouseClockTimeline";
 
 interface BughouseHistoryState {
   fenA: string;
@@ -26,8 +34,9 @@ export class BughouseReplayController {
   private currentMoveIndex: number = -1;
   private pieceReserves: PieceReserves;
   private promotedPieces: { A: Set<string>; B: Set<string> };
-  private clockTimelines: { A: BoardClocks[]; B: BoardClocks[] };
   private initialTime: number;
+  private clockTimeline: BughouseClocksSnapshotByBoard[];
+  private moveDurationsByGlobalIndex: number[];
   private players: {
     aWhite: BughousePlayer;
     aBlack: BughousePlayer;
@@ -72,16 +81,9 @@ export class BughouseReplayController {
     };
     this.promotedPieces = { A: new Set(), B: new Set() };
 
-    this.clockTimelines = {
-      A: this.buildClockTimeline(
-        processedData.originalGame.timestamps,
-        processedData.originalGame.moves.length
-      ),
-      B: this.buildClockTimeline(
-        processedData.partnerGame.timestamps,
-        processedData.partnerGame.moves.length
-      )
-    };
+    const { timeline, moveDurationsByGlobalIndex } = buildBughouseClockTimeline(processedData);
+    this.clockTimeline = timeline;
+    this.moveDurationsByGlobalIndex = moveDurationsByGlobalIndex;
     this.players = processedData.players;
     this.gameState = {
       boardA: {
@@ -90,7 +92,7 @@ export class BughouseReplayController {
         currentMoveIndex: 0,
         isPlaying: false,
         speed: 1,
-        clocks: this.getClockSnapshot('A', 0)
+        clocks: this.getClockSnapshotAtGlobalMoveIndex(-1).A
       },
       boardB: {
         fen: this.boardB.fen(),
@@ -98,7 +100,7 @@ export class BughouseReplayController {
         currentMoveIndex: 0,
         isPlaying: false,
         speed: 1,
-        clocks: this.getClockSnapshot('B', 0)
+        clocks: this.getClockSnapshotAtGlobalMoveIndex(-1).B
       },
       promotedSquares: {
         A: [],
@@ -117,61 +119,21 @@ export class BughouseReplayController {
     };
   }
 
-  /**
-   * Build a per-move clock timeline for a board using remaining-time snapshots.
-   */
-  private buildClockTimeline(
-    timestamps: number[],
-    moveCount: number
-  ): BoardClocks[] {
-    // Clocks are stored as deciseconds. We clamp to non-negative values.
-    const timeline: BoardClocks[] = [
-      { white: Math.max(0, Math.floor(this.initialTime)), black: Math.max(0, Math.floor(this.initialTime)) }
-    ];
-
-    let currentWhite = timeline[0].white;
-    let currentBlack = timeline[0].black;
-
-    for (let i = 0; i < moveCount; i++) {
-      const isWhiteMove = i % 2 === 0;
-      const provided = timestamps[i];
-      const next: BoardClocks = { white: currentWhite, black: currentBlack };
-
-      if (Number.isFinite(provided)) {
-        const remaining = Math.max(0, Math.floor(provided));
-        if (isWhiteMove) {
-          next.white = remaining;
-          currentWhite = remaining;
-        } else {
-          next.black = remaining;
-          currentBlack = remaining;
-        }
-      }
-
-      timeline.push(next);
+  private getClockSnapshotAtGlobalMoveIndex(globalMoveIndex: number): BughouseClocksSnapshotByBoard {
+    if (!this.clockTimeline.length) {
+      return { A: { white: 0, black: 0 }, B: { white: 0, black: 0 } };
     }
 
-    // If timestamp data is shorter than move list, pad with the latest known values.
-    while (timeline.length < moveCount + 1) {
-      timeline.push({ white: currentWhite, black: currentBlack });
-    }
-
-    return timeline;
-  }
-
-  private getClockSnapshot(board: 'A' | 'B', moveIndex: number): BoardClocks {
-    const timeline = board === 'A' ? this.clockTimelines.A : this.clockTimelines.B;
-    if (!timeline.length) {
-      return { white: 0, black: 0 };
-    }
-
-    const clampedIndex = Math.min(Math.max(moveIndex, 0), timeline.length - 1);
-    return timeline[clampedIndex];
+    // `clockTimeline[0]` is the start position (before any moves).
+    const timelineIndex = globalMoveIndex + 1;
+    const clampedIndex = Math.min(Math.max(timelineIndex, 0), this.clockTimeline.length - 1);
+    return this.clockTimeline[clampedIndex];
   }
 
   private refreshClocks() {
-    this.gameState.boardA.clocks = this.getClockSnapshot('A', this.gameState.boardA.currentMoveIndex);
-    this.gameState.boardB.clocks = this.getClockSnapshot('B', this.gameState.boardB.currentMoveIndex);
+    const snapshot = this.getClockSnapshotAtGlobalMoveIndex(this.currentMoveIndex);
+    this.gameState.boardA.clocks = snapshot.A;
+    this.gameState.boardB.clocks = snapshot.B;
   }
 
   /**
@@ -530,6 +492,16 @@ export class BughouseReplayController {
 
   public getCombinedMoves(): BughouseMove[] {
     return this.combinedMoves;
+  }
+
+  /**
+   * Per-move “time spent” values (deciseconds), aligned with `getCombinedMoves()` indices.
+   *
+   * These are computed from the same global bughouse clock simulation that drives the
+   * board clock display, so the move list and clocks cannot diverge.
+   */
+  public getMoveDurations(): number[] {
+    return this.moveDurationsByGlobalIndex.slice();
   }
 
   public getDebugInfo(): string {

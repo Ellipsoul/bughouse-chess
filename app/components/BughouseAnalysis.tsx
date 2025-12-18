@@ -17,6 +17,7 @@ import { deriveBughouseConclusionSummary } from "../utils/gameConclusion";
 import type { BughouseMove } from "../types/bughouse";
 import type { BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode } from "../types/analysis";
+import { buildBughouseClockTimeline } from "../utils/analysis/buildBughouseClockTimeline";
 import {
   createInitialPositionSnapshot,
   validateAndApplyMoveFromNotation,
@@ -206,6 +207,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     return sanitized;
   }, [processedGame]);
 
+  const combinedMoveDurationsForMoveTimes = useMemo((): number[] | undefined => {
+    if (!processedGame?.combinedMoves?.length) return undefined;
+    return buildBughouseClockTimeline(processedGame).moveDurationsByGlobalIndex;
+  }, [processedGame]);
+
   // Report whether the analysis contains any moves (tree has nodes beyond root).
   const lastDirtyRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -382,18 +388,16 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${tenths}`;
   }, []);
 
-  const getBoardMoveCountsAtNode = useCallback(
-    (nodeId: string): { A: number; B: number } => {
-      let a = 0;
-      let b = 0;
+  const getGlobalPlyCountAtNode = useCallback(
+    (nodeId: string): number => {
+      let count = 0;
       let cursor = state.tree.nodesById[nodeId];
       while (cursor?.parentId) {
-        const mv = cursor.incomingMove;
-        if (mv?.board === "A") a += 1;
-        if (mv?.board === "B") b += 1;
+        // Root has no incoming move; every other node corresponds to exactly one ply.
+        if (cursor.incomingMove) count += 1;
         cursor = state.tree.nodesById[cursor.parentId];
       }
-      return { A: a, B: b };
+      return count;
     },
     [state.tree.nodesById],
   );
@@ -428,64 +432,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const clockSnapshot = useMemo(() => {
     if (!processedGame) return null;
 
-    const initialTime = processedGame.initialTime;
-
-    const buildTimeline = (timestamps: number[], moveCount: number) => {
-      const timeline: Array<{ white: number; black: number }> = [
-        {
-          white: Math.max(0, Math.floor(initialTime)),
-          black: Math.max(0, Math.floor(initialTime)),
-        },
-      ];
-
-      let currentWhite = timeline[0].white;
-      let currentBlack = timeline[0].black;
-
-      for (let i = 0; i < moveCount; i++) {
-        const isWhiteMove = i % 2 === 0;
-        const provided = timestamps[i];
-        const next = { white: currentWhite, black: currentBlack };
-
-        if (Number.isFinite(provided)) {
-          const remaining = Math.max(0, Math.floor(provided));
-          if (isWhiteMove) {
-            next.white = remaining;
-            currentWhite = remaining;
-          } else {
-            next.black = remaining;
-            currentBlack = remaining;
-          }
-        }
-
-        timeline.push(next);
-      }
-
-      while (timeline.length < moveCount + 1) {
-        timeline.push({ white: currentWhite, black: currentBlack });
-      }
-
-      return timeline;
-    };
-
-    const counts = getBoardMoveCountsAtNode(effectiveClockNodeId);
-
-    const timelineA = buildTimeline(
-      processedGame.originalGame.timestamps,
-      processedGame.originalGame.moves.length,
-    );
-    const timelineB = buildTimeline(
-      processedGame.partnerGame.timestamps,
-      processedGame.partnerGame.moves.length,
-    );
-
-    const clamp = (timeline: Array<{ white: number; black: number }>, idx: number) =>
-      timeline[Math.min(Math.max(idx, 0), timeline.length - 1)];
-
-    return {
-      A: clamp(timelineA, counts.A),
-      B: clamp(timelineB, counts.B),
-    };
-  }, [effectiveClockNodeId, getBoardMoveCountsAtNode, processedGame]);
+    const { timeline } = buildBughouseClockTimeline(processedGame);
+    const plyCount = getGlobalPlyCountAtNode(effectiveClockNodeId);
+    const clampedIndex = Math.min(Math.max(plyCount, 0), timeline.length - 1);
+    return timeline[clampedIndex];
+  }, [effectiveClockNodeId, getGlobalPlyCountAtNode, processedGame]);
 
   const renderPlayerBar = useCallback(
     (
@@ -1051,6 +1002,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             selectedNodeId={state.selectedNodeId}
             players={players}
             combinedMoves={combinedMovesForMoveTimes}
+            combinedMoveDurations={combinedMoveDurationsForMoveTimes}
             footer={gameConclusionFooter}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}

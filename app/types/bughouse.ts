@@ -19,6 +19,18 @@ export interface BoardClocks {
 }
 
 /**
+ * Snapshot of both boards' clocks at a single moment in the (global) bughouse timeline.
+ *
+ * Notes:
+ * - Values are expressed in **deciseconds** to match chess.com's bughouse payloads.
+ * - Each board contains both players' remaining times on that board.
+ */
+export interface BughouseClocksSnapshotByBoard {
+  A: BoardClocks;
+  B: BoardClocks;
+}
+
+/**
  * UI-friendly representation of two boards plus shared data.
  */
 export interface BughousePlayer {

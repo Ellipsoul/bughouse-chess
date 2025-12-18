@@ -5,6 +5,13 @@ import { BughousePlayer } from "../types/bughouse";
 interface MoveListProps {
   moves: BughouseMove[];
   currentMoveIndex: number;
+  /**
+   * Optional per-move durations (deciseconds), aligned with `moves` indices.
+   *
+   * When provided, the move list becomes consistent with whatever clock model produced
+   * those durations (e.g., the global “two clocks run” bughouse simulation).
+   */
+  moveDurations?: number[];
   players: {
     aWhite: BughousePlayer;
     aBlack: BughousePlayer;
@@ -20,6 +27,7 @@ interface MoveListProps {
 const MoveList: React.FC<MoveListProps> = ({
   moves,
   currentMoveIndex,
+  moveDurations: providedMoveDurations,
   players,
   onMoveClick,
 }) => {
@@ -28,7 +36,9 @@ const MoveList: React.FC<MoveListProps> = ({
   const headerRef = useRef<HTMLTableSectionElement>(null);
 
   // Pre-compute per-move durations (deciseconds) so we can show how long each move took.
+  // If callers provide durations explicitly (recommended), we use those instead.
   const moveDurations = useMemo(() => {
+    if (providedMoveDurations) return providedMoveDurations;
     const lastTimestampByBoard: Record<'A' | 'B', number> = { A: 0, B: 0 };
 
     return moves.map((move) => {
@@ -39,7 +49,7 @@ const MoveList: React.FC<MoveListProps> = ({
       lastTimestampByBoard[move.board] = current;
       return duration;
     });
-  }, [moves]);
+  }, [moves, providedMoveDurations]);
 
   const formatMoveTime = useCallback((deciseconds?: number) => {
     if (!Number.isFinite(deciseconds)) return "—";

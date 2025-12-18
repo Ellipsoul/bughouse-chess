@@ -22,6 +22,13 @@ interface MoveListWithVariationsProps {
    */
   combinedMoves?: BughouseMove[];
   /**
+   * Optional per-move durations (deciseconds), aligned with `combinedMoves` indices.
+   *
+   * When provided, durations are sourced from the same clock model used for on-board
+   * clock display, preventing mismatches between clocks and move times.
+   */
+  combinedMoveDurations?: number[];
+  /**
    * Optional footer rendered *below* the scrollable move list (e.g. game metadata).
    */
   footer?: React.ReactNode;
@@ -69,6 +76,7 @@ export default function MoveListWithVariations({
   selectedNodeId,
   players,
   combinedMoves,
+  combinedMoveDurations,
   footer,
   onSelectNode,
   onPromoteVariationOneLevel,
@@ -214,9 +222,9 @@ export default function MoveListWithVariations({
    */
   const mainlineMoveDurations = useMemo(() => {
     if (!combinedMoves || combinedMoves.length === 0) return undefined;
+    if (!combinedMoveDurations) return undefined;
 
     const durations = new Map<string, number>();
-    const lastTimestampByBoard: Record<"A" | "B", number> = { A: 0, B: 0 };
     let combinedMoveIndex = 0;
 
     // Walk through mainline and match nodes to combinedMoves
@@ -240,15 +248,10 @@ export default function MoveListWithVariations({
           combinedMove.side === move.side &&
           combinedMove.move === move.san
         ) {
-          // Calculate duration similar to MoveList.tsx
-          const previous = lastTimestampByBoard[move.board] ?? 0;
-          const current = Number.isFinite(combinedMove.timestamp)
-            ? combinedMove.timestamp
-            : previous;
-          const duration = Math.max(0, current - previous);
-
-          durations.set(childId, duration);
-          lastTimestampByBoard[move.board] = current;
+          const duration = combinedMoveDurations[i];
+          if (Number.isFinite(duration)) {
+            durations.set(childId, Math.max(0, duration));
+          }
           combinedMoveIndex = i + 1;
           matched = true;
           break;
@@ -257,17 +260,14 @@ export default function MoveListWithVariations({
 
       // If no match found, this is likely a user-added move, so no timestamp
       if (!matched) {
-        // Still update the last timestamp to prevent incorrect durations for subsequent moves
-        // We use the previous timestamp as a fallback
-        const previous = lastTimestampByBoard[move.board] ?? 0;
-        lastTimestampByBoard[move.board] = previous;
+        // No duration available for user-added moves.
       }
 
       nodeId = childId;
     }
 
     return durations;
-  }, [combinedMoves, tree.nodesById, tree.rootId]);
+  }, [combinedMoveDurations, combinedMoves, tree.nodesById, tree.rootId]);
 
   /**
    * Format move time duration for display.

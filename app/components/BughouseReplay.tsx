@@ -392,6 +392,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
         >
           <MoveList
             moves={replayController.getCombinedMoves()}
+            moveDurations={replayController.getMoveDurations()}
             currentMoveIndex={currentMoveIndex}
             players={gameState.players}
             onMoveClick={handleJumpToMove}
