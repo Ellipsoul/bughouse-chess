@@ -57,29 +57,33 @@ export function getClockTintClasses(options: {
   // so it stays robust across Tailwind upgrades/config.
   const greenTextByTier = [
     "",
-    isFrozen ? "text-emerald-200/45" : "text-emerald-200/60",
     isFrozen ? "text-emerald-200/60" : "text-emerald-200/75",
     isFrozen ? "text-emerald-200/75" : "text-emerald-300/90",
     isFrozen ? "text-emerald-300/75" : "text-emerald-400/90",
     isFrozen ? "text-emerald-400/75" : "text-emerald-400",
+    isFrozen ? "text-emerald-500/75" : "text-emerald-500",
   ] as const;
 
   const redTextByTier = [
     "",
-    isFrozen ? "text-rose-200/45" : "text-rose-200/60",
+    // Tier 1 uses the *previous* tier-2 color so small advantages stay readable.
     isFrozen ? "text-rose-200/60" : "text-rose-200/75",
     isFrozen ? "text-rose-200/75" : "text-rose-300/90",
     isFrozen ? "text-rose-300/75" : "text-rose-400/90",
     isFrozen ? "text-rose-400/75" : "text-rose-400",
+    // New brightest tier (>=16s).
+    isFrozen ? "text-rose-500/75" : "text-rose-500",
   ] as const;
 
   const glowByTier = [
     "",
-    "",
+    // Shift glow up one tier as well, so tier-1 isn't the "no glow" case anymore.
     "drop-shadow-sm",
     "drop-shadow-sm",
     "drop-shadow",
     "drop-shadow",
+    // New brightest tier (>=16s).
+    "drop-shadow-md",
   ] as const;
 
   const text = isLeading ? greenTextByTier[tier] : redTextByTier[tier];
