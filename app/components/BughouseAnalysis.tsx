@@ -359,11 +359,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const canGoForward = Boolean(state.tree.nodesById[state.cursorNodeId]?.children.length);
 
   const lastMoveHighlightsByBoard = useMemo(() => {
-    const findLastMoveForBoard = (board: "A" | "B") => {
+    const findLastMoveForBoard = (
+      board: "A" | "B",
+    ): { from: Square | null; to: Square } | null => {
       let nodeId: string | null = state.cursorNodeId;
       while (nodeId) {
-        const node = state.tree.nodesById[nodeId];
-        const move = node?.incomingMove;
+        const analysisNode: AnalysisNode | undefined = state.tree.nodesById[nodeId];
+        const move = analysisNode?.incomingMove;
         if (move && move.board === board) {
           if (move.kind === "normal" && move.normal) {
             return { from: move.normal.from, to: move.normal.to };
@@ -373,7 +375,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           }
           return null;
         }
-        nodeId = node?.parentId ?? null;
+        nodeId = analysisNode?.parentId ?? null;
       }
       return null;
     };
