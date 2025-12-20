@@ -957,8 +957,10 @@ export default function ChessBoard(
               {(() => {
                 const squareSize = annotationGeometry?.squareSize ?? 12.5;
                 // A slightly larger head hides the line end cleanly and looks closer to common chess UIs.
-                const headLength = Math.max(2, squareSize * 0.42);
-                const headWidth = Math.max(1.8, squareSize * 0.32);
+                // Tune these multipliers to adjust arrowhead proportions.
+                // Slightly slimmer than before while remaining easy to see.
+                const headLength = Math.max(2, squareSize * 0.40);
+                const headWidth = Math.max(1.8, squareSize * 0.28);
                 /**
                  * Pull the line endpoint back *under* the arrowhead fill so anti-aliasing
                  * never reveals a tiny stroke segment past the tip.
