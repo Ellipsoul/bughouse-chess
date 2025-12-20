@@ -6,7 +6,9 @@ import type { Square } from "chess.js";
 import "chessboardjs/www/css/chessboard.css";
 import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../types/analysis";
 import {
+  type BoardAnnotations,
   type ArrowKey,
+  EMPTY_BOARD_ANNOTATIONS,
   isSquare,
   toggleArrowInList,
   toggleSquareInList,
@@ -47,6 +49,19 @@ interface ChessBoardProps {
   size?: number;
   flip?: boolean;
   promotedSquares?: string[];
+  /**
+   * Optional externally-controlled annotations for this board position.
+   *
+   * When provided, `ChessBoard` becomes controlled and will render exactly these
+   * annotations. User interactions will call `onAnnotationsChange` to request updates.
+   */
+  annotations?: BoardAnnotations;
+  /**
+   * Called whenever the user updates annotations via right-click/drag or clears them via click.
+   *
+   * This is intentionally board-local: the parent decides how to persist (e.g. per-node/per-FEN).
+   */
+  onAnnotationsChange?: (next: BoardAnnotations) => void;
   /**
    * Highlight the most recently played move (origin + destination squares).
    *
@@ -182,6 +197,8 @@ export default function ChessBoard(
     size = 400,
     flip = false,
     promotedSquares = [],
+    annotations,
+    onAnnotationsChange,
     lastMoveFromSquare = null,
     lastMoveToSquare = null,
     dragLegalTargets = [],
@@ -213,21 +230,36 @@ export default function ChessBoard(
    * These are intentionally local to the board instance so that board A and board B
    * remain independent (standard bughouse UX).
    */
-  const [circleSquares, setCircleSquares] = useState<Square[]>([]);
-  const [arrowKeys, setArrowKeys] = useState<ArrowKey[]>([]);
-  const circleSquaresRef = useRef(circleSquares);
-  const arrowKeysRef = useRef(arrowKeys);
+  const [localAnnotations, setLocalAnnotations] = useState<BoardAnnotations>(EMPTY_BOARD_ANNOTATIONS);
+  const circleSquaresRef = useRef<Square[]>(localAnnotations.circles);
+  const arrowKeysRef = useRef<ArrowKey[]>(localAnnotations.arrows);
   const [annotationGeometry, setAnnotationGeometry] = useState<AnnotationGeometry | null>(null);
 
-  useEffect(() => {
-    circleSquaresRef.current = circleSquares;
-  }, [circleSquares]);
+  const effectiveAnnotations = annotations ?? localAnnotations;
 
   useEffect(() => {
-    arrowKeysRef.current = arrowKeys;
-  }, [arrowKeys]);
+    circleSquaresRef.current = effectiveAnnotations.circles;
+  }, [effectiveAnnotations.circles]);
 
-  const hasAnnotations = circleSquares.length > 0 || arrowKeys.length > 0;
+  useEffect(() => {
+    arrowKeysRef.current = effectiveAnnotations.arrows;
+  }, [effectiveAnnotations.arrows]);
+
+  const hasAnnotations =
+    effectiveAnnotations.circles.length > 0 || effectiveAnnotations.arrows.length > 0;
+
+  const applyAnnotationsUpdate = useCallback(
+    (updater: (prev: BoardAnnotations) => BoardAnnotations) => {
+      if (annotations !== undefined) {
+        // Controlled mode.
+        onAnnotationsChange?.(updater(annotations));
+        return;
+      }
+      // Uncontrolled mode.
+      setLocalAnnotations((prev) => updater(prev));
+    },
+    [annotations, onAnnotationsChange],
+  );
 
   // Keep the latest desired values available to the async initializer.
   useEffect(() => {
@@ -415,7 +447,7 @@ export default function ChessBoard(
       window.cancelAnimationFrame(id1);
       if (id2 !== null) window.cancelAnimationFrame(id2);
     };
-  }, [recomputeAnnotationGeometry, fen, flip, size, circleSquares, arrowKeys]);
+  }, [recomputeAnnotationGeometry, fen, flip, size, effectiveAnnotations.circles, effectiveAnnotations.arrows]);
 
   // Observe resizing to keep overlay aligned when the board is responsive.
   useEffect(() => {
@@ -494,7 +526,10 @@ export default function ChessBoard(
       // Fallback behavior: treat a context menu event on a square as a circle toggle.
       const square = getSquareFromEventTarget(e.target);
       if (!square) return;
-      setCircleSquares((prev) => toggleSquareInList(prev, square));
+      applyAnnotationsUpdate((prev) => ({
+        circles: toggleSquareInList(prev.circles, square),
+        arrows: prev.arrows,
+      }));
     };
 
     const cleanupGlobalPointerListeners = () => {
@@ -513,12 +548,18 @@ export default function ChessBoard(
       }
 
       if (endSquare === startSquare) {
-        setCircleSquares((prev) => toggleSquareInList(prev, endSquare));
+        applyAnnotationsUpdate((prev) => ({
+          circles: toggleSquareInList(prev.circles, endSquare),
+          arrows: prev.arrows,
+        }));
         suppressContextMenuToggleUntilRef.current = Date.now() + 250;
         return;
       }
 
-      setArrowKeys((prev) => toggleArrowInList(prev, startSquare, endSquare));
+      applyAnnotationsUpdate((prev) => ({
+        circles: prev.circles,
+        arrows: toggleArrowInList(prev.arrows, startSquare, endSquare),
+      }));
       suppressContextMenuToggleUntilRef.current = Date.now() + 250;
     };
 
@@ -577,7 +618,7 @@ export default function ChessBoard(
       boardElement.removeEventListener("contextmenu", onContextMenu);
       boardElement.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [boardId, getSquareFromClientPoint, getSquareFromEventTarget]);
+  }, [applyAnnotationsUpdate, boardId, getSquareFromClientPoint, getSquareFromEventTarget]);
 
   /**
    * Keep the rendered board synchronized with React state.
@@ -716,31 +757,17 @@ export default function ChessBoard(
       if (!hasAny) return;
 
       // Clear per UX decision: consume click so click-to-drop doesn't fire.
-      setCircleSquares([]);
-      setArrowKeys([]);
+      applyAnnotationsUpdate(() => EMPTY_BOARD_ANNOTATIONS);
       event.preventDefault();
       event.stopPropagation();
     };
 
     boardElement.addEventListener("click", onClickCapture, true);
     return () => boardElement.removeEventListener("click", onClickCapture, true);
-  }, [boardId]);
+  }, [applyAnnotationsUpdate, boardId]);
 
-  const previousFenForAnnotationsRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    // Ignore the initial load phase where `fen` may be undefined until data arrives.
-    if (previousFenForAnnotationsRef.current === undefined) {
-      if (fen !== undefined) {
-        previousFenForAnnotationsRef.current = fen;
-      }
-      return;
-    }
-    if (fen !== previousFenForAnnotationsRef.current) {
-      previousFenForAnnotationsRef.current = fen;
-      setCircleSquares([]);
-      setArrowKeys([]);
-    }
-  }, [fen]);
+  // Note: We intentionally do NOT clear annotations on FEN changes here.
+  // Persistence is handled by the parent by passing controlled `annotations`.
 
   // Delegate square click handling (for click-to-drop).
   useEffect(() => {
@@ -865,7 +892,7 @@ export default function ChessBoard(
     // Half-square in viewBox is ~squareSize/2, so stay slightly inside that.
     const r = Math.max(0, annotationGeometry.squareSize * 0.44);
     const strokeWidthPx = 2.5;
-    return circleSquares
+    return effectiveAnnotations.circles
       .map((sq) => ({ sq, center: annotationGeometry.centers.get(sq) }))
       .filter((x): x is { sq: Square; center: ViewBoxPoint } => Boolean(x.center))
       .map(({ sq, center }) => (
@@ -879,7 +906,7 @@ export default function ChessBoard(
           strokeWidth={strokeWidthPx}
         />
       ));
-  }, [annotationGeometry, circleSquares]);
+  }, [annotationGeometry, effectiveAnnotations.circles]);
 
   const renderedArrows = useMemo(() => {
     if (!annotationGeometry) return [];
@@ -902,7 +929,7 @@ export default function ChessBoard(
       };
     };
 
-    return arrowKeys
+    return effectiveAnnotations.arrows
       .map((key) => {
         const [from, to] = key.split("->") as [string, string];
         if (!isSquare(from) || !isSquare(to)) return null;
@@ -925,7 +952,7 @@ export default function ChessBoard(
         );
       })
       .filter(Boolean);
-  }, [annotationGeometry, arrowKeys]);
+  }, [annotationGeometry, effectiveAnnotations.arrows]);
 
   return (
     <div className="flex flex-col items-center">

@@ -9,6 +9,19 @@ import type { Square } from "chess.js";
 export type ArrowKey = `${Square}->${Square}`;
 
 /**
+ * Persisted user drawings for a single board position (circles + arrows).
+ */
+export interface BoardAnnotations {
+  circles: Square[];
+  arrows: ArrowKey[];
+}
+
+export const EMPTY_BOARD_ANNOTATIONS: BoardAnnotations = Object.freeze({
+  circles: [],
+  arrows: [],
+});
+
+/**
  * Returns true iff the value is a valid algebraic chessboard square like "e4".
  */
 export function isSquare(value: string): value is Square {

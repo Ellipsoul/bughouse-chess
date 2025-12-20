@@ -11,6 +11,13 @@ import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState, BughousePlayer } from "../types/bughouse";
 import { ChessGame } from "../actions";
 import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
+import type { BoardAnnotations } from "../utils/boardAnnotations";
+import {
+  createEmptyBoardAnnotationsByFen,
+  getAnnotationsForFen,
+  setAnnotationsForFen,
+  toFenKey,
+} from "../utils/boardAnnotationPersistence";
 
 interface BughouseReplayProps {
   gameData: {
@@ -40,6 +47,33 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   );
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [isBoardsFlipped, setIsBoardsFlipped] = useState(false);
+
+  /**
+   * Persist user board drawings (circles/arrows) per *board position* (FEN) per board.
+   *
+   * Replay navigation frequently advances only one board at a time; keying by per-board FEN
+   * ensures drawings on the non-moving board remain visible while you step through moves.
+   */
+  const [annotationsByFen, setAnnotationsByFen] = useState(() => createEmptyBoardAnnotationsByFen());
+
+  const boardAFenKey = toFenKey(gameState.boardA.fen);
+  const boardBFenKey = toFenKey(gameState.boardB.fen);
+  const boardAAnnotations = getAnnotationsForFen(annotationsByFen, "A", boardAFenKey);
+  const boardBAnnotations = getAnnotationsForFen(annotationsByFen, "B", boardBFenKey);
+
+  const handleBoardAAnnotationsChange = useCallback(
+    (next: BoardAnnotations) => {
+      setAnnotationsByFen((prev) => setAnnotationsForFen(prev, "A", boardAFenKey, next));
+    },
+    [boardAFenKey],
+  );
+
+  const handleBoardBAnnotationsChange = useCallback(
+    (next: BoardAnnotations) => {
+      setAnnotationsByFen((prev) => setAnnotationsForFen(prev, "B", boardBFenKey, next));
+    },
+    [boardBFenKey],
+  );
 
   const lastMoveHighlightsByBoard = replayController.getLastMoveHighlightsByBoard();
 
@@ -281,6 +315,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 boardName="A"
                 size={boardSize}
                 flip={isBoardsFlipped}
+                annotations={boardAAnnotations}
+                onAnnotationsChange={handleBoardAAnnotationsChange}
                 promotedSquares={gameState.promotedSquares.A}
                 lastMoveFromSquare={
                   lastMoveHighlightsByBoard.A?.from ?? null
@@ -320,6 +356,8 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 boardName="B"
                 size={boardSize}
                 flip={!isBoardsFlipped}
+                annotations={boardBAnnotations}
+                onAnnotationsChange={handleBoardBAnnotationsChange}
                 promotedSquares={gameState.promotedSquares.B}
                 lastMoveFromSquare={
                   lastMoveHighlightsByBoard.B?.from ?? null

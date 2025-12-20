@@ -30,6 +30,13 @@ import VariationSelector from "./VariationSelector";
 import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
 import { TooltipAnchor } from "./TooltipAnchor";
+import type { BoardAnnotations } from "../utils/boardAnnotations";
+import {
+  createEmptyBoardAnnotationsByFen,
+  getAnnotationsForFen,
+  setAnnotationsForFen,
+  toFenKey,
+} from "../utils/boardAnnotationPersistence";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -88,6 +95,35 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   } = useAnalysisState();
 
   const [isBoardsFlipped, setIsBoardsFlipped] = useState(false);
+
+  /**
+   * Persist user board drawings (circles/arrows) per *board position* (FEN) per board.
+   *
+   * Why FEN-keyed (instead of node-id keyed):
+   * - It restores drawings when returning to the exact same position.
+   * - It also preserves drawings on the *other* bughouse board when navigating moves on one board
+   *   (because the other board's FEN remains unchanged across those nodes).
+   */
+  const [annotationsByFen, setAnnotationsByFen] = useState(() => createEmptyBoardAnnotationsByFen());
+
+  const boardAFenKey = toFenKey(currentPosition.fenA);
+  const boardBFenKey = toFenKey(currentPosition.fenB);
+  const boardAAnnotations = getAnnotationsForFen(annotationsByFen, "A", boardAFenKey);
+  const boardBAnnotations = getAnnotationsForFen(annotationsByFen, "B", boardBFenKey);
+
+  const handleBoardAAnnotationsChange = useCallback(
+    (next: BoardAnnotations) => {
+      setAnnotationsByFen((prev) => setAnnotationsForFen(prev, "A", boardAFenKey, next));
+    },
+    [boardAFenKey],
+  );
+
+  const handleBoardBAnnotationsChange = useCallback(
+    (next: BoardAnnotations) => {
+      setAnnotationsByFen((prev) => setAnnotationsForFen(prev, "B", boardBFenKey, next));
+    },
+    [boardBFenKey],
+  );
 
   const toggleBoardsFlipped = useCallback(() => {
     setIsBoardsFlipped((prev) => !prev);
@@ -868,6 +904,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 boardName="A"
                 size={boardSize}
                 flip={isBoardsFlipped}
+                annotations={boardAAnnotations}
+                onAnnotationsChange={handleBoardAAnnotationsChange}
                 promotedSquares={currentPosition.promotedSquares.A}
                 lastMoveFromSquare={
                   lastMoveHighlightsByBoard.A?.from ?? null
@@ -920,6 +958,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 boardName="B"
                 size={boardSize}
                 flip={!isBoardsFlipped}
+                annotations={boardBAnnotations}
+                onAnnotationsChange={handleBoardBAnnotationsChange}
                 promotedSquares={currentPosition.promotedSquares.B}
                 lastMoveFromSquare={
                   lastMoveHighlightsByBoard.B?.from ?? null
