@@ -214,8 +214,8 @@ export default function GameViewerPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <header className="relative w-full bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md">
-        <div className="max-w-[1600px] mx-auto flex items-center gap-6 w-full">
+      <header className="relative w-full bg-gray-800 border-b border-gray-700 py-3 shadow-md">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
@@ -295,8 +295,8 @@ export default function GameViewerPage() {
         </Link>
       </header>
 
-      <main className="flex-1 w-full flex">
-        <div className="flex flex-col justify-center flex-1 max-w-[1600px] mx-auto p-4">
+      <main className="flex w-full flex-1">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-center px-4 py-4 sm:px-6 lg:px-8">
           <BughouseAnalysis
             gameData={gameData}
             isLoading={isPending}
