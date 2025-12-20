@@ -4,6 +4,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /**
+   * Default color for user-drawn board annotations (arrows, arrowheads, circles).
+   * Kept as a single source of truth so tweaking the annotation theme is a one-line change.
+   */
+  --bh-board-annotation-color: #34A853; /* light green */
 }
 
 @theme inline {
@@ -134,13 +139,13 @@ body {
 
 .bh-board-annotation-circle {
   fill: none;
-  stroke: #0F9D58; /* green */
+  stroke: var(--bh-board-annotation-color);
   /* Stroke width is set on the SVG element (non-scaling stroke). Keep a sane fallback. */
   stroke-width: 2.5;
 }
 
 .bh-board-annotation-arrow {
-  stroke: #0F9D58; /* green */
+  stroke: var(--bh-board-annotation-color);
   /* Stroke width is set on the SVG element (non-scaling stroke). Keep a sane fallback. */
   stroke-width: 4;
   /* Use `butt` so the stroke doesn't visibly poke through the arrowhead tip. */
@@ -148,7 +153,7 @@ body {
 }
 
 .bh-board-annotation-arrowhead {
-  fill: #0F9D58;
+  fill: var(--bh-board-annotation-color);
 }
 
 /* -------------------------------------------------------------------------- */
