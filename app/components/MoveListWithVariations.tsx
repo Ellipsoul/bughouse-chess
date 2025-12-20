@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { BughouseMove, BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../types/analysis";
 import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
-import { TooltipAnchor } from "./TooltipAnchor";
 
 interface MoveListWithVariationsProps {
   tree: AnalysisTree;
@@ -698,54 +697,48 @@ export default function MoveListWithVariations({
             role="menu"
             aria-label="Move actions"
           >
-            <TooltipAnchor content="Delete all moves after this move (keeps this move)">
-              <button
-                type="button"
-                className={[
-                  "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
-                  menuCanTruncate ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
-                ].join(" ")}
-                disabled={!menuCanTruncate}
-                onClick={() => {
-                  onTruncateAfterNode(menu.nodeId);
-                  closeContextMenu();
-                }}
-              >
-                Delete after here (keep this move)
-              </button>
-            </TooltipAnchor>
-            <TooltipAnchor content="Delete this move and everything after it">
-              <button
-                type="button"
-                className={[
-                  "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
-                  menuCanTruncateInclusive ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
-                ].join(" ")}
-                disabled={!menuCanTruncateInclusive}
-                onClick={() => {
-                  onTruncateFromNodeInclusive(menu.nodeId);
-                  closeContextMenu();
-                }}
-              >
-                Delete from here (including this move)
-              </button>
-            </TooltipAnchor>
-            <TooltipAnchor content="Promote this variation one level toward the mainline">
-              <button
-                type="button"
-                className={[
-                  "w-full text-left px-3 py-2 text-sm",
-                  menuCanPromote ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
-                ].join(" ")}
-                disabled={!menuCanPromote}
-                onClick={() => {
-                  onPromoteVariationOneLevel(menu.nodeId);
-                  closeContextMenu();
-                }}
-              >
-                Promote variation
-              </button>
-            </TooltipAnchor>
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
+                menuCanTruncate ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanTruncate}
+              onClick={() => {
+                onTruncateAfterNode(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Delete after here (keep this move)
+            </button>
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm border-b border-gray-800",
+                menuCanTruncateInclusive ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanTruncateInclusive}
+              onClick={() => {
+                onTruncateFromNodeInclusive(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Delete from here (including this move)
+            </button>
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm",
+                menuCanPromote ? "text-gray-200 hover:bg-gray-800/70" : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanPromote}
+              onClick={() => {
+                onPromoteVariationOneLevel(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Promote variation
+            </button>
           </div>
         )}
 
