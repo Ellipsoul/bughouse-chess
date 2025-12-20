@@ -114,6 +114,44 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Board annotations (user-drawn circles/arrows)                               */
+/* -------------------------------------------------------------------------- */
+/**
+ * SVG overlay drawn on top of chessboard.js for user annotations.
+ *
+ * - `pointer-events: none` ensures pieces and squares remain interactive.
+ * - A higher z-index ensures annotations render above pieces.
+ */
+.bh-board-annotation-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.bh-board-annotation-circle {
+  fill: none;
+  stroke: #0F9D58; /* green */
+  /* Stroke width is set on the SVG element (non-scaling stroke). Keep a sane fallback. */
+  stroke-width: 2.5;
+}
+
+.bh-board-annotation-arrow {
+  stroke: #0F9D58; /* green */
+  /* Stroke width is set on the SVG element (non-scaling stroke). Keep a sane fallback. */
+  stroke-width: 4;
+  /* Use `butt` so the stroke doesn't visibly poke through the arrowhead tip. */
+  stroke-linecap: butt;
+}
+
+.bh-board-annotation-arrowhead {
+  fill: #0F9D58;
+}
+
+/* -------------------------------------------------------------------------- */
 /* chessboard.js styling overrides                                             */
 /* -------------------------------------------------------------------------- */
 /**
