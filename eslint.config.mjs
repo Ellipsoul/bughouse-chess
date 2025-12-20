@@ -12,6 +12,38 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["tests/**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        // Vitest globals
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        vi: "readonly",
+        beforeAll: "readonly",
+        beforeEach: "readonly",
+        afterAll: "readonly",
+        afterEach: "readonly",
+      },
+    },
+    rules: {
+      // Allow require() in test setup files for conditional polyfills
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    files: ["cypress/**/*.{ts,tsx}"],
+    rules: {
+      // Cypress requires namespace declarations for type augmentation
+      "@typescript-eslint/no-namespace": "off",
+      // Empty interfaces are used for extending Cypress types
+      "@typescript-eslint/no-empty-object-type": "off",
+    },
+  },
+  {
     files: ["**/*.{ts,tsx,js,jsx}"],
     languageOptions: {
       globals: {

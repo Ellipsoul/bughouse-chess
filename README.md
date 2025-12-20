@@ -116,3 +116,83 @@ Then open `http://localhost:3000`.
 - `npm run start`: run the production server
 - `npm run lint`: TypeScript check + ESLint
 - `npm run format`: ESLint auto-fix
+- `npm run test`: run unit tests (Vitest)
+- `npm run test:watch`: run unit tests in watch mode
+- `npm run test:coverage`: run unit tests with coverage report
+- `npm run cy:component`: open Cypress Component Testing UI
+- `npm run cy:component:run`: run Cypress Component Tests headlessly
+- `npm run fixtures:record`: record chess.com game fixtures for testing
+
+## Testing
+
+This project uses a comprehensive testing strategy with **Vitest** for unit tests and **Cypress Component Testing** for UI component tests.
+
+### Unit Tests (Vitest)
+
+Unit tests cover all deterministic bughouse domain logic:
+
+- **Bughouse move rules engine** (`app/utils/analysis/applyMove.ts`)
+  - Normal moves, drops, promotions, captures
+  - Reserve management and partner board feeding
+  - Turn enforcement and legality validation
+- **Bughouse checkmate detection** (`app/utils/bughouseCheckmate.ts`)
+  - Blockable vs unblockable checkmates
+  - Double-check and knight-check handling
+- **Clock timeline building** (`app/utils/analysis/buildBughouseClockTimeline.ts`)
+  - Two-clock simulation correctness
+  - Non-monotonic timestamp handling
+- **Game data processing** (`app/utils/moveOrdering.ts`)
+  - Player color mapping
+  - Move merging and chronological ordering
+- **Move conversion** (`app/utils/moveConverter.ts`)
+  - Chess.com notation normalization
+- **Analysis state management** (`app/components/useAnalysisState.ts`)
+  - Tree navigation, variations, promotions
+  - Clock anchor logic
+
+Run unit tests:
+```bash
+npm run test              # Run once
+npm run test:watch        # Watch mode
+npm run test:coverage     # With coverage report
+```
+
+Coverage reports are generated in `coverage/` directory. We aim for near-100% coverage on domain logic.
+
+### Component Tests (Cypress)
+
+Component tests verify UI component behavior:
+
+- **PromotionPicker**: promotion selection UI
+- **VariationSelector**: branch selection dialog
+- **MoveTree**: parenthesized variation rendering
+- **MoveListWithVariations**: 4-column move list with variations
+- **PieceReserveVertical**: reserve piece display and interaction
+
+Run component tests:
+```bash
+npm run cy:component        # Open Cypress UI
+npm run cy:component:run    # Run headlessly
+```
+
+### Test Fixtures
+
+Chess.com game data is recorded as fixtures to avoid live API calls during tests. Fixtures are stored in `tests/fixtures/chesscom/`.
+
+To record new fixtures:
+```bash
+npm run fixtures:record
+# Or with specific game IDs:
+tsx scripts/recordChessComFixtures.ts <gameId1> <gameId2> ...
+```
+
+The script automatically finds and records partner games when available.
+
+### Git Hooks (Husky)
+
+Quality gates are enforced via Git hooks:
+
+- **pre-commit**: Runs `lint-staged` to auto-fix linting issues on staged files
+- **pre-push**: Runs full test suite (`lint` + `test` + `cy:component:run`)
+
+These hooks ensure code quality before commits and pushes.

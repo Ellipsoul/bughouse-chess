@@ -30,6 +30,7 @@ export interface VariationSelectorState {
   selectedChildIndex: number;
 }
 
+
 export interface PendingPromotionState {
   board: BughouseBoardId;
   from: Square;
