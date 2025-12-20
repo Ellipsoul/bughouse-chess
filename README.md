@@ -116,11 +116,12 @@ Then open `http://localhost:3000`.
 - `npm run start`: run the production server
 - `npm run lint`: TypeScript check + ESLint
 - `npm run format`: ESLint auto-fix
-- `npm run test`: run unit tests (Vitest)
+- `npm run test`: run unit tests (Vitest) + Cypress component tests
+- `npm run test:unit`: run unit tests once
 - `npm run test:watch`: run unit tests in watch mode
 - `npm run test:coverage`: run unit tests with coverage report
-- `npm run cy:component`: open Cypress Component Testing UI
-- `npm run cy:component:run`: run Cypress Component Tests headlessly
+- `npm run test:component`: run Cypress Component Tests headlessly
+- `npm run test:component:open`: open Cypress Component Testing UI
 - `npm run fixtures:record`: record chess.com game fixtures for testing
 
 ## Testing

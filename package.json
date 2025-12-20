@@ -14,6 +14,10 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:component": "cypress run --component",
     "test:component:open": "cypress open --component",
+    "test:watch": "npm run test:unit:watch",
+    "test:coverage": "npm run test:unit:coverage",
+    "cy:component": "npm run test:component:open",
+    "cy:component:run": "npm run test:component",
     "fixtures:record": "tsx scripts/recordChessComFixtures.ts",
     "prepare": "husky"
   },

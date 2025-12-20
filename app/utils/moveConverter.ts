@@ -7,6 +7,26 @@ export function convertChessComMoveToChessJs(
   move: string,
   chess: Chess,
 ): string | null {
+  /**
+   * We intentionally keep conversion tolerant: callers may feed in imperfect SAN,
+   * wrong-turn moves, or other invalid strings when parsing external sources.
+   *
+   * Logging those failures is useful in development, but it can be extremely
+   * noisy in unit tests (where invalid moves are often exercised deliberately).
+   */
+  const shouldLog = (): boolean =>
+    process.env.NODE_ENV !== "test" && process.env.VITEST !== "true";
+
+  const logConversionError = (message: string): void => {
+    if (!shouldLog()) return;
+    console.error(message);
+  };
+
+  const logConversionWarning = (message: string): void => {
+    if (!shouldLog()) return;
+    console.warn(message);
+  };
+
   // Handle castling moves
   if (move === "O-O" || move === "0-0") return "O-O";
   if (move === "O-O-O" || move === "0-0-0") return "O-O-O";
@@ -23,7 +43,7 @@ export function convertChessComMoveToChessJs(
     }
   } catch (e) {
     // Continue with conversion attempts
-    console.error(
+    logConversionError(
       `Error converting move: ${move} in position ${chess.fen()} with error ${e}`,
     );
   }
@@ -85,7 +105,7 @@ export function convertChessComMoveToChessJs(
         }
       } catch (e) {
         // Continue trying other conversions
-        console.error(
+        logConversionError(
           `Error converting move: ${convertedMove} in position ${chess.fen()} with error ${e}`,
         );
       }
@@ -108,7 +128,9 @@ export function convertChessComMoveToChessJs(
     }
   }
 
-  console.warn(`Could not convert move: ${move} in position ${chess.fen()}`);
+  logConversionWarning(
+    `Could not convert move: ${move} in position ${chess.fen()}`,
+  );
   return null;
 }
 
@@ -119,6 +141,9 @@ export function validateAndConvertMove(
   move: string,
   chess: Chess,
 ): string | null {
+  const shouldLog = (): boolean =>
+    process.env.NODE_ENV !== "test" && process.env.VITEST !== "true";
+
   // First try the move as-is
   try {
     const result = chess.move(move);
@@ -128,9 +153,11 @@ export function validateAndConvertMove(
     }
   } catch (e) {
     // Try conversion
-    console.error(
-      `Error validating and converting move: ${move} in position ${chess.fen()} with error ${e}`,
-    );
+    if (shouldLog()) {
+      console.error(
+        `Error validating and converting move: ${move} in position ${chess.fen()} with error ${e}`,
+      );
+    }
     return convertChessComMoveToChessJs(move, chess);
   }
 

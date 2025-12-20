@@ -1,4 +1,25 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+set -e
 
-npm run lint && npm run test
+npm run lint
+npm run test:unit
+
+# Cypress (component tests) requires a separate, OS-specific binary download that
+# lives in the user's Cypress cache directory (not in `node_modules/`).
+#
+# When that binary is missing/corrupted, `cypress run` tends to fail with a
+# low-signal "MODULE_NOT_FOUND" stack trace. We fail early with clear guidance.
+if ! npx --no-install cypress verify >/dev/null 2>&1; then
+  echo ""
+  echo "Cypress binary is missing or corrupted."
+  echo ""
+  echo "Fix:"
+  echo "  npx cypress cache clear"
+  echo "  npx cypress install"
+  echo ""
+  echo "Then re-run:"
+  echo "  npm run test:component"
+  echo ""
+  exit 1
+fi
+
+npm run test:component
