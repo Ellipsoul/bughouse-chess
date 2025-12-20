@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js";
 import {
   ChevronLeft,
-  FlipVertical,
+  RefreshCcw,
   SkipBack,
   SkipForward,
   StepBack,
@@ -1037,7 +1037,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 aria-label="Flip boards"
                 type="button"
               >
-                <FlipVertical aria-hidden className="h-5 w-5" />
+                <RefreshCcw aria-hidden className="h-5 w-5" />
               </button>
             </TooltipAnchor>
           </div>

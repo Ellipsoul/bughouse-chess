@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlipVertical, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
+import { RefreshCcw, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import ChessBoard from "./ChessBoard";
 import MoveList from "./MoveList";
 import PieceReserveVertical from "./PieceReserveVertical";
@@ -414,7 +414,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
                 aria-label="Flip boards"
                 type="button"
               >
-                <FlipVertical aria-hidden className="h-5 w-5" />
+                <RefreshCcw aria-hidden className="h-5 w-5" />
               </button>
             </TooltipAnchor>
           </div>
