@@ -101,11 +101,11 @@ body {
 
 /* Last-move highlight (persistent, even when not dragging) */
 .bh-last-move-from-square {
-  box-shadow: inset 0 0 0 3px rgba(14, 165, 233, 0.55); /* dark sky */
+  box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.55); /* dark sky */
 }
 
 .bh-last-move-to-square {
-  box-shadow: inset 0 0 0 3px rgba(14, 165, 233, 0.9); /* strong dark sky */
+  box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.9); /* strong dark sky */
 }
 
 /* When a reserve piece is armed for placement, show pointer across squares */
