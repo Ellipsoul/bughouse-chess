@@ -65,6 +65,18 @@ function sanitizeChessComGameIdInput(input: string): string {
 }
 
 /**
+ * Validates that a game ID matches the expected Chess.com format.
+ * All Chess.com game IDs are exactly 12-digit numeric values.
+ *
+ * @param gameId - The game ID string to validate
+ * @returns `true` if the game ID is valid, `false` otherwise
+ */
+function isValidChessComGameId(gameId: string): boolean {
+  // Chess.com game IDs must be exactly 12 digits
+  return /^\d{12}$/.test(gameId);
+}
+
+/**
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
  */
 export default function GameViewerPage() {
@@ -168,6 +180,11 @@ export default function GameViewerPage() {
 
       if (!trimmedId) {
         toast.error("Game ID is required");
+        return;
+      }
+
+      if (!isValidChessComGameId(trimmedId)) {
+        toast.error("Invalid game ID. Chess.com game IDs must be exactly 12 digits.");
         return;
       }
 
