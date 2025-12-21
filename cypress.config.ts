@@ -9,6 +9,15 @@ export default defineConfig({
       bundler: "vite",
       viteConfig: {
         plugins: [react()],
+        /**
+         * Cypress Component Testing uses Vite under the hood, which by default reads
+         * `.env.local` from the project root. In sandboxed CI environments that file
+         * can be unreadable (gitignored / permissioned).
+         *
+         * Point Vite at a repo-owned env directory so the test runner never touches
+         * developer-local secrets.
+         */
+        envDir: path.resolve(__dirname, "./tests/env"),
         resolve: {
           alias: {
             "@": path.resolve(__dirname, "./app"),

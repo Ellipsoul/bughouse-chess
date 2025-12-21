@@ -27,6 +27,11 @@ import {
 } from "./GameLoadCounterBadge";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 import { getRandomSampleGameId } from "../utils/sampleGameIds";
+import ConfirmLoadNewGameModal from "./ConfirmLoadNewGameModal";
+import {
+  setSkipLoadGameOverrideConfirm,
+  shouldSkipLoadGameOverrideConfirm,
+} from "../utils/loadGameOverrideConfirmPreference";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -100,6 +105,12 @@ type PrefetchedGameLoad =
     }
   | { status: "error"; sanitizedId: string; message: string };
 
+type PendingLoadGameRequest = {
+  sanitizedId: string;
+  clearInput: boolean;
+  existingLabel: string;
+};
+
 function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: string }): string {
   const { err, sanitizedId } = params;
 
@@ -158,6 +169,9 @@ export default function GameViewerPage() {
   const [prefetched, setPrefetched] = useState<PrefetchedGameLoad>({ status: "idle" });
   const prefetchSeqRef = useRef(0);
   const prefetchDebounceTimeoutRef = useRef<number | null>(null);
+  const [pendingLoadRequest, setPendingLoadRequest] = useState<PendingLoadGameRequest | null>(
+    null,
+  );
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -213,35 +227,8 @@ export default function GameViewerPage() {
     toast.success("Game URL copied to clipboard!");
   }, [SHARE_BASE_URL, copyToClipboard, loadedGameId]);
 
-  /**
-   * Fetches the primary game (and partner game when available) then updates UI state.
-   */
-  const loadGame = useCallback(
-    async (
-      requestedGameId: string,
-      options: { skipConfirm?: boolean; clearInput?: boolean } = {},
-    ) => {
-      const { skipConfirm = false, clearInput = true } = options;
-      const trimmedId = sanitizeChessComGameIdInput(requestedGameId);
-
-      if (!trimmedId) {
-        toast.error("Game ID is required");
-        return;
-      }
-
-      if (!isValidChessComGameId(trimmedId)) {
-        toast.error("Invalid game ID. Chess.com game IDs must be exactly 12 digits.");
-        return;
-      }
-
-      if (!skipConfirm && (analysisIsDirty || loadedGameId)) {
-        const existingLabel = loadedGameId ? `Game ${loadedGameId}` : "Your current analysis";
-        const shouldLoadNewGame = window.confirm(
-          `${existingLabel} is already loaded/modified.\n\nLoading game ${trimmedId} will replace all existing moves, variations, and position state.\n\nDo you want to continue?`,
-        );
-        if (!shouldLoadNewGame) return;
-      }
-
+  const performLoadGame = useCallback(
+    (trimmedId: string, clearInput: boolean) => {
       startTransition(() => {
         const prefetchedReadyForId =
           prefetched.status === "ready" && prefetched.sanitizedId === trimmedId
@@ -299,8 +286,74 @@ export default function GameViewerPage() {
           });
       });
     },
-    [analysisIsDirty, loadedGameId, prefetched, startTransition],
+    [prefetched, startTransition],
   );
+
+  /**
+   * Fetches the primary game (and partner game when available) then updates UI state.
+   */
+  const loadGame = useCallback(
+    async (
+      requestedGameId: string,
+      options: { skipConfirm?: boolean; clearInput?: boolean } = {},
+    ) => {
+      const { skipConfirm = false, clearInput = true } = options;
+      const trimmedId = sanitizeChessComGameIdInput(requestedGameId);
+
+      if (!trimmedId) {
+        toast.error("Game ID is required");
+        return;
+      }
+
+      if (!isValidChessComGameId(trimmedId)) {
+        toast.error("Invalid game ID. Chess.com game IDs must be exactly 12 digits.");
+        return;
+      }
+
+      const existingLabel = loadedGameId ? `Game ${loadedGameId}` : "Your current analysis";
+
+      const userHasOptedOut = (() => {
+        if (typeof window === "undefined") return false;
+        try {
+          return shouldSkipLoadGameOverrideConfirm(window.localStorage);
+        } catch {
+          // If localStorage is unavailable (privacy mode / denied access), fall back to showing.
+          return false;
+        }
+      })();
+
+      if (!skipConfirm && (analysisIsDirty || loadedGameId) && !userHasOptedOut) {
+        setPendingLoadRequest({ sanitizedId: trimmedId, clearInput, existingLabel });
+        return;
+      }
+
+      performLoadGame(trimmedId, clearInput);
+    },
+    [analysisIsDirty, loadedGameId, performLoadGame],
+  );
+
+  const handleConfirmLoadNewGame = useCallback(
+    ({ dontShowAgain }: { dontShowAgain: boolean }) => {
+      const req = pendingLoadRequest;
+      if (!req) return;
+
+      if (dontShowAgain && typeof window !== "undefined") {
+        try {
+          setSkipLoadGameOverrideConfirm(window.localStorage, true);
+        } catch {
+          // If storage fails, still proceed with load; we just won't persist the preference.
+        }
+      }
+
+      setPendingLoadRequest(null);
+      performLoadGame(req.sanitizedId, req.clearInput);
+    },
+    [pendingLoadRequest, performLoadGame],
+  );
+
+  const handleCancelLoadNewGame = useCallback(() => {
+    setPendingLoadRequest(null);
+  }, []);
 
   useEffect(() => {
     // Cleanup any pending debounce timer on unmount.
@@ -426,6 +479,15 @@ export default function GameViewerPage() {
 
   return (
     <div className="h-full bg-gray-900 flex flex-col overflow-hidden">
+      {pendingLoadRequest ? (
+        <ConfirmLoadNewGameModal
+          open={true}
+          existingLabel={pendingLoadRequest.existingLabel}
+          newGameId={pendingLoadRequest.sanitizedId}
+          onConfirm={handleConfirmLoadNewGame}
+          onCancel={handleCancelLoadNewGame}
+        />
+      ) : null}
       {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
       <header className="relative w-full bg-gray-800 border-b border-gray-700 py-3 shadow-md">
         <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-8">

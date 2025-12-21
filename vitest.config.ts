@@ -10,6 +10,17 @@ import react from "@vitejs/plugin-react";
  */
 export default defineConfig({
   plugins: [react()],
+  /**
+   * In CI / sandboxed environments, `.env.local` is often gitignored and may be
+   * unreadable to tooling (even though it exists on a developer machine).
+   *
+   * Point Vitest's underlying Vite config at a repo-owned env dir to keep tests
+   * deterministic and avoid accidental dependency on local secrets.
+   */
+  envDir:
+    process.env.VITEST === "true"
+      ? fileURLToPath(new URL("./tests/env", import.meta.url))
+      : undefined,
   resolve: {
     // Keep TS path alias parity with `tsconfig.json`'s "@/*": ["./*"].
     alias: {
