@@ -492,7 +492,14 @@ export default function GameViewerPage() {
       <header className="relative w-full bg-gray-800 border-b border-gray-700 py-3 shadow-md">
         <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <Link href="https://bughouse.aronteh.com/" aria-label="Go to home page">
+            <Link
+              href="/"
+              aria-label="Go to home page"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/";
+              }}
+            >
               <Image
                 src="/logo.png"
                 alt="Bughouse Chess logo"
