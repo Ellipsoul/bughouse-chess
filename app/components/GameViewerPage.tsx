@@ -89,6 +89,36 @@ function buildNoGameFoundMessage(gameId: string): string {
   return `No game found with ID ${gameId}. The game may not exist or may still be in progress.`;
 }
 
+type PrefetchedGameLoad =
+  | { status: "idle" }
+  | { status: "invalid"; sanitizedId: string; message: string }
+  | { status: "loading"; sanitizedId: string }
+  | {
+      status: "ready";
+      sanitizedId: string;
+      data: { original: ChessGame; partner: ChessGame | null; partnerId: string | null };
+    }
+  | { status: "error"; sanitizedId: string; message: string };
+
+function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: string }): string {
+  const { err, sanitizedId } = params;
+
+  if (!(err instanceof Error)) return "Failed to load game";
+
+  // Next.js can surface server-action failures as opaque server-component errors.
+  // In practice, the most common user-visible cause is "game not found / not ready yet".
+  const message = err.message;
+  if (
+    message.includes("Server Component") ||
+    message.includes("server component") ||
+    message.includes("use server")
+  ) {
+    return buildNoGameFoundMessage(sanitizedId);
+  }
+
+  return message;
+}
+
 /**
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
  */
@@ -125,6 +155,9 @@ export default function GameViewerPage() {
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
   const analytics = useFirebaseAnalytics();
+  const [prefetched, setPrefetched] = useState<PrefetchedGameLoad>({ status: "idle" });
+  const prefetchSeqRef = useRef(0);
+  const prefetchDebounceTimeoutRef = useRef<number | null>(null);
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -210,28 +243,35 @@ export default function GameViewerPage() {
       }
 
       startTransition(() => {
-        const loadPromise = (async () => {
-          const originalGame = await fetchChessGame(trimmedId);
-          if (!originalGame) {
-            // Throw on the client (not from the server action) to avoid opaque Next.js
-            // server-component errors surfacing in toasts.
-            throw new Error(buildNoGameFoundMessage(trimmedId));
-          }
+        const prefetchedReadyForId =
+          prefetched.status === "ready" && prefetched.sanitizedId === trimmedId
+            ? prefetched.data
+            : null;
 
-          const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
-          if (nonBughouseError) {
-            throw new Error(nonBughouseError);
-          }
+        const loadPromise = prefetchedReadyForId
+          ? Promise.resolve(prefetchedReadyForId)
+          : (async () => {
+              const originalGame = await fetchChessGame(trimmedId);
+              if (!originalGame) {
+                // Throw on the client (not from the server action) to avoid opaque Next.js
+                // server-component errors surfacing in toasts.
+                throw new Error(buildNoGameFoundMessage(trimmedId));
+              }
 
-          const partnerId = await findPartnerGameId(trimmedId);
-          const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
+              const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
+              if (nonBughouseError) {
+                throw new Error(nonBughouseError);
+              }
 
-          return {
-            original: originalGame,
-            partner: partnerGame,
-            partnerId,
-          };
-        })();
+              const partnerId = await findPartnerGameId(trimmedId);
+              const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
+
+              return {
+                original: originalGame,
+                partner: partnerGame,
+                partnerId,
+              };
+            })();
 
         toast.promise(loadPromise, {
           loading: `Loading game ${trimmedId}...`,
@@ -240,20 +280,7 @@ export default function GameViewerPage() {
               ? `Successfully loaded game ${trimmedId} with partner game ${data.partnerId}`
               : `Successfully loaded game ${trimmedId}`,
           error: (err: unknown) => {
-            // Handle Next.js server component errors (which can occur when server actions fail)
-            if (err instanceof Error) {
-              const errorMessage = err.message;
-              if (
-                errorMessage.includes("Server Component") ||
-                errorMessage.includes("server component") ||
-                errorMessage.includes("use server")
-              ) {
-                // If this happens, we still prefer a friendly user-facing message.
-                return buildNoGameFoundMessage(trimmedId);
-              }
-              return err.message;
-            }
-            return "Failed to load game";
+            return normalizeLoadGameErrorMessage({ err, sanitizedId: trimmedId });
           },
         });
 
@@ -261,28 +288,28 @@ export default function GameViewerPage() {
           .then((data) => {
             setGameData(data);
             setGameId(clearInput ? "" : trimmedId);
+            if (clearInput) {
+              setPrefetched({ status: "idle" });
+            }
           })
           .catch((err: unknown) => {
             // `toast.promise` already displays the error; avoid rendering an inline banner
             // that would shift the board layout.
-            // Handle Next.js server component errors (which can occur when server actions fail)
-            if (err instanceof Error) {
-              const errorMessage = err.message;
-              if (
-                errorMessage.includes("Server Component") ||
-                errorMessage.includes("server component") ||
-                errorMessage.includes("use server")
-              ) {
-                toast.error(buildNoGameFoundMessage(trimmedId));
-                return;
-              }
-            }
-            toast.error(err instanceof Error ? err.message : "An error occurred");
+            toast.error(normalizeLoadGameErrorMessage({ err, sanitizedId: trimmedId }));
           });
       });
     },
-    [analysisIsDirty, loadedGameId, startTransition],
+    [analysisIsDirty, loadedGameId, prefetched, startTransition],
   );
+
+  useEffect(() => {
+    // Cleanup any pending debounce timer on unmount.
+    return () => {
+      if (prefetchDebounceTimeoutRef.current !== null) {
+        window.clearTimeout(prefetchDebounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!autoLoadGameId) {
@@ -315,6 +342,88 @@ export default function GameViewerPage() {
     await loadGame(gameId);
   };
 
+  const handleGameIdInputChange = (nextValue: string) => {
+    setGameId(nextValue);
+
+    if (prefetchDebounceTimeoutRef.current !== null) {
+      window.clearTimeout(prefetchDebounceTimeoutRef.current);
+      prefetchDebounceTimeoutRef.current = null;
+    }
+    // Invalidate any in-flight prefetch.
+    prefetchSeqRef.current += 1;
+
+    const sanitizedId = sanitizeChessComGameIdInput(nextValue);
+    if (!sanitizedId) {
+      setPrefetched({ status: "idle" });
+      return;
+    }
+
+    if (!isValidChessComGameId(sanitizedId)) {
+      setPrefetched({
+        status: "invalid",
+        sanitizedId,
+        message: "Invalid game ID. Chess.com game IDs must be exactly 12 digits.",
+      });
+      return;
+    }
+
+    // If we already have a result for this exact ID, keep it (avoid refetch loops).
+    if (
+      prefetched.status !== "idle" &&
+      "sanitizedId" in prefetched &&
+      prefetched.sanitizedId === sanitizedId
+    ) {
+      return;
+    }
+
+    const seq = ++prefetchSeqRef.current;
+    const debounceMs = 200;
+    setPrefetched({ status: "loading", sanitizedId });
+
+    prefetchDebounceTimeoutRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const originalGame = await fetchChessGame(sanitizedId);
+          if (seq !== prefetchSeqRef.current) return;
+
+          if (!originalGame) {
+            setPrefetched({
+              status: "error",
+              sanitizedId,
+              message: buildNoGameFoundMessage(sanitizedId),
+            });
+            return;
+          }
+
+          const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
+          if (nonBughouseError) {
+            setPrefetched({ status: "error", sanitizedId, message: nonBughouseError });
+            return;
+          }
+
+          const partnerId = await findPartnerGameId(sanitizedId);
+          if (seq !== prefetchSeqRef.current) return;
+
+          const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
+          if (seq !== prefetchSeqRef.current) return;
+
+          setPrefetched({
+            status: "ready",
+            sanitizedId,
+            data: { original: originalGame, partner: partnerGame, partnerId },
+          });
+        } catch (err: unknown) {
+          if (seq !== prefetchSeqRef.current) return;
+          setPrefetched({
+            status: "error",
+            sanitizedId,
+            message: normalizeLoadGameErrorMessage({ err, sanitizedId }),
+          });
+        }
+      })();
+    }, debounceMs);
+  };
+
   return (
     <div className="h-full bg-gray-900 flex flex-col overflow-hidden">
       {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
@@ -332,22 +441,25 @@ export default function GameViewerPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 max-w-lg">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={gameId}
-                onChange={(e) => setGameId(e.target.value)}
-                placeholder="Enter chess.com Game ID or URL"
-                className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
-                disabled={isPending}
-              />
-              <button
-                type="submit"
-                disabled={isPending || !gameId}
-                className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium hover:bg-mariner-400 hover:border-mariner-300 cursor-pointer disabled:bg-gray-700 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
-              >
-                {isPending ? "Loading..." : "Load Game"}
-              </button>
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={gameId}
+                  onChange={(e) => handleGameIdInputChange(e.target.value)}
+                  placeholder="Enter chess.com Game ID or URL"
+                  className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
+                  disabled={isPending}
+                />
+                <button
+                  type="submit"
+                  disabled={isPending || !gameId}
+                  className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium hover:bg-mariner-400 hover:border-mariner-300 cursor-pointer disabled:bg-gray-700 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                >
+                  {isPending ? "Loading..." : "Load Game"}
+                </button>
+              </div>
+
             </div>
           </form>
 
