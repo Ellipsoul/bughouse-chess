@@ -611,7 +611,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       return (
         <div
-          className="flex items-center justify-between w-full px-3 text-lg lg:text-xl font-bold text-white tracking-wide"
+          className="flex items-center justify-between w-full px-3 text-base lg:text-xl font-bold text-white tracking-wide"
           style={{ width: boardSize }}
         >
         <div className="flex items-center gap-2 min-w-0">
