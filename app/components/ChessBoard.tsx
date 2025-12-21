@@ -983,19 +983,38 @@ export default function ChessBoard(
                */}
               {(() => {
                 const squareSize = annotationGeometry?.squareSize ?? 12.5;
-                // A slightly larger head hides the line end cleanly and looks closer to common chess UIs.
-                // Tune these multipliers to adjust arrowhead proportions.
-                // Slightly slimmer than before while remaining easy to see.
-                const headLength = Math.max(2, squareSize * 0.40);
-                const headWidth = Math.max(1.8, squareSize * 0.28);
                 /**
-                 * Pull the line endpoint back *under* the arrowhead fill so anti-aliasing
-                 * never reveals a tiny stroke segment past the tip.
+                 * Arrowhead Mathematics:
                  *
-                 * Note: `markerUnits="userSpaceOnUse"` means these values are in the SVG
-                 * viewBox coordinate space (0..100), not px.
+                 * The arrowhead is an SVG marker (a reusable shape) that attaches to the end of arrow lines.
+                 * All dimensions are in SVG viewBox coordinates (0..100), not pixels, because we use
+                 * `markerUnits="userSpaceOnUse"`. This means the arrowhead scales proportionally with
+                 * the board size.
+                 *
+                 * Key parameters:
+                 * 1. `headLength`: The distance from the base (where it attaches to the line) to the tip.
+                 *    Calculated as a fraction of squareSize so it scales with board size.
+                 * 2. `headWidth`: The width of the arrowhead at its base (perpendicular to the line).
+                 *    Also scaled by squareSize for proportional sizing.
+                 * 3. `overlap`: How far the arrowhead extends backward along the line to hide the line endpoint.
+                 *    This prevents anti-aliasing artifacts where the line might peek past the arrowhead tip.
+                 *
+                 * The arrowhead path (`d`) creates a triangle:
+                 * - Starts at (0, 0) - the tip of the arrow
+                 * - Goes to (headLength, refY) - the right base point
+                 * - Goes to (0, headWidth) - the left base point
+                 * - Closes back to (0, 0) with 'Z'
+                 *
+                 * The `refX` and `refY` define the attachment point:
+                 * - `refX`: Distance from the tip along the arrow's axis where the line attaches
+                 * - `refY`: Vertical offset (half the width) to center the attachment point
+                 *
+                 * By setting `refX = headLength - overlap`, we pull the line endpoint backward so it
+                 * terminates under the arrowhead fill, ensuring a clean visual connection.
                  */
-                const overlap = Math.max(1.2, squareSize * 0.14);
+                const headLength = Math.max(2, squareSize * 0.35);
+                const headWidth = Math.max(1.8, squareSize * 0.24);
+                const overlap = Math.max(1.2, squareSize * 0.12);
                 const refX = Math.max(0, headLength - overlap);
                 const refY = headWidth / 2;
                 const d = `M0,0 L${headLength},${refY} L0,${headWidth} Z`;
