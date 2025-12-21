@@ -68,6 +68,15 @@ into a single timeline, and gives you an interactive two-board analysis UI with
 - **lucide-react** for icons.
 - **react-hot-toast** for notifications.
 
+### Firebase (Firestore metrics)
+
+This project uses **Firestore** (via **Firebase Admin SDK**) to store a simple
+global metric: **how many games have been loaded**.
+
+- The browser **does not** talk to Firestore directly.
+- The app calls a server endpoint (`/api/metrics/game-load`) which
+  increments/reads a counter stored at Firestore document `metrics/global`.
+
 ### Chess / bughouse domain logic
 
 - **chess.js** for rules, legal move validation, check/checkmate detection, and
@@ -100,6 +109,25 @@ into a single timeline, and gives you an interactive two-board analysis UI with
 
 - Node.js + npm
 
+### Firebase / Firestore setup (local + production)
+
+1. Create a Firebase project
+2. Enable Firestore (Native mode)
+3. Create a **Service Account** (Project settings → Service accounts) and copy
+   the JSON credentials.
+4. Set these environment variables (recommended in `.env.local` for local dev):
+
+```bash
+FIREBASE_PROJECT_ID="your-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com"
+
+# Important: keep the quotes and use \\n for newlines
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+```
+
+Security recommendation: you can keep Firestore security rules fully locked down
+(deny all). The server uses Firebase Admin SDK and bypasses rules.
+
 ### Run locally
 
 ```bash
@@ -126,7 +154,8 @@ Then open `http://localhost:3000`.
 
 ## Testing
 
-This project uses a comprehensive testing strategy with **Vitest** for unit tests and **Cypress Component Testing** for UI component tests.
+This project uses a comprehensive testing strategy with **Vitest** for unit
+tests and **Cypress Component Testing** for UI component tests.
 
 ### Unit Tests (Vitest)
 
@@ -139,7 +168,8 @@ Unit tests cover all deterministic bughouse domain logic:
 - **Bughouse checkmate detection** (`app/utils/bughouseCheckmate.ts`)
   - Blockable vs unblockable checkmates
   - Double-check and knight-check handling
-- **Clock timeline building** (`app/utils/analysis/buildBughouseClockTimeline.ts`)
+- **Clock timeline building**
+  (`app/utils/analysis/buildBughouseClockTimeline.ts`)
   - Two-clock simulation correctness
   - Non-monotonic timestamp handling
 - **Game data processing** (`app/utils/moveOrdering.ts`)
@@ -152,13 +182,15 @@ Unit tests cover all deterministic bughouse domain logic:
   - Clock anchor logic
 
 Run unit tests:
+
 ```bash
 npm run test              # Run once
 npm run test:watch        # Watch mode
 npm run test:coverage     # With coverage report
 ```
 
-Coverage reports are generated in `coverage/` directory. We aim for near-100% coverage on domain logic.
+Coverage reports are generated in `coverage/` directory. We aim for near-100%
+coverage on domain logic.
 
 ### Component Tests (Cypress)
 
@@ -171,6 +203,7 @@ Component tests verify UI component behavior:
 - **PieceReserveVertical**: reserve piece display and interaction
 
 Run component tests:
+
 ```bash
 npm run cy:component        # Open Cypress UI
 npm run cy:component:run    # Run headlessly
@@ -178,9 +211,11 @@ npm run cy:component:run    # Run headlessly
 
 ### Test Fixtures
 
-Chess.com game data is recorded as fixtures to avoid live API calls during tests. Fixtures are stored in `tests/fixtures/chesscom/`.
+Chess.com game data is recorded as fixtures to avoid live API calls during
+tests. Fixtures are stored in `tests/fixtures/chesscom/`.
 
 To record new fixtures:
+
 ```bash
 npm run fixtures:record
 # Or with specific game IDs:
