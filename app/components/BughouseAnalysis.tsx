@@ -45,6 +45,16 @@ interface BughouseAnalysisProps {
   } | null;
   isLoading?: boolean;
   /**
+   * Pre-formatted “games analysed” label (e.g. `Games Analysed: 1,234`).
+   * Owned by the page shell so we don't duplicate metric fetches.
+   */
+  gamesLoadedLabel?: string;
+  /**
+   * When true, renders the games-analysed counter inline in the move list footer
+   * (instead of as a floating overlay badge).
+   */
+  showGamesLoadedInline?: boolean;
+  /**
    * Notifies the parent whether the analysis tree has any moves/variations.
    * Used to warn before overwriting analysis by loading another game.
    */
@@ -71,9 +81,13 @@ const PLACEHOLDER_PLAYERS: {
 const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   gameData,
   isLoading,
+  gamesLoadedLabel,
+  showGamesLoadedInline,
   onAnalysisDirtyChange,
 }) => {
+  const analysisContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
+  const controlsContainerRef = useRef<HTMLDivElement>(null);
   const {
     state,
     currentPosition,
@@ -134,23 +148,70 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const MIN_BOARD_SIZE = 260;
   const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
   const GAP_PX = 16; // Tailwind `gap-4`
+  const NAME_BLOCK = 44; // player bar height (px, derived from styling)
+  const COLUMN_PADDING = 12; // board column vertical padding (px, derived from styling)
+  const BH_DESKTOP_MIN_WIDTH_PX = 1400;
   const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
 
   useEffect(() => {
-    const container = boardsContainerRef.current;
-    if (!container) return;
+    const boardsContainer = boardsContainerRef.current;
+    if (!boardsContainer) return;
 
     const computeBoardSize = () => {
+      // Width-driven cap (always): reserve | boardA | boardB | reserve => 3 gaps
       const availableWidth =
-        container.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
-      const candidate = Math.floor(availableWidth / 2);
-      const nextSize = Math.max(MIN_BOARD_SIZE, Math.min(DEFAULT_BOARD_SIZE, candidate));
+        boardsContainer.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
+      const widthCandidate = Math.floor(availableWidth / 2);
+
+      // Height-driven cap (stacked/tablet only): ensure we leave a reasonable amount of room
+      // for the move list so the page doesn't need to scroll.
+      let heightCap = DEFAULT_BOARD_SIZE;
+      const isDesktop =
+        typeof window !== "undefined" &&
+        window.matchMedia(`(min-width: ${BH_DESKTOP_MIN_WIDTH_PX}px)`).matches;
+
+      if (!isDesktop) {
+        const containerHeight = analysisContainerRef.current?.clientHeight ?? 0;
+        const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
+
+        // Gap between boards and controls in the left column (`gap-4`).
+        const GAP_BOARDS_CONTROLS_PX = 16;
+        // Gap between the (stacked) sections: left column then move list (`gap-6`).
+        const GAP_SECTIONS_PX = 24;
+        // Keep enough move list height to be usable even on shorter tablet viewports.
+        const MIN_MOVELIST_HEIGHT_PX = 220;
+
+        if (containerHeight > 0) {
+          const availablePlayAreaHeight =
+            containerHeight -
+            controlsHeight -
+            GAP_BOARDS_CONTROLS_PX -
+            GAP_SECTIONS_PX -
+            MIN_MOVELIST_HEIGHT_PX;
+
+          const maxBoardSizeFromHeight =
+            availablePlayAreaHeight - NAME_BLOCK * 2 - COLUMN_PADDING * 2;
+
+          if (Number.isFinite(maxBoardSizeFromHeight)) {
+            heightCap = Math.floor(maxBoardSizeFromHeight);
+          }
+        }
+      }
+
+      const capped = Math.min(widthCandidate, heightCap);
+      const nextSize = Math.max(MIN_BOARD_SIZE, Math.min(DEFAULT_BOARD_SIZE, capped));
       setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
     };
 
     computeBoardSize();
     const resizeObserver = new ResizeObserver(() => computeBoardSize());
-    resizeObserver.observe(container);
+    resizeObserver.observe(boardsContainer);
+    if (analysisContainerRef.current) {
+      resizeObserver.observe(analysisContainerRef.current);
+    }
+    if (controlsContainerRef.current) {
+      resizeObserver.observe(controlsContainerRef.current);
+    }
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -189,6 +250,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     if (expectedMainlineMoveCount <= 0) return null;
     if (mainlineMoveCount !== expectedMainlineMoveCount) return null;
 
+    const shouldShowGamesLoadedInline = Boolean(showGamesLoadedInline && gamesLoadedLabel);
+
     return (
       <div className="px-3 py-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -199,14 +262,34 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             Source: Board {summary.sourceBoard}
           </div>
         </div>
-        <div className="mt-1 text-sm text-gray-100">
-          <span className="font-semibold">{summary.result}</span>
-          <span className="text-gray-400"> — </span>
-          <span className="text-gray-200">{summary.reason}</span>
+        <div className="mt-1 flex items-baseline justify-between gap-3">
+          <div className="text-sm text-gray-100">
+            <span className="font-semibold">{summary.result}</span>
+            <span className="text-gray-400"> — </span>
+            <span className="text-gray-200">{summary.reason}</span>
+          </div>
+          {shouldShowGamesLoadedInline ? (
+            <div className="text-[9px] text-gray-500 leading-tight shrink-0">
+              <span className="font-mono tabular-nums">{gamesLoadedLabel}</span>
+            </div>
+          ) : null}
         </div>
       </div>
     );
-  }, [gameData, mainlineMoveCount, processedGame]);
+  }, [gameData, gamesLoadedLabel, mainlineMoveCount, processedGame, showGamesLoadedInline]);
+
+  const moveListFooter = useMemo(() => {
+    if (gameConclusionFooter) return gameConclusionFooter;
+    if (!showGamesLoadedInline || !gamesLoadedLabel) return null;
+
+    return (
+      <div className="px-3 py-2">
+        <div className="flex items-center justify-end text-right text-[9px] text-gray-500 leading-tight">
+          <span className="font-mono tabular-nums">{gamesLoadedLabel}</span>
+        </div>
+      </div>
+    );
+  }, [gameConclusionFooter, gamesLoadedLabel, showGamesLoadedInline]);
 
   /**
    * The chess.com `moveList` parsing yields “SAN-ish” strings (often including source squares,
@@ -385,8 +468,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
     "transition-colors";
 
-  const NAME_BLOCK = 44;
-  const COLUMN_PADDING = 12;
   const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
   const reserveHeight = playAreaHeight;
   const controlsWidth = boardSize * 2 + RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3;
@@ -530,7 +611,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       return (
         <div
-          className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
+          className="flex items-center justify-between w-full px-3 text-lg lg:text-xl font-bold text-white tracking-wide"
           style={{ width: boardSize }}
         >
         <div className="flex items-center gap-2 min-w-0">
@@ -539,7 +620,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               {player.username}
             </span>
             {typeof player.rating === "number" && Number.isFinite(player.rating) && (
-              <span className="shrink-0 text-sm font-semibold text-white/60">
+              <span className="shrink-0 text-xs lg:text-sm font-semibold text-white/60">
                 ({Math.round(player.rating)})
               </span>
             )}
@@ -554,7 +635,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         {shouldRenderClocks && typeof clockValue === "number" ? (
           <span
             className={[
-              "font-mono text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
+              "font-mono text-base lg:text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
               options.clocksFrozen
                 ? "bg-gray-950/40"
                 : "bg-transparent",
@@ -829,10 +910,23 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   );
 
   return (
-    <div className="w-full mx-auto">
-      <div className="flex justify-center gap-6 items-start">
+    <div
+      ref={analysisContainerRef}
+      className="w-full mx-auto h-full min-h-0 min-w-0 flex overflow-hidden min-[1400px]:h-auto"
+      style={
+        {
+          /**
+           * CSS var used to align the move list height with the board play area in desktop mode.
+           * We use a variable (instead of inline `height`) so responsive classes can override
+           * height in stacked/tablet mode.
+           */
+          ["--bh-play-area-height" as never]: `${playAreaHeight}px`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="flex flex-1 min-h-0 min-w-0 flex-col min-[1400px]:flex-row justify-center gap-6 items-center min-[1400px]:items-start">
         {/* Left Column: Boards + Controls */}
-        <div className="flex flex-col items-center gap-4 grow min-w-0 relative">
+        <div className="flex flex-col items-center gap-4 min-w-0 relative w-full min-[1400px]:w-auto min-[1400px]:grow">
           {state.pendingPromotion && (
             <PromotionPicker
               board={state.pendingPromotion.board}
@@ -867,7 +961,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Boards Container with Reserves */}
           <div
             ref={boardsContainerRef}
-            className="flex gap-4 justify-center items-stretch min-w-0"
+            className="flex w-full gap-4 justify-center items-stretch min-w-0"
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
@@ -1017,6 +1111,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
           {/* Board Controls */}
           <div
+            ref={controlsContainerRef}
             className="relative flex items-center justify-center"
             style={{ width: controlsWidth }}
           >
@@ -1085,8 +1180,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
         {/* Right Column: Move list placeholder (MoveTree lands next) */}
         <div
-          className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px]"
-          style={{ height: playAreaHeight }}
+          className={[
+            // Stacked / tablet: full width under the boards, and consume remaining height.
+            "w-full flex-1 min-h-0 min-w-0 overflow-x-hidden",
+            // Desktop: fixed right column, height aligned to board play area.
+            "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-[var(--bh-play-area-height)]",
+          ].join(" ")}
         >
           <MoveListWithVariations
             tree={state.tree}
@@ -1095,7 +1194,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             players={players}
             combinedMoves={combinedMovesForMoveTimes}
             combinedMoveDurations={combinedMoveDurationsForMoveTimes}
-            footer={gameConclusionFooter}
+            footer={moveListFooter}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}

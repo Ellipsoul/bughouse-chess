@@ -16,7 +16,26 @@ import BughouseAnalysis from "./BughouseAnalysis";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import Link from "next/link";
 import { Share } from "lucide-react";
-import { GameLoadCounterBadge } from "./GameLoadCounterBadge";
+import {
+  GameLoadCounterFloating,
+  useGameLoadCounterLabel,
+} from "./GameLoadCounterBadge";
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
 
 /**
  * Sanitizes a "game id" input value that may be either a raw chess.com game id
@@ -72,6 +91,8 @@ export default function GameViewerPage() {
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
+  const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
+  const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -214,8 +235,8 @@ export default function GameViewerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      <GameLoadCounterBadge loadedGameId={loadedGameId} />
+    <div className="h-full bg-gray-900 flex flex-col overflow-hidden">
+      {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
       <header className="relative w-full bg-gray-800 border-b border-gray-700 py-3 shadow-md">
         <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
@@ -297,12 +318,16 @@ export default function GameViewerPage() {
         </Link>
       </header>
 
-      <main className="flex w-full flex-1">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-center px-4 py-4 sm:px-6 lg:px-8">
+      {/* Main content region: keep the page itself non-scrolling by constraining overflow here.
+          The move list(s) inside the analysis UI remain independently scrollable. */}
+      <main className="flex w-full flex-1 overflow-hidden">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 py-4 sm:px-6 lg:px-8">
           <BughouseAnalysis
             gameData={gameData}
             isLoading={isPending}
             onAnalysisDirtyChange={setAnalysisIsDirty}
+            gamesLoadedLabel={gamesLoadedLabel}
+            showGamesLoadedInline={!isDesktopLayout}
           />
         </div>
       </main>

@@ -58,11 +58,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${firaCode.variable}`}
+      className={`h-full ${inter.variable} ${playfair.variable} ${firaCode.variable}`}
     >
-      <body className="min-h-screen antialiased">
+      {/* Hard clamp the app to the viewport: the document should never scroll.
+          Scrollable regions (like the move list) handle their own overflow. */}
+      <body className="h-[100dvh] overflow-hidden antialiased">
         <Providers>
-          <main className="w-full min-h-screen">{children}</main>
+          <main className="w-full h-full overflow-hidden">{children}</main>
         </Providers>
         <Analytics />
       </body>

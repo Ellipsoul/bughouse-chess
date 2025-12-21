@@ -19,11 +19,12 @@ type MetricsResponse = {
  * - This component intentionally does *not* talk to Firestore directly; it only
  *   uses our server route (`/api/metrics/game-load`).
  */
-export function GameLoadCounterBadge({
-  loadedGameId,
-}: {
-  loadedGameId?: string | null;
-}) {
+export function useGameLoadCounterLabel(loadedGameId?: string | null): {
+  gamesLoaded: number | null;
+  isLoading: boolean;
+  hasError: boolean;
+  label: string;
+} {
   const [gamesLoaded, setGamesLoaded] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -96,6 +97,10 @@ export function GameLoadCounterBadge({
     })();
   }, [loadedGameId]);
 
+  return { gamesLoaded, isLoading, hasError, label };
+}
+
+export function GameLoadCounterFloating({ label }: { label: string }) {
   return (
     <div className="fixed bottom-3 right-3 z-50 select-none">
       <div className="rounded-md bg-gray-900/85 px-3 py-2 text-xs text-gray-200 shadow-lg backdrop-blur">
@@ -103,6 +108,30 @@ export function GameLoadCounterBadge({
       </div>
     </div>
   );
+}
+
+export function GameLoadCounterInline({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span className={["font-mono tabular-nums", className ?? ""].join(" ").trim()}>
+      {label}
+    </span>
+  );
+}
+
+export function GameLoadCounterBadge({
+  loadedGameId,
+}: {
+  loadedGameId?: string | null;
+}) {
+  const { label } = useGameLoadCounterLabel(loadedGameId);
+
+  return <GameLoadCounterFloating label={label} />;
 }
 
 

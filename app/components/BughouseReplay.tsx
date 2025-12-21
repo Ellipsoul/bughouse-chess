@@ -31,7 +31,9 @@ interface BughouseReplayProps {
  * reserves, clocks, and move navigation.
  */
 const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
+  const replayContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
+  const controlsContainerRef = useRef<HTMLDivElement>(null);
 
   // Create the replay controller
   const replayController = useMemo(() => {
@@ -97,23 +99,59 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   const MIN_BOARD_SIZE = 260;
   const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
   const GAP_PX = 16; // Tailwind `gap-4`
+  const NAME_BLOCK = 44; // player bar height (px, derived from styling)
+  const COLUMN_PADDING = 12; // board column vertical padding (px, derived from styling)
+  const BH_DESKTOP_MIN_WIDTH_PX = 1400;
 
   const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
 
   useEffect(() => {
-    const container = boardsContainerRef.current;
-    if (!container) return;
+    const boardsContainer = boardsContainerRef.current;
+    if (!boardsContainer) return;
 
     const computeBoardSize = () => {
-      // children: reserve | boardA | boardB | reserve => 3 gaps
+      // Width-driven cap (always): reserve | boardA | boardB | reserve => 3 gaps
       const availableWidth =
-        container.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
+        boardsContainer.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
+      const widthCandidate = Math.floor(availableWidth / 2);
 
-      const candidate = Math.floor(availableWidth / 2);
-      const nextSize = Math.max(
-        MIN_BOARD_SIZE,
-        Math.min(DEFAULT_BOARD_SIZE, candidate)
-      );
+      // Height-driven cap (stacked/tablet only): ensure we leave a reasonable amount of room
+      // for the move list so the page doesn't need to scroll.
+      let heightCap = DEFAULT_BOARD_SIZE;
+      const isDesktop =
+        typeof window !== "undefined" &&
+        window.matchMedia(`(min-width: ${BH_DESKTOP_MIN_WIDTH_PX}px)`).matches;
+
+      if (!isDesktop) {
+        const containerHeight = replayContainerRef.current?.clientHeight ?? 0;
+        const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
+
+        // Gap between boards and controls in the left column (`gap-4`).
+        const GAP_BOARDS_CONTROLS_PX = 16;
+        // Gap between the (stacked) sections: left column then move list (`gap-6`).
+        const GAP_SECTIONS_PX = 24;
+        // Keep enough move list height to be usable even on shorter tablet viewports.
+        const MIN_MOVELIST_HEIGHT_PX = 220;
+
+        if (containerHeight > 0) {
+          const availablePlayAreaHeight =
+            containerHeight -
+            controlsHeight -
+            GAP_BOARDS_CONTROLS_PX -
+            GAP_SECTIONS_PX -
+            MIN_MOVELIST_HEIGHT_PX;
+
+          const maxBoardSizeFromHeight =
+            availablePlayAreaHeight - NAME_BLOCK * 2 - COLUMN_PADDING * 2;
+
+          if (Number.isFinite(maxBoardSizeFromHeight)) {
+            heightCap = Math.floor(maxBoardSizeFromHeight);
+          }
+        }
+      }
+
+      const capped = Math.min(widthCandidate, heightCap);
+      const nextSize = Math.max(MIN_BOARD_SIZE, Math.min(DEFAULT_BOARD_SIZE, capped));
 
       setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
     };
@@ -121,7 +159,13 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     computeBoardSize();
 
     const resizeObserver = new ResizeObserver(() => computeBoardSize());
-    resizeObserver.observe(container);
+    resizeObserver.observe(boardsContainer);
+    if (replayContainerRef.current) {
+      resizeObserver.observe(replayContainerRef.current);
+    }
+    if (controlsContainerRef.current) {
+      resizeObserver.observe(controlsContainerRef.current);
+    }
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -205,8 +249,6 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
     "transition-colors";
 
   // Derive a consistent column height (board + two name blocks + small padding/gaps).
-  const NAME_BLOCK = 44;
-  const COLUMN_PADDING = 12;
   const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
   const reserveHeight = playAreaHeight;
   const controlsWidth =
@@ -242,7 +284,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
       return (
       <div
-        className="flex items-center justify-between w-full px-3 text-xl font-bold text-white tracking-wide"
+        className="flex items-center justify-between w-full px-3 text-lg lg:text-xl font-bold text-white tracking-wide"
         style={{ width: boardSize }}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -257,14 +299,14 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             {player.username}
           </span>
           {formatElo(player.rating) && (
-            <span className="shrink-0 text-sm font-semibold text-white/60">
+            <span className="shrink-0 text-xs lg:text-sm font-semibold text-white/60">
               ({formatElo(player.rating)})
             </span>
           )}
         </div>
         <span
           className={[
-            "font-mono text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
+            "font-mono text-base lg:text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
             tint ?? neutral,
           ].join(" ")}
         >
@@ -277,14 +319,27 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
   );
 
   return (
-    <div className="w-full mx-auto">
-      <div className="flex justify-center gap-6 items-start">
+    <div
+      ref={replayContainerRef}
+      className="w-full mx-auto h-full min-h-0 min-w-0 flex overflow-hidden min-[1400px]:h-auto"
+      style={
+        {
+          /**
+           * CSS var used to align the move list height with the board play area in desktop mode.
+           * We use a variable (instead of inline `height`) so responsive classes can override
+           * height in stacked/tablet mode.
+           */
+          ["--bh-play-area-height" as never]: `${playAreaHeight}px`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="flex flex-1 min-h-0 min-w-0 flex-col min-[1400px]:flex-row justify-center gap-6 items-center min-[1400px]:items-start">
         {/* Left Column: Boards + Controls */}
-        <div className="flex flex-col items-center gap-4 grow min-w-0">
+        <div className="flex flex-col items-center gap-4 min-w-0 w-full min-[1400px]:w-auto min-[1400px]:grow">
           {/* Boards Container with Reserves */}
           <div
             ref={boardsContainerRef}
-            className="flex gap-4 justify-center items-stretch min-w-0"
+            className="flex w-full gap-4 justify-center items-stretch min-w-0"
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
@@ -392,6 +447,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
           {/* Board Controls (centered under boards) */}
           <div
+            ref={controlsContainerRef}
             className="relative flex items-center justify-center"
             style={{ width: controlsWidth }}
           >
@@ -460,8 +516,12 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
 
         {/* Right Column: Move List (slightly narrower to give boards more space) */}
         <div
-          className="shrink-0 w-[320px] md:w-[340px] lg:w-[360px]"
-          style={{ height: playAreaHeight }}
+          className={[
+            // Stacked / tablet: full width under the boards, and consume remaining height.
+            "w-full flex-1 min-h-0 min-w-0 overflow-x-hidden",
+            // Desktop: fixed right column, height aligned to board play area.
+            "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-[var(--bh-play-area-height)]",
+          ].join(" ")}
         >
           <MoveList
             moves={replayController.getCombinedMoves()}
