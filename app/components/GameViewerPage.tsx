@@ -20,6 +20,7 @@ import BughouseAnalysis from "./BughouseAnalysis";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import Link from "next/link";
 import { Share } from "lucide-react";
+import { getNonBughouseGameErrorMessage } from "../utils/chesscomGameValidation";
 import {
   GameLoadCounterFloating,
   useGameLoadCounterLabel,
@@ -216,6 +217,12 @@ export default function GameViewerPage() {
             // server-component errors surfacing in toasts.
             throw new Error(buildNoGameFoundMessage(trimmedId));
           }
+
+          const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
+          if (nonBughouseError) {
+            throw new Error(nonBughouseError);
+          }
+
           const partnerId = await findPartnerGameId(trimmedId);
           const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
 
