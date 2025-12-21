@@ -1,19 +1,39 @@
 "use client";
 
 import { Toaster } from "react-hot-toast";
-import React from "react";
+import React, { useEffect } from "react";
 import { Tooltip } from "react-tooltip";
 import { APP_TOOLTIP_ID } from "./utils/tooltips";
+import { getFirebaseAnalytics } from "./utils/firebaseClient";
 
 /**
  * Top-level client providers. Currently hosts the toast system so all pages
  * can trigger notifications.
+ *
+ * Also initializes Firebase Analytics on the client side.
  */
 export default function Providers({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Initialize Firebase Analytics on mount
+  useEffect(() => {
+    // Initialize Analytics asynchronously (non-blocking)
+    void (async () => {
+      try {
+        await getFirebaseAnalytics();
+        // Analytics is now initialized and ready to use throughout the app
+      } catch (error) {
+        // Silently fail if Analytics is not configured or not supported
+        // This prevents errors from breaking the app if Firebase is not set up
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Firebase Analytics initialization failed:", error);
+        }
+      }
+    })();
+  }, []);
+
   return (
     <>
       <Toaster

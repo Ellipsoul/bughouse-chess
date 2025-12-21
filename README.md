@@ -68,7 +68,7 @@ into a single timeline, and gives you an interactive two-board analysis UI with
 - **lucide-react** for icons.
 - **react-hot-toast** for notifications.
 
-### Firebase (Firestore metrics)
+### Firebase (Firestore metrics + Analytics)
 
 This project uses **Firestore** (via **Firebase Admin SDK**) to store a simple
 global metric: **how many games have been loaded**.
@@ -76,6 +76,14 @@ global metric: **how many games have been loaded**.
 - The browser **does not** talk to Firestore directly.
 - The app calls a server endpoint (`/api/metrics/game-load`) which
   increments/reads a counter stored at Firestore document `metrics/global`.
+
+This project also uses **Firebase Analytics** (via **Firebase Web SDK**) to track
+user interactions:
+
+- **Load Game button clicks**: tracked with event `load_game_button_click`
+- Firebase Analytics has built-in throttling to prevent excessive event logging
+- Analytics is initialized automatically on the client side and gracefully handles
+  cases where it's not configured or not supported
 
 ### Chess / bughouse domain logic
 
@@ -113,9 +121,13 @@ global metric: **how many games have been loaded**.
 
 1. Create a Firebase project
 2. Enable Firestore (Native mode)
-3. Create a **Service Account** (Project settings → Service accounts) and copy
+3. Enable **Firebase Analytics** for your web app (Project settings → Integrations → Google Analytics)
+4. Create a **Service Account** (Project settings → Service accounts) and copy
    the JSON credentials.
-4. Set these environment variables (recommended in `.env.local` for local dev):
+5. Register your web app in Firebase Console (Project settings → General → Your apps → Add app → Web)
+6. Set these environment variables (recommended in `.env.local` for local dev):
+
+**Server-side (Firestore Admin SDK):**
 
 ```bash
 FIREBASE_PROJECT_ID="your-project-id"
@@ -124,6 +136,23 @@ FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccou
 # Important: keep the quotes and use \\n for newlines
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
 ```
+
+**Client-side (Firebase Analytics):**
+
+All client-side variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser.
+These values can be found in your Firebase Console under Project Settings → General → Your apps → Web app config:
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789012"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:123456789012:web:abcdef123456"
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"  # Required for Analytics
+```
+
+The `measurementId` (also called `measurement_id` in some Firebase docs) is automatically created when you enable Analytics for your web app. It typically starts with `G-`.
 
 Security recommendation: you can keep Firestore security rules fully locked down
 (deny all). The server uses Firebase Admin SDK and bypasses rules.

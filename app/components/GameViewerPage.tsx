@@ -20,6 +20,7 @@ import {
   GameLoadCounterFloating,
   useGameLoadCounterLabel,
 } from "./GameLoadCounterBadge";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -93,6 +94,7 @@ export default function GameViewerPage() {
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
+  const analytics = useFirebaseAnalytics();
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -231,6 +233,13 @@ export default function GameViewerPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+
+    // Log analytics event for Load Game button click
+    // Firebase Analytics has built-in throttling to prevent excessive event logging
+    logAnalyticsEvent(analytics, "load_game_button_click", {
+      game_id_input: gameId.trim() || "empty",
+    });
+
     await loadGame(gameId);
   };
 
