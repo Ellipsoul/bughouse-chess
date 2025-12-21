@@ -21,6 +21,7 @@ import {
   useGameLoadCounterLabel,
 } from "./GameLoadCounterBadge";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+import { getRandomSampleGameId } from "../utils/sampleGameIds";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -70,7 +71,11 @@ export default function GameViewerPage() {
   const searchParams = useSearchParams();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
   const autoLoadGameId = queryGameId?.trim();
-  const defaultSampleGameId = "160064848971";
+  /**
+   * Randomly select a sample game ID from available fixtures to provide variety
+   * for users visiting without a specific game ID.
+   */
+  const defaultSampleGameId = getRandomSampleGameId();
   const shouldSeedWithSample = !autoLoadGameId;
 
   /**
