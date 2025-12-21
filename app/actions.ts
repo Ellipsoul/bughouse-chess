@@ -87,10 +87,19 @@ export interface ChessGame {
 /**
  * Fetches a single chess.com live game payload by ID.
  * @param gameId - Chess.com live game identifier (numeric string).
- * @throws Error when the id is missing or the request fails.
- * @returns Parsed game response JSON.
+ * @throws Error when the id is missing or the request fails for unexpected reasons.
+ * @returns Parsed game response JSON, or `null` when Chess.com reports the game is not available.
+ *
+ * Note:
+ * Chess.com commonly returns HTTP 404 for:
+ * - non-existent game IDs
+ * - games still in progress (results/PGN not yet retrievable)
+ *
+ * We treat that as a normal "not found" outcome (return `null`) so the client can
+ * present a clean, user-friendly message without tripping Next.js server-action
+ * error serialization quirks.
  */
-export async function fetchChessGame(gameId: string): Promise<ChessGame> {
+export async function fetchChessGame(gameId: string): Promise<ChessGame | null> {
   if (!gameId) {
     throw new Error("Game ID is required");
   }
@@ -104,6 +113,11 @@ export async function fetchChessGame(gameId: string): Promise<ChessGame> {
         },
       },
     );
+
+    // Chess.com uses 404 for "not found" and often "not ready yet".
+    if (response.status === 404) {
+      return null;
+    }
 
     if (!response.ok) {
       throw new Error("Failed to fetch game data");
@@ -129,6 +143,7 @@ export async function findPartnerGameId(
   try {
     // Fetch the original game
     const originalGame = await fetchChessGame(originalGameId);
+    if (!originalGame) return null;
 
     // Directly use the partner game ID if available
     if (originalGame?.game?.partnerGameId) {

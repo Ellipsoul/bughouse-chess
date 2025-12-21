@@ -11,7 +11,11 @@ import {
   type FormEvent,
 } from "react";
 import toast from "react-hot-toast";
-import { ChessGame, fetchChessGame, findPartnerGameId } from "../actions";
+import {
+  ChessGame,
+  fetchChessGame,
+  findPartnerGameId,
+} from "../actions";
 import BughouseAnalysis from "./BughouseAnalysis";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import Link from "next/link";
@@ -74,6 +78,14 @@ function sanitizeChessComGameIdInput(input: string): string {
 function isValidChessComGameId(gameId: string): boolean {
   // Chess.com game IDs must be exactly 12 digits
   return /^\d{12}$/.test(gameId);
+}
+
+/**
+ * Human-friendly message for the "game not available" case.
+ * This happens for non-existent IDs and for games that are still in progress.
+ */
+function buildNoGameFoundMessage(gameId: string): string {
+  return `No game found with ID ${gameId}. The game may not exist or may still be in progress.`;
 }
 
 /**
@@ -199,6 +211,11 @@ export default function GameViewerPage() {
       startTransition(() => {
         const loadPromise = (async () => {
           const originalGame = await fetchChessGame(trimmedId);
+          if (!originalGame) {
+            // Throw on the client (not from the server action) to avoid opaque Next.js
+            // server-component errors surfacing in toasts.
+            throw new Error(buildNoGameFoundMessage(trimmedId));
+          }
           const partnerId = await findPartnerGameId(trimmedId);
           const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
 
@@ -215,8 +232,22 @@ export default function GameViewerPage() {
             data.partnerId
               ? `Successfully loaded game ${trimmedId} with partner game ${data.partnerId}`
               : `Successfully loaded game ${trimmedId}`,
-          error: (err: unknown) =>
-            err instanceof Error ? err.message : "Failed to load game",
+          error: (err: unknown) => {
+            // Handle Next.js server component errors (which can occur when server actions fail)
+            if (err instanceof Error) {
+              const errorMessage = err.message;
+              if (
+                errorMessage.includes("Server Component") ||
+                errorMessage.includes("server component") ||
+                errorMessage.includes("use server")
+              ) {
+                // If this happens, we still prefer a friendly user-facing message.
+                return buildNoGameFoundMessage(trimmedId);
+              }
+              return err.message;
+            }
+            return "Failed to load game";
+          },
         });
 
         loadPromise
@@ -227,6 +258,18 @@ export default function GameViewerPage() {
           .catch((err: unknown) => {
             // `toast.promise` already displays the error; avoid rendering an inline banner
             // that would shift the board layout.
+            // Handle Next.js server component errors (which can occur when server actions fail)
+            if (err instanceof Error) {
+              const errorMessage = err.message;
+              if (
+                errorMessage.includes("Server Component") ||
+                errorMessage.includes("server component") ||
+                errorMessage.includes("use server")
+              ) {
+                toast.error(buildNoGameFoundMessage(trimmedId));
+                return;
+              }
+            }
             toast.error(err instanceof Error ? err.message : "An error occurred");
           });
       });
