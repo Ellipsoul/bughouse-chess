@@ -1184,7 +1184,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             // Stacked / tablet: full width under the boards, and consume remaining height.
             "w-full flex-1 min-h-0 min-w-0 overflow-x-hidden",
             // Desktop: fixed right column, height aligned to board play area.
-            "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-[var(--bh-play-area-height)]",
+            "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-(--bh-play-area-height)",
           ].join(" ")}
         >
           <MoveListWithVariations
