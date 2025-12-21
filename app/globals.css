@@ -8,7 +8,7 @@
    * Default color for user-drawn board annotations (arrows, arrowheads, circles).
    * Kept as a single source of truth so tweaking the annotation theme is a one-line change.
    */
-  --bh-board-annotation-color: #34A853; /* light green */
+  --bh-board-annotation-color: rgb(52, 168, 83, 0.95); /* light green */
 }
 
 @theme inline {
