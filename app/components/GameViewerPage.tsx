@@ -167,8 +167,10 @@ export default function GameViewerPage() {
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
   const analytics = useFirebaseAnalytics();
   const [prefetched, setPrefetched] = useState<PrefetchedGameLoad>({ status: "idle" });
+  const prefetchedRef = useRef(prefetched);
   const prefetchSeqRef = useRef(0);
   const prefetchDebounceTimeoutRef = useRef<number | null>(null);
+  const didPrefetchSeededSampleRef = useRef(false);
   const [pendingLoadRequest, setPendingLoadRequest] = useState<PendingLoadGameRequest | null>(
     null,
   );
@@ -355,6 +357,105 @@ export default function GameViewerPage() {
     setPendingLoadRequest(null);
   }, []);
 
+  const schedulePrefetchForRawInput = useCallback((rawInput: string) => {
+      if (typeof window === "undefined") return;
+
+      if (prefetchDebounceTimeoutRef.current !== null) {
+        window.clearTimeout(prefetchDebounceTimeoutRef.current);
+        prefetchDebounceTimeoutRef.current = null;
+      }
+      // Invalidate any in-flight prefetch.
+      prefetchSeqRef.current += 1;
+
+      const sanitizedId = sanitizeChessComGameIdInput(rawInput);
+      if (!sanitizedId) {
+        setPrefetched({ status: "idle" });
+        return;
+      }
+
+      if (!isValidChessComGameId(sanitizedId)) {
+        setPrefetched({
+          status: "invalid",
+          sanitizedId,
+          message: "Invalid game ID. Chess.com game IDs must be exactly 12 digits.",
+        });
+        return;
+      }
+
+      // If we already have a result for this exact ID, keep it (avoid refetch loops).
+      const existing = prefetchedRef.current;
+      if (existing.status !== "idle" && "sanitizedId" in existing && existing.sanitizedId === sanitizedId) {
+        return;
+      }
+
+      const seq = ++prefetchSeqRef.current;
+      const debounceMs = 200;
+      setPrefetched({ status: "loading", sanitizedId });
+
+      prefetchDebounceTimeoutRef.current = window.setTimeout(() => {
+        void (async () => {
+          try {
+            const originalGame = await fetchChessGame(sanitizedId);
+            if (seq !== prefetchSeqRef.current) return;
+
+            if (!originalGame) {
+              setPrefetched({
+                status: "error",
+                sanitizedId,
+                message: buildNoGameFoundMessage(sanitizedId),
+              });
+              return;
+            }
+
+            const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
+            if (nonBughouseError) {
+              setPrefetched({ status: "error", sanitizedId, message: nonBughouseError });
+              return;
+            }
+
+            const partnerId = await findPartnerGameId(sanitizedId);
+            if (seq !== prefetchSeqRef.current) return;
+
+            const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
+            if (seq !== prefetchSeqRef.current) return;
+
+            setPrefetched({
+              status: "ready",
+              sanitizedId,
+              data: { original: originalGame, partner: partnerGame, partnerId },
+            });
+          } catch (err: unknown) {
+            if (seq !== prefetchSeqRef.current) return;
+            setPrefetched({
+              status: "error",
+              sanitizedId,
+              message: normalizeLoadGameErrorMessage({ err, sanitizedId }),
+            });
+          }
+        })();
+      }, debounceMs);
+    }, []);
+
+  useEffect(() => {
+    // Bonus: also prefetch the seeded sample game ID on initial load.
+    if (!shouldSeedWithSample) return;
+    if (didPrefetchSeededSampleRef.current) return;
+    if (!gameId) return;
+
+    didPrefetchSeededSampleRef.current = true;
+    const timeoutId = window.setTimeout(() => {
+      schedulePrefetchForRawInput(gameId);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [gameId, schedulePrefetchForRawInput, shouldSeedWithSample]);
+
+  useEffect(() => {
+    prefetchedRef.current = prefetched;
+  }, [prefetched]);
+
   useEffect(() => {
     // Cleanup any pending debounce timer on unmount.
     return () => {
@@ -397,84 +498,7 @@ export default function GameViewerPage() {
 
   const handleGameIdInputChange = (nextValue: string) => {
     setGameId(nextValue);
-
-    if (prefetchDebounceTimeoutRef.current !== null) {
-      window.clearTimeout(prefetchDebounceTimeoutRef.current);
-      prefetchDebounceTimeoutRef.current = null;
-    }
-    // Invalidate any in-flight prefetch.
-    prefetchSeqRef.current += 1;
-
-    const sanitizedId = sanitizeChessComGameIdInput(nextValue);
-    if (!sanitizedId) {
-      setPrefetched({ status: "idle" });
-      return;
-    }
-
-    if (!isValidChessComGameId(sanitizedId)) {
-      setPrefetched({
-        status: "invalid",
-        sanitizedId,
-        message: "Invalid game ID. Chess.com game IDs must be exactly 12 digits.",
-      });
-      return;
-    }
-
-    // If we already have a result for this exact ID, keep it (avoid refetch loops).
-    if (
-      prefetched.status !== "idle" &&
-      "sanitizedId" in prefetched &&
-      prefetched.sanitizedId === sanitizedId
-    ) {
-      return;
-    }
-
-    const seq = ++prefetchSeqRef.current;
-    const debounceMs = 200;
-    setPrefetched({ status: "loading", sanitizedId });
-
-    prefetchDebounceTimeoutRef.current = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const originalGame = await fetchChessGame(sanitizedId);
-          if (seq !== prefetchSeqRef.current) return;
-
-          if (!originalGame) {
-            setPrefetched({
-              status: "error",
-              sanitizedId,
-              message: buildNoGameFoundMessage(sanitizedId),
-            });
-            return;
-          }
-
-          const nonBughouseError = getNonBughouseGameErrorMessage(originalGame);
-          if (nonBughouseError) {
-            setPrefetched({ status: "error", sanitizedId, message: nonBughouseError });
-            return;
-          }
-
-          const partnerId = await findPartnerGameId(sanitizedId);
-          if (seq !== prefetchSeqRef.current) return;
-
-          const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
-          if (seq !== prefetchSeqRef.current) return;
-
-          setPrefetched({
-            status: "ready",
-            sanitizedId,
-            data: { original: originalGame, partner: partnerGame, partnerId },
-          });
-        } catch (err: unknown) {
-          if (seq !== prefetchSeqRef.current) return;
-          setPrefetched({
-            status: "error",
-            sanitizedId,
-            message: normalizeLoadGameErrorMessage({ err, sanitizedId }),
-          });
-        }
-      })();
-    }, debounceMs);
+    schedulePrefetchForRawInput(nextValue);
   };
 
   return (
