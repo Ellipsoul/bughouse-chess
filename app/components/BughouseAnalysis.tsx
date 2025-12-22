@@ -4,9 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js";
 import {
   ChevronLeft,
+  Pause,
+  Play,
   RefreshCcw,
   SkipBack,
   SkipForward,
+  Square as StopSquare,
   StepBack,
   StepForward,
 } from "lucide-react";
@@ -37,6 +40,12 @@ import {
   setAnnotationsForFen,
   toFenKey,
 } from "../utils/boardAnnotationPersistence";
+import {
+  buildBughouseBoardMoveCountsByGlobalPly,
+  buildMonotonicMoveTimestampsDeciseconds,
+  getBughouseClockSnapshotAtElapsedDeciseconds,
+  isPristineLoadedMainline,
+} from "../utils/analysis/liveReplay";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -223,6 +232,52 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const players = processedGame?.players ?? PLACEHOLDER_PLAYERS;
   const shouldRenderClocks = Boolean(processedGame);
 
+  type LiveReplayStatus = "idle" | "playing" | "finished";
+  const [liveReplayStatus, setLiveReplayStatus] = useState<LiveReplayStatus>("idle");
+  const isLiveReplayPlaying = liveReplayStatus === "playing";
+
+  /**
+   * Live replay “playhead” time in deciseconds, expressed as elapsed time since game start.
+   *
+   * - When not playing, this value is ignored (clocks use the cursor/anchor node instead).
+   * - While playing, we update this at most once per decisecond (10Hz) to keep renders bounded.
+   */
+  const [liveReplayElapsedDeciseconds, setLiveReplayElapsedDeciseconds] = useState(0);
+  const liveReplayRafIdRef = useRef<number | null>(null);
+  const liveReplayStartPerfMsRef = useRef<number | null>(null);
+  const liveReplayBaseElapsedDecisecondsRef = useRef(0);
+  const liveReplayLastEmittedDecisecondsRef = useRef<number>(-1);
+
+  const stopLiveReplayLoop = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const rafId = liveReplayRafIdRef.current;
+    if (typeof rafId === "number") {
+      window.cancelAnimationFrame(rafId);
+    }
+    liveReplayRafIdRef.current = null;
+    liveReplayStartPerfMsRef.current = null;
+    liveReplayLastEmittedDecisecondsRef.current = -1;
+  }, []);
+
+  /**
+   * When dragging a piece on the board (not reserve drops), highlight legal destination squares.
+   *
+   * This is purely a UI affordance: it does not validate or apply moves.
+   *
+   * Note: Declared early because live replay clears this state before playback starts.
+   */
+  const [dragLegalMoveHighlight, setDragLegalMoveHighlight] = useState<{
+    board: "A" | "B";
+    /**
+     * The FEN used to compute legal targets at drag start. If the position changes while
+     * dragging (e.g., navigation), we intentionally suppress the highlight rather than
+     * trying to keep it in sync.
+     */
+    fenAtDragStart: string;
+    from: Square;
+    targets: Square[];
+  } | null>(null);
+
   const mainlineMoveCount = useMemo(() => {
     let count = 0;
     let nodeId: string | null = state.tree.rootId;
@@ -327,9 +382,25 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     return sanitized;
   }, [processedGame]);
 
+  const clockTimelineResult = useMemo(() => {
+    if (!processedGame) return null;
+    return buildBughouseClockTimeline(processedGame);
+  }, [processedGame]);
+
   const combinedMoveDurationsForMoveTimes = useMemo((): number[] | undefined => {
     if (!processedGame?.combinedMoves?.length) return undefined;
-    return buildBughouseClockTimeline(processedGame).moveDurationsByGlobalIndex;
+    // Reuse the same clock model we already computed for on-board clocks.
+    return clockTimelineResult?.moveDurationsByGlobalIndex;
+  }, [clockTimelineResult, processedGame?.combinedMoves?.length]);
+
+  const monotonicMoveTimestampsDeciseconds = useMemo(() => {
+    if (!processedGame) return null;
+    return buildMonotonicMoveTimestampsDeciseconds(processedGame.combinedMoves);
+  }, [processedGame]);
+
+  const boardMoveCountsByGlobalPly = useMemo(() => {
+    if (!processedGame) return null;
+    return buildBughouseBoardMoveCountsByGlobalPly(processedGame.combinedMoves);
   }, [processedGame]);
 
   // Report whether the analysis contains any moves (tree has nodes beyond root).
@@ -375,6 +446,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT");
       if (isTypingTarget) return;
+
+      // Live replay intentionally disables all keyboard navigation so playback cannot be
+      // interrupted by accidental key presses.
+      if (isLiveReplayPlaying) {
+        return;
+      }
 
       // Promotion modal takes precedence over all navigation.
       if (state.pendingPromotion) {
@@ -450,6 +527,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     closeVariationSelector,
     cancelPendingPromotion,
     commitPromotion,
+    isLiveReplayPlaying,
     moveVariationSelectorIndex,
     navBack,
     navForwardOrOpenSelector,
@@ -577,12 +655,237 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const clockSnapshot = useMemo(() => {
     if (!processedGame) return null;
+    if (!clockTimelineResult) return null;
 
-    const { timeline } = buildBughouseClockTimeline(processedGame);
+    if (
+      isLiveReplayPlaying &&
+      monotonicMoveTimestampsDeciseconds &&
+      boardMoveCountsByGlobalPly
+    ) {
+      return getBughouseClockSnapshotAtElapsedDeciseconds({
+        timeline: clockTimelineResult.timeline,
+        monotonicMoveTimestamps: monotonicMoveTimestampsDeciseconds,
+        boardMoveCountsByGlobalPly,
+        elapsedDeciseconds: liveReplayElapsedDeciseconds,
+      });
+    }
+
     const plyCount = getGlobalPlyCountAtNode(effectiveClockNodeId);
-    const clampedIndex = Math.min(Math.max(plyCount, 0), timeline.length - 1);
-    return timeline[clampedIndex];
-  }, [effectiveClockNodeId, getGlobalPlyCountAtNode, processedGame]);
+    const clampedIndex = Math.min(
+      Math.max(plyCount, 0),
+      clockTimelineResult.timeline.length - 1,
+    );
+    return clockTimelineResult.timeline[clampedIndex] ?? null;
+  }, [
+    boardMoveCountsByGlobalPly,
+    clockTimelineResult,
+    effectiveClockNodeId,
+    getGlobalPlyCountAtNode,
+    isLiveReplayPlaying,
+    liveReplayElapsedDeciseconds,
+    monotonicMoveTimestampsDeciseconds,
+    processedGame,
+  ]);
+
+  /**
+   * Precompute the mainline node IDs by ply so live replay can jump in O(1) when time advances.
+   *
+   * - index 0 => root position (before any moves)
+   * - index p => node ID after applying `p` global moves
+   */
+  const mainlineNodeIdsByGlobalPly = useMemo(() => {
+    const ids: string[] = [state.tree.rootId];
+    let nodeId: string | null = state.tree.rootId;
+    while (nodeId) {
+      const nextMainlineId: string | null =
+        state.tree.nodesById[nodeId]?.mainChildId ?? null;
+      if (!nextMainlineId) break;
+      ids.push(nextMainlineId);
+      nodeId = nextMainlineId;
+    }
+    return ids;
+  }, [state.tree.nodesById, state.tree.rootId]);
+
+  const liveReplayEligible = useMemo(() => {
+    if (!processedGame) return false;
+    if (!combinedMovesForMoveTimes) return false;
+    return isPristineLoadedMainline({ tree: state.tree, combinedMoves: combinedMovesForMoveTimes });
+  }, [combinedMovesForMoveTimes, processedGame, state.tree]);
+
+  const isCursorAtEndOfLoadedMainline = useMemo(() => {
+    if (!combinedMovesForMoveTimes) return false;
+    const expectedPlyCount = combinedMovesForMoveTimes.length;
+    const endNodeId = mainlineNodeIdsByGlobalPly[expectedPlyCount];
+    if (!endNodeId) return false;
+    return state.cursorNodeId === endNodeId;
+  }, [combinedMovesForMoveTimes, mainlineNodeIdsByGlobalPly, state.cursorNodeId]);
+
+  /**
+   * When a live replay reaches the end, we enter `liveReplayStatus='finished'` so:
+   * - playback stops automatically
+   * - Play is disabled while the cursor remains at the end position
+   *
+   * If the user then navigates to an earlier move on the pristine mainline, we should allow
+   * replay again. We do this as a **derived lock** rather than mutating state in an effect.
+   */
+  const isLiveReplayFinishedLocked = liveReplayStatus === "finished" && isCursorAtEndOfLoadedMainline;
+
+  const liveReplayPlayDisabledReason = useMemo(() => {
+    if (!processedGame) return "Load a game to enable live replay";
+    if (!combinedMovesForMoveTimes?.length) return "No moves available to replay";
+    if (!liveReplayEligible) return "Mainline has been edited; live replay is only available on the original loaded line";
+    if (!isCursorOnMainline) return "Cursor must be on the mainline to start live replay";
+    if (state.pendingPromotion) return "Resolve the pending promotion first";
+    if (isLiveReplayFinishedLocked) {
+      return "Reached end of game; press Stop or navigate earlier on the mainline to replay again";
+    }
+    return null;
+  }, [
+    combinedMovesForMoveTimes,
+    isCursorOnMainline,
+    isLiveReplayFinishedLocked,
+    liveReplayEligible,
+    processedGame,
+    state.pendingPromotion,
+  ]);
+
+  const canStartLiveReplay = !isLiveReplayPlaying && liveReplayPlayDisabledReason === null;
+
+  const liveReplayPlayButtonTooltip = isLiveReplayPlaying
+    ? "Pause live replay"
+    : liveReplayPlayDisabledReason ?? "Play live replay";
+
+  const liveReplayStopDisabledReason = useMemo(() => {
+    if (!processedGame) return "Load a game to enable Stop";
+    return null;
+  }, [processedGame]);
+
+  const liveReplayStopButtonTooltip = liveReplayStopDisabledReason ?? "Stop live replay (reset to start)";
+
+  const handleLiveReplayPause = useCallback(() => {
+    stopLiveReplayLoop();
+    setLiveReplayStatus("idle");
+  }, [stopLiveReplayLoop]);
+
+  const handleLiveReplayStop = useCallback(() => {
+    stopLiveReplayLoop();
+    setLiveReplayStatus("idle");
+    setLiveReplayElapsedDeciseconds(0);
+    selectNode(state.tree.rootId);
+  }, [selectNode, state.tree.rootId, stopLiveReplayLoop]);
+
+  const handleLiveReplayPlay = useCallback(() => {
+    if (!processedGame) return;
+    if (!combinedMovesForMoveTimes) return;
+    if (!monotonicMoveTimestampsDeciseconds) return;
+    if (!boardMoveCountsByGlobalPly) return;
+    if (!liveReplayEligible) return;
+    if (!isCursorOnMainline) return;
+    if (state.pendingPromotion) return;
+
+    // If a previous loop is still running (shouldn't happen with disabled UI, but be safe),
+    // stop it before starting a new one.
+    stopLiveReplayLoop();
+
+    // Reset transient interaction modes so playback starts from a clean UI state.
+    setPendingDrop(null);
+    setDragLegalMoveHighlight(null);
+    closeVariationSelector();
+
+    const plyAtCursor = getGlobalPlyCountAtNode(state.cursorNodeId);
+    const lastMoveIndex = plyAtCursor - 1;
+    const baseElapsed =
+      lastMoveIndex >= 0 ? monotonicMoveTimestampsDeciseconds[lastMoveIndex] ?? 0 : 0;
+
+    const lastTimestamp =
+      monotonicMoveTimestampsDeciseconds[monotonicMoveTimestampsDeciseconds.length - 1] ?? 0;
+
+    // If the cursor is already at the end-of-game timestamp, treat as finished.
+    if (baseElapsed >= lastTimestamp && monotonicMoveTimestampsDeciseconds.length > 0) {
+      setLiveReplayStatus("finished");
+      setLiveReplayElapsedDeciseconds(lastTimestamp);
+      return;
+    }
+
+    setLiveReplayStatus("playing");
+    setLiveReplayElapsedDeciseconds(baseElapsed);
+
+    liveReplayBaseElapsedDecisecondsRef.current = baseElapsed;
+    liveReplayStartPerfMsRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
+    liveReplayLastEmittedDecisecondsRef.current = baseElapsed;
+
+    const findLastMoveIndexAtOrBeforeElapsed = (elapsedDs: number): number => {
+      const ts = monotonicMoveTimestampsDeciseconds;
+      let lo = 0;
+      let hi = ts.length - 1;
+      let ans = -1;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        const t = ts[mid] ?? 0;
+        if (t <= elapsedDs) {
+          ans = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      return ans;
+    };
+
+    const tick = (nowMs: number) => {
+      const startMs = liveReplayStartPerfMsRef.current;
+      if (startMs === null) return;
+
+      const elapsedSinceStartDs = Math.floor(Math.max(0, nowMs - startMs) / 100);
+      const rawPlayhead = liveReplayBaseElapsedDecisecondsRef.current + elapsedSinceStartDs;
+      const playhead = Math.min(lastTimestamp, rawPlayhead);
+
+      if (playhead !== liveReplayLastEmittedDecisecondsRef.current) {
+        liveReplayLastEmittedDecisecondsRef.current = playhead;
+        setLiveReplayElapsedDeciseconds(playhead);
+
+        const lastIdx = findLastMoveIndexAtOrBeforeElapsed(playhead);
+        const targetPly = lastIdx + 1;
+        const targetNodeId = mainlineNodeIdsByGlobalPly[targetPly];
+        if (targetNodeId && targetNodeId !== state.cursorNodeId) {
+          selectNode(targetNodeId);
+        }
+
+        // If we've reached the final move timestamp, stop playback and enter finished state.
+        if (playhead >= lastTimestamp && lastIdx === monotonicMoveTimestampsDeciseconds.length - 1) {
+          stopLiveReplayLoop();
+          setLiveReplayStatus("finished");
+          return;
+        }
+      }
+
+      liveReplayRafIdRef.current = window.requestAnimationFrame(tick);
+    };
+
+    liveReplayRafIdRef.current = window.requestAnimationFrame(tick);
+  }, [
+    boardMoveCountsByGlobalPly,
+    closeVariationSelector,
+    combinedMovesForMoveTimes,
+    getGlobalPlyCountAtNode,
+    isCursorOnMainline,
+    liveReplayEligible,
+    mainlineNodeIdsByGlobalPly,
+    monotonicMoveTimestampsDeciseconds,
+    processedGame,
+    selectNode,
+    setPendingDrop,
+    state.cursorNodeId,
+    state.pendingPromotion,
+    stopLiveReplayLoop,
+  ]);
+
+  // Cleanup the live replay loop on unmount.
+  useEffect(() => {
+    return () => {
+      stopLiveReplayLoop();
+    };
+  }, [stopLiveReplayLoop]);
 
   const renderPlayerBar = useCallback(
     (
@@ -670,20 +973,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     [currentPosition.fenB, getSideToMove],
   );
 
-  const [dragLegalMoveHighlight, setDragLegalMoveHighlight] = useState<{
-    board: "A" | "B";
-    /**
-     * The FEN used to compute legal targets at drag start. If the position changes while
-     * dragging (e.g., navigation), we intentionally suppress the highlight rather than
-     * trying to keep it in sync.
-     */
-    fenAtDragStart: string;
-    from: Square;
-    targets: Square[];
-  } | null>(null);
-
   const handleDragStart = useCallback(
     (payload: { board: "A" | "B"; source: Square; piece: string }) => {
+      if (isLiveReplayPlaying) {
+        return false;
+      }
       if (state.pendingPromotion) {
         // Promotion choice must be resolved before allowing further moves.
         return false;
@@ -714,7 +1008,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       );
       return true;
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, state.pendingDrop, state.pendingPromotion],
+    [
+      currentPosition.fenA,
+      currentPosition.fenB,
+      getSideToMove,
+      isLiveReplayPlaying,
+      state.pendingDrop,
+      state.pendingPromotion,
+    ],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -725,6 +1026,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     (payload: { board: "A" | "B"; from: Square; to: Square; piece: string }) => {
       // The drag interaction ended (even if the move is rejected / snapback).
       setDragLegalMoveHighlight(null);
+
+      if (isLiveReplayPlaying) {
+        return "snapback";
+      }
 
       const result = tryApplyMove({
         kind: "normal",
@@ -753,11 +1058,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       }
       return "snapback";
     },
-    [tryApplyMove],
+    [isLiveReplayPlaying, tryApplyMove],
   );
 
   const handleSquareClick = useCallback(
     (payload: { board: "A" | "B"; square: Square }) => {
+      if (isLiveReplayPlaying) {
+        return;
+      }
       if (state.pendingPromotion) {
         toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
         return;
@@ -794,7 +1102,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       toast.error(result.message);
     },
-    [state.pendingDrop, state.pendingPromotion, tryApplyMove],
+    [isLiveReplayPlaying, state.pendingDrop, state.pendingPromotion, tryApplyMove],
   );
 
   const handleReservePieceDragStart = useCallback(
@@ -802,6 +1110,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       board: "A" | "B",
       payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" },
     ) => {
+      if (isLiveReplayPlaying) {
+        return false;
+      }
       if (state.pendingPromotion) {
         toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
         return false;
@@ -819,13 +1130,21 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       setPendingDrop({ board, side: payload.color, piece: payload.piece });
       return true;
     },
-    [currentPosition.fenA, currentPosition.fenB, getSideToMove, setPendingDrop, state.pendingPromotion],
+    [
+      currentPosition.fenA,
+      currentPosition.fenB,
+      getSideToMove,
+      isLiveReplayPlaying,
+      setPendingDrop,
+      state.pendingPromotion,
+    ],
   );
 
   const handleReservePieceDragEnd = useCallback(() => {
+    if (isLiveReplayPlaying) return;
     // Clear pending-drop state after drag ends (successful or cancelled).
     setPendingDrop(null);
-  }, [setPendingDrop]);
+  }, [isLiveReplayPlaying, setPendingDrop]);
 
   const handleAttemptReserveDrop = useCallback(
     (payload: {
@@ -834,6 +1153,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       side: "white" | "black";
       piece: "p" | "n" | "b" | "r" | "q";
     }) => {
+      if (isLiveReplayPlaying) {
+        return "snapback";
+      }
       if (state.pendingPromotion) {
         toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
         return "snapback";
@@ -870,6 +1192,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       currentPosition.fenA,
       currentPosition.fenB,
       getSideToMove,
+      isLiveReplayPlaying,
       setPendingDrop,
       state.pendingPromotion,
       tryApplyMove,
@@ -878,6 +1201,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const handleReservePieceClick = useCallback(
     (board: "A" | "B", payload: { color: "white" | "black"; piece: "p" | "n" | "b" | "r" | "q" }) => {
+      if (isLiveReplayPlaying) {
+        return;
+      }
       if (state.pendingPromotion) {
         toast("Choose a promotion piece first", { id: "promotion-pending", duration: 1400 });
         return;
@@ -903,6 +1229,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       currentPosition.fenA,
       currentPosition.fenB,
       getSideToMove,
+      isLiveReplayPlaying,
       setPendingDrop,
       state.pendingDrop,
       state.pendingPromotion,
@@ -971,6 +1298,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 blackReserves={currentPosition.reserves.A.black}
                 bottomColor={isBoardsFlipped ? "black" : "white"}
                 height={reserveHeight}
+                disabled={isLiveReplayPlaying}
                 onPieceClick={(payload) => handleReservePieceClick("A", payload)}
                 onPieceDragStart={(payload) => handleReservePieceDragStart("A", payload)}
                 onPieceDragEnd={handleReservePieceDragEnd}
@@ -1018,7 +1346,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                     ? dragLegalMoveHighlight.targets
                     : []
                 }
-                draggable
+                draggable={!isLiveReplayPlaying}
+                interactionsEnabled={!isLiveReplayPlaying}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onAttemptMove={handleAttemptMove}
@@ -1072,7 +1401,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                     ? dragLegalMoveHighlight.targets
                     : []
                 }
-                draggable
+                draggable={!isLiveReplayPlaying}
+                interactionsEnabled={!isLiveReplayPlaying}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onAttemptMove={handleAttemptMove}
@@ -1097,6 +1427,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 blackReserves={currentPosition.reserves.B.black}
                 bottomColor={isBoardsFlipped ? "white" : "black"}
                 height={reserveHeight}
+                disabled={isLiveReplayPlaying}
                 onPieceClick={(payload) => handleReservePieceClick("B", payload)}
                 onPieceDragStart={(payload) => handleReservePieceDragStart("B", payload)}
                 onPieceDragEnd={handleReservePieceDragEnd}
@@ -1119,7 +1450,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               <TooltipAnchor content="Jump to start (↑)">
                 <button
                   onClick={handleStart}
-                  disabled={!canGoBack}
+                  disabled={!canGoBack || isLiveReplayPlaying}
                   className={controlButtonBaseClass}
                   aria-label="Jump to start"
                   type="button"
@@ -1130,7 +1461,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               <TooltipAnchor content="Previous move (←)">
                 <button
                   onClick={handlePrevious}
-                  disabled={!canGoBack}
+                  disabled={!canGoBack || isLiveReplayPlaying}
                   className={controlButtonBaseClass}
                   aria-label="Previous move"
                   type="button"
@@ -1138,10 +1469,36 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   <StepBack aria-hidden className="h-5 w-5" />
                 </button>
               </TooltipAnchor>
+              <TooltipAnchor content={liveReplayPlayButtonTooltip}>
+                <button
+                  onClick={isLiveReplayPlaying ? handleLiveReplayPause : handleLiveReplayPlay}
+                  disabled={!isLiveReplayPlaying && !canStartLiveReplay}
+                  className={controlButtonBaseClass}
+                  aria-label={isLiveReplayPlaying ? "Pause live replay" : "Play live replay"}
+                  type="button"
+                >
+                  {isLiveReplayPlaying ? (
+                    <Pause aria-hidden className="h-5 w-5" />
+                  ) : (
+                    <Play aria-hidden className="h-5 w-5" />
+                  )}
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content={liveReplayStopButtonTooltip}>
+                <button
+                  onClick={handleLiveReplayStop}
+                  disabled={Boolean(liveReplayStopDisabledReason)}
+                  className={controlButtonBaseClass}
+                  aria-label="Stop live replay"
+                  type="button"
+                >
+                  <StopSquare aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
               <TooltipAnchor content="Next move (→)">
                 <button
                   onClick={handleNext}
-                  disabled={!canGoForward}
+                  disabled={!canGoForward || isLiveReplayPlaying}
                   className={controlButtonBaseClass}
                   aria-label="Next move"
                   type="button"
@@ -1152,7 +1509,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               <TooltipAnchor content="Jump to end (↓)">
                 <button
                   onClick={handleEnd}
-                  disabled={!canGoForward}
+                  disabled={!canGoForward || isLiveReplayPlaying}
                   className={controlButtonBaseClass}
                   aria-label="Jump to end"
                   type="button"
@@ -1168,6 +1525,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             >
               <button
                 onClick={toggleBoardsFlipped}
+                disabled={isLiveReplayPlaying}
                 className={controlButtonBaseClass}
                 aria-label="Flip boards"
                 type="button"
@@ -1195,6 +1553,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             combinedMoves={combinedMovesForMoveTimes}
             combinedMoveDurations={combinedMoveDurationsForMoveTimes}
             footer={moveListFooter}
+            disabled={isLiveReplayPlaying}
             onSelectNode={selectNode}
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}

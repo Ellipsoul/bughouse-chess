@@ -125,6 +125,15 @@ interface ChessBoardProps {
    * We use this to provide a global pointer cursor on the board for clearer affordance.
    */
   dropCursorActive?: boolean;
+  /**
+   * Master kill-switch for all user interactions on the board (moves, drops, annotations).
+   *
+   * This is used by live replay to guarantee the UI cannot be mutated while playback runs.
+   * Scrolling and rendering are unaffected; we only gate event handlers.
+   *
+   * Defaults to `true`.
+   */
+  interactionsEnabled?: boolean;
 }
 
 type PieceColor = "w" | "b";
@@ -210,6 +219,7 @@ export default function ChessBoard(
     onSquareClick,
     onAttemptReserveDrop,
     dropCursorActive = false,
+    interactionsEnabled = true,
   }: ChessBoardProps,
 ) {
   const boardId = `board-${boardName}`;
@@ -223,6 +233,7 @@ export default function ChessBoard(
   const onAttemptMoveRef = useRef(onAttemptMove);
   const onSquareClickRef = useRef(onSquareClick);
   const onAttemptReserveDropRef = useRef(onAttemptReserveDrop);
+  const interactionsEnabledRef = useRef(interactionsEnabled);
 
   /**
    * Per-board user annotations (circles/arrows).
@@ -291,6 +302,10 @@ export default function ChessBoard(
   }, [onAttemptReserveDrop]);
 
   useEffect(() => {
+    interactionsEnabledRef.current = interactionsEnabled;
+  }, [interactionsEnabled]);
+
+  useEffect(() => {
     // Dynamically load dependencies on the client side
     const initBoard = async () => {
       if (typeof window === "undefined") return;
@@ -323,6 +338,7 @@ export default function ChessBoard(
         showNotation: true,
         draggable,
         onDragStart: (source: string, piece: string) => {
+          if (!interactionsEnabledRef.current) return false;
           const handler = onDragStartRef.current;
           if (!handler) return true;
           return handler({ board: boardName, source: source as Square, piece });
@@ -332,6 +348,7 @@ export default function ChessBoard(
           // We intentionally do this before returning so it runs on snapbacks and no-op drops too.
           onDragEndRef.current?.({ board: boardName });
 
+          if (!interactionsEnabledRef.current) return "snapback";
           const handler = onAttemptMoveRef.current;
           if (!handler) return;
           // chessboard.js calls onDrop even when the user simply clicks a piece
@@ -519,6 +536,7 @@ export default function ChessBoard(
     const onContextMenu = (e: MouseEvent) => {
       // Always disable the browser context menu on the board.
       e.preventDefault();
+      if (!interactionsEnabledRef.current) return;
 
       // If we just handled a right-click via pointer events, do not also toggle here.
       if (Date.now() < suppressContextMenuToggleUntilRef.current) return;
@@ -584,6 +602,7 @@ export default function ChessBoard(
     };
 
     const onPointerDown = (e: PointerEvent) => {
+      if (!interactionsEnabledRef.current) return;
       // Right click OR Ctrl+click (common macOS context-click).
       const isContextClick = e.button === 2 || (e.button === 0 && e.ctrlKey);
       if (!isContextClick) return;
@@ -750,6 +769,7 @@ export default function ChessBoard(
     if (!boardElement) return;
 
     const onClickCapture = (event: MouseEvent) => {
+      if (!interactionsEnabledRef.current) return;
       if (event.button !== 0) return;
 
       const hasAny =
@@ -775,6 +795,7 @@ export default function ChessBoard(
     if (!boardElement) return;
 
     const handler = (event: MouseEvent) => {
+      if (!interactionsEnabledRef.current) return;
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const squareEl = target.closest("[data-square]");
@@ -816,6 +837,7 @@ export default function ChessBoard(
     };
 
     const onDragOver = (event: DragEvent) => {
+      if (!interactionsEnabledRef.current) return;
       const handler = onAttemptReserveDropRef.current;
       if (!handler) return;
       if (!isReserveDrag(event)) return;
@@ -834,6 +856,7 @@ export default function ChessBoard(
     };
 
     const onDrop = (event: DragEvent) => {
+      if (!interactionsEnabledRef.current) return;
       const handler = onAttemptReserveDropRef.current;
       if (!handler) return;
       if (!isReserveDrag(event)) return;

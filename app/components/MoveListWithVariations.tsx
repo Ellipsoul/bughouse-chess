@@ -31,6 +31,13 @@ interface MoveListWithVariationsProps {
    * Optional footer rendered *below* the scrollable move list (e.g. game metadata).
    */
   footer?: React.ReactNode;
+  /**
+   * When true, disables all move-list interactions (selecting nodes, context menus, keyboard
+   * activation). Scrolling remains enabled.
+   *
+   * This is used during live replay to prevent navigation from interrupting playback.
+   */
+  disabled?: boolean;
   onSelectNode: (nodeId: string) => void;
   onPromoteVariationOneLevel: (nodeId: string) => void;
   /**
@@ -77,6 +84,7 @@ export default function MoveListWithVariations({
   combinedMoves,
   combinedMoveDurations,
   footer,
+  disabled = false,
   onSelectNode,
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
@@ -337,10 +345,14 @@ export default function MoveListWithVariations({
           ].join(" ")}
           role="button"
           tabIndex={0}
-          onClick={() => onSelectNode(nodeId)}
+          onClick={() => {
+            if (disabled) return;
+            onSelectNode(nodeId);
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (disabled) return;
             onSelectNode(nodeId);
             setContextMenu({
               open: true,
@@ -350,6 +362,7 @@ export default function MoveListWithVariations({
             });
           }}
           onKeyDown={(e) => {
+            if (disabled) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               onSelectNode(nodeId);
@@ -364,7 +377,7 @@ export default function MoveListWithVariations({
         </span>
       );
     },
-    [cursorNodeId, onSelectNode, selectedNodeId, setActiveElementRef, tree.nodesById],
+    [cursorNodeId, disabled, onSelectNode, selectedNodeId, setActiveElementRef, tree.nodesById],
   );
 
   /**
@@ -801,10 +814,14 @@ export default function MoveListWithVariations({
                 <React.Fragment key={row.nodeId}>
                   <tr
                     ref={isCursor ? setActiveElementRef(row.nodeId) : undefined}
-                    onClick={() => onSelectNode(row.nodeId)}
+                    onClick={() => {
+                      if (disabled) return;
+                      onSelectNode(row.nodeId);
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (disabled) return;
                       onSelectNode(row.nodeId);
                       setContextMenu({
                         open: true,

@@ -10,6 +10,12 @@ interface PieceReserveVerticalProps {
   bottomColor: "white" | "black";
   height?: number;
   /**
+   * When true, disables all interactivity (click + drag).
+   *
+   * This is used during live replay to ensure the reserves cannot be modified.
+   */
+  disabled?: boolean;
+  /**
    * Optional click handler for interactive analysis mode.
    * When provided, reserve pieces become clickable to initiate drops.
    */
@@ -38,6 +44,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   blackReserves,
   bottomColor,
   height = 400,
+  disabled = false,
   onPieceClick,
   selected = null,
   onPieceDragStart,
@@ -91,20 +98,21 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
           className={[
             "relative flex items-center justify-center rounded",
             slot.count > 0 ? "opacity-100" : "opacity-30",
-            onPieceClick && slot.count > 0 ? "cursor-pointer hover:bg-gray-700/50" : "",
+            !disabled && onPieceClick && slot.count > 0 ? "cursor-pointer hover:bg-gray-700/50" : "",
             selected?.color === slot.color && selected?.piece === slot.piece
               ? "ring-2 ring-amber-200/60 bg-gray-700/40"
               : "",
           ].join(" ")}
-          role={onPieceClick && slot.count > 0 ? "button" : undefined}
-          tabIndex={onPieceClick && slot.count > 0 ? 0 : undefined}
+          role={!disabled && onPieceClick && slot.count > 0 ? "button" : undefined}
+          tabIndex={!disabled && onPieceClick && slot.count > 0 ? 0 : undefined}
           aria-label={
-            onPieceClick && slot.count > 0
+            !disabled && onPieceClick && slot.count > 0
               ? `Select ${slot.color} ${slot.piece.toUpperCase()} to drop`
               : undefined
           }
-          draggable={Boolean(onPieceDragStart) && slot.count > 0}
+          draggable={!disabled && Boolean(onPieceDragStart) && slot.count > 0}
           onDragStart={(e) => {
+            if (disabled) return;
             if (!onPieceDragStart || slot.count <= 0) return;
             const ok = onPieceDragStart({ color: slot.color, piece: slot.piece });
             if (ok === false) {
@@ -121,13 +129,16 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
             e.dataTransfer.effectAllowed = "move";
           }}
           onDragEnd={() => {
+            if (disabled) return;
             onPieceDragEnd?.();
           }}
           onClick={() => {
+            if (disabled) return;
             if (!onPieceClick || slot.count <= 0) return;
             onPieceClick({ color: slot.color, piece: slot.piece });
           }}
           onKeyDown={(e) => {
+            if (disabled) return;
             if (!onPieceClick || slot.count <= 0) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
