@@ -462,6 +462,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         }
       }
 
+      // Flipping boards is a purely visual preference and is safe during live replay.
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        toggleBoardsFlipped();
+        return;
+      }
+
       // Live replay intentionally disables all keyboard navigation so playback cannot be
       // interrupted by accidental key presses.
       if (isLiveReplayPlaying) {
@@ -529,9 +536,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           nodeId = node.mainChildId;
         }
         selectNode(nodeId);
-      } else if (event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        toggleBoardsFlipped();
       }
     };
 
@@ -1571,7 +1575,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             >
               <button
                 onClick={toggleBoardsFlipped}
-                disabled={isLiveReplayPlaying}
                 className={controlButtonBaseClass}
                 aria-label="Flip boards"
                 type="button"
