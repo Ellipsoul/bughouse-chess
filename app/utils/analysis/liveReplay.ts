@@ -61,6 +61,28 @@ export function buildBughouseBoardMoveCountsByGlobalPly(
   return counts;
 }
 
+/**
+ * Computes the live-replay playhead elapsed time (deciseconds since game start) for a given
+ * global ply count.
+ *
+ * The mapping is derived from the monotonic per-move timestamps:
+ * - ply 0 (start position) => elapsed 0
+ * - ply N (after N moves)  => elapsed `monotonicMoveTimestamps[N-1]`
+ *
+ * This is useful when implementing seek/skip controls that jump directly to a move while
+ * keeping replay playback running.
+ */
+export function getLiveReplayElapsedDecisecondsAtGlobalPly(params: {
+  globalPly: number;
+  monotonicMoveTimestamps: number[];
+}): number {
+  const { monotonicMoveTimestamps } = params;
+  const maxPly = monotonicMoveTimestamps.length;
+  const ply = Math.min(Math.max(0, Math.floor(params.globalPly)), maxPly);
+  if (ply <= 0) return 0;
+  return monotonicMoveTimestamps[ply - 1] ?? 0;
+}
+
 function findLastMoveIndexAtOrBeforeElapsed(params: {
   monotonicMoveTimestamps: number[];
   elapsedDeciseconds: number;

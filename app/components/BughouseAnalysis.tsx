@@ -9,7 +9,6 @@ import {
   RefreshCcw,
   SkipBack,
   SkipForward,
-  Square as StopSquare,
   StepBack,
   StepForward,
 } from "lucide-react";
@@ -45,6 +44,7 @@ import {
   buildBughouseBoardMoveCountsByGlobalPly,
   buildMonotonicMoveTimestampsDeciseconds,
   getBughouseClockSnapshotAtElapsedDeciseconds,
+  getLiveReplayElapsedDecisecondsAtGlobalPly,
   isPristineLoadedMainline,
 } from "../utils/analysis/liveReplay";
 
@@ -249,6 +249,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const liveReplayBaseElapsedDecisecondsRef = useRef(0);
   const liveReplayLastEmittedDecisecondsRef = useRef<number>(-1);
   const liveReplaySpaceToggleRef = useRef<(() => boolean) | null>(null);
+  const liveReplaySeekDeltaRef = useRef<((delta: -1 | 1) => boolean) | null>(null);
 
   const stopLiveReplayLoop = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -472,6 +473,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       // Live replay intentionally disables all keyboard navigation so playback cannot be
       // interrupted by accidental key presses.
       if (isLiveReplayPlaying) {
+        // Allow skipping between moves (seek) even while playback is running.
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          liveReplaySeekDeltaRef.current?.(-1);
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          liveReplaySeekDeltaRef.current?.(1);
+        }
         return;
       }
 
@@ -600,28 +609,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     };
   }, [state.cursorNodeId, state.tree.nodesById]);
 
-  const handleStart = useCallback(() => {
-    selectNode(state.tree.rootId);
-  }, [selectNode, state.tree.rootId]);
-
-  const handlePrevious = useCallback(() => {
-    navBack();
-  }, [navBack]);
-
-  const handleNext = useCallback(() => {
-    navForwardOrOpenSelector();
-  }, [navForwardOrOpenSelector]);
-
-  const handleEnd = useCallback(() => {
-    let nodeId = state.cursorNodeId;
-    while (true) {
-      const node = state.tree.nodesById[nodeId];
-      if (!node?.mainChildId) break;
-      nodeId = node.mainChildId;
-    }
-    selectNode(nodeId);
-  }, [selectNode, state.cursorNodeId, state.tree.nodesById]);
-
   const formatClock = useCallback((deciseconds?: number) => {
     if (typeof deciseconds !== "number" || !Number.isFinite(deciseconds)) return "";
     const safeValue = Math.max(0, Math.floor(deciseconds));
@@ -725,6 +712,101 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     return ids;
   }, [state.tree.nodesById, state.tree.rootId]);
 
+  /**
+   * Seek the live replay playhead (and cursor) to a specific global ply while keeping playback running.
+   *
+   * This is intentionally mainline-only: we map ply -> node via `mainlineNodeIdsByGlobalPly` so the
+   * cursor stays on the pristine loaded line during replay.
+   */
+  const seekLiveReplayToGlobalPly = useCallback(
+    (requestedGlobalPly: number): boolean => {
+      if (!combinedMovesForMoveTimes) return false;
+      if (!monotonicMoveTimestampsDeciseconds) return false;
+
+      const maxPly = combinedMovesForMoveTimes.length;
+      const globalPly = Math.min(Math.max(0, Math.floor(requestedGlobalPly)), maxPly);
+      const targetNodeId = mainlineNodeIdsByGlobalPly[globalPly];
+      if (!targetNodeId) return false;
+
+      const baseElapsed = getLiveReplayElapsedDecisecondsAtGlobalPly({
+        globalPly,
+        monotonicMoveTimestamps: monotonicMoveTimestampsDeciseconds,
+      });
+      const lastTimestamp =
+        monotonicMoveTimestampsDeciseconds[monotonicMoveTimestampsDeciseconds.length - 1] ?? 0;
+
+      // Update cursor first so the UI immediately reflects the new board position.
+      selectNode(targetNodeId);
+
+      // If we seek to the end-of-game timestamp, treat as finished (mirrors tick end logic).
+      if (baseElapsed >= lastTimestamp && monotonicMoveTimestampsDeciseconds.length > 0) {
+        stopLiveReplayLoop();
+        setLiveReplayStatus("finished");
+        setLiveReplayElapsedDeciseconds(lastTimestamp);
+        return true;
+      }
+
+      // Re-base the playhead so the RAF loop continues forward from the new location.
+      liveReplayBaseElapsedDecisecondsRef.current = baseElapsed;
+      liveReplayStartPerfMsRef.current =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      liveReplayLastEmittedDecisecondsRef.current = baseElapsed;
+      setLiveReplayElapsedDeciseconds(baseElapsed);
+      return true;
+    },
+    [
+      combinedMovesForMoveTimes,
+      mainlineNodeIdsByGlobalPly,
+      monotonicMoveTimestampsDeciseconds,
+      selectNode,
+      stopLiveReplayLoop,
+    ],
+  );
+
+  const seekLiveReplayByDelta = useCallback(
+    (delta: -1 | 1): boolean => {
+      const currentPly = getGlobalPlyCountAtNode(state.cursorNodeId);
+      return seekLiveReplayToGlobalPly(currentPly + delta);
+    },
+    [getGlobalPlyCountAtNode, seekLiveReplayToGlobalPly, state.cursorNodeId],
+  );
+
+  // Keep a stable, always-up-to-date seek handler so the keyboard effect can call it
+  // without being reordered around live replay callbacks.
+  useEffect(() => {
+    liveReplaySeekDeltaRef.current = seekLiveReplayByDelta;
+  }, [seekLiveReplayByDelta]);
+
+  const handleStart = useCallback(() => {
+    selectNode(state.tree.rootId);
+  }, [selectNode, state.tree.rootId]);
+
+  const handlePrevious = useCallback(() => {
+    if (isLiveReplayPlaying) {
+      seekLiveReplayByDelta(-1);
+      return;
+    }
+    navBack();
+  }, [isLiveReplayPlaying, navBack, seekLiveReplayByDelta]);
+
+  const handleNext = useCallback(() => {
+    if (isLiveReplayPlaying) {
+      seekLiveReplayByDelta(1);
+      return;
+    }
+    navForwardOrOpenSelector();
+  }, [isLiveReplayPlaying, navForwardOrOpenSelector, seekLiveReplayByDelta]);
+
+  const handleEnd = useCallback(() => {
+    let nodeId = state.cursorNodeId;
+    while (true) {
+      const node = state.tree.nodesById[nodeId];
+      if (!node?.mainChildId) break;
+      nodeId = node.mainChildId;
+    }
+    selectNode(nodeId);
+  }, [selectNode, state.cursorNodeId, state.tree.nodesById]);
+
   const liveReplayEligible = useMemo(() => {
     if (!processedGame) return false;
     if (!combinedMovesForMoveTimes) return false;
@@ -756,7 +838,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     if (!isCursorOnMainline) return "Cursor must be on the mainline to start live replay";
     if (state.pendingPromotion) return "Resolve the pending promotion first";
     if (isLiveReplayFinishedLocked) {
-      return "Reached end of game; press Stop or navigate earlier on the mainline to replay again";
+      return "Reached end of game; navigate earlier on the mainline to replay again";
     }
     return null;
   }, [
@@ -774,35 +856,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     ? "Pause live replay"
     : liveReplayPlayDisabledReason ?? "Play live replay";
 
-  const liveReplayStopDisabledReason = useMemo(() => {
-    if (isLiveReplayPlaying) return null;
-    if (!processedGame) return "Load a game to enable Stop";
-    if (!liveReplayEligible) {
-      return "Mainline has been edited; Stop is only available on the original loaded line";
-    }
-    if (!isCursorOnMainline) {
-      return "Stop is only available while on the mainline";
-    }
-    if (!canGoBack) {
-      // Start position.
-      return "Already at the start";
-    }
-    return null;
-  }, [canGoBack, isCursorOnMainline, isLiveReplayPlaying, liveReplayEligible, processedGame]);
-
-  const liveReplayStopButtonTooltip = liveReplayStopDisabledReason ?? "Stop live replay (reset to start)";
-
   const handleLiveReplayPause = useCallback(() => {
     stopLiveReplayLoop();
     setLiveReplayStatus("idle");
   }, [stopLiveReplayLoop]);
-
-  const handleLiveReplayStop = useCallback(() => {
-    stopLiveReplayLoop();
-    setLiveReplayStatus("idle");
-    setLiveReplayElapsedDeciseconds(0);
-    selectNode(state.tree.rootId);
-  }, [selectNode, state.tree.rootId, stopLiveReplayLoop]);
 
   const handleLiveReplayPlay = useCallback(() => {
     if (!processedGame) return;
@@ -1509,17 +1566,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   )}
                 </button>
               </TooltipAnchor>
-              <TooltipAnchor content={liveReplayStopButtonTooltip}>
-                <button
-                  onClick={handleLiveReplayStop}
-                  disabled={Boolean(liveReplayStopDisabledReason)}
-                  className={controlButtonBaseClass}
-                  aria-label="Stop live replay"
-                  type="button"
-                >
-                  <StopSquare aria-hidden className="h-5 w-5" />
-                </button>
-              </TooltipAnchor>
             </div>
 
             <div className="flex items-center gap-3">
@@ -1537,7 +1583,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               <TooltipAnchor content="Previous move (←)">
                 <button
                   onClick={handlePrevious}
-                  disabled={!canGoBack || isLiveReplayPlaying}
+                  disabled={!canGoBack}
                   className={controlButtonBaseClass}
                   aria-label="Previous move"
                   type="button"
@@ -1548,7 +1594,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               <TooltipAnchor content="Next move (→)">
                 <button
                   onClick={handleNext}
-                  disabled={!canGoForward || isLiveReplayPlaying}
+                  disabled={!canGoForward}
                   className={controlButtonBaseClass}
                   aria-label="Next move"
                   type="button"

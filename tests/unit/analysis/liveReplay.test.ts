@@ -6,6 +6,7 @@ import { buildBughouseClockTimeline } from "../../../app/utils/analysis/buildBug
 import {
   buildBughouseBoardMoveCountsByGlobalPly,
   buildMonotonicMoveTimestampsDeciseconds,
+  getLiveReplayElapsedDecisecondsAtGlobalPly,
   getBughouseClockSnapshotAtElapsedDeciseconds,
   isPristineLoadedMainline,
 } from "../../../app/utils/analysis/liveReplay";
@@ -80,6 +81,19 @@ function buildTreeFromCombinedMovesSanitized(combinedMoves: BughouseMove[]): Ana
 }
 
 describe("liveReplay utilities", () => {
+  it("getLiveReplayElapsedDecisecondsAtGlobalPly maps ply->elapsed and clamps bounds", () => {
+    const monotonicMoveTimestamps = [10, 20, 35];
+
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: 0, monotonicMoveTimestamps })).toBe(0);
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: 1, monotonicMoveTimestamps })).toBe(10);
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: 2, monotonicMoveTimestamps })).toBe(20);
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: 3, monotonicMoveTimestamps })).toBe(35);
+
+    // Clamp negatives/overflow.
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: -5, monotonicMoveTimestamps })).toBe(0);
+    expect(getLiveReplayElapsedDecisecondsAtGlobalPly({ globalPly: 999, monotonicMoveTimestamps })).toBe(35);
+  });
+
   it("getBughouseClockSnapshotAtElapsedDeciseconds matches discrete timeline at exact move timestamps", () => {
     // Simple: a few moves on alternating boards with monotonic timestamps.
     const combinedMoves: BughouseMove[] = [
