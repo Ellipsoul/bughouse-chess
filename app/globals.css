@@ -170,3 +170,36 @@ body {
   border-radius: 2px;
   overflow: hidden;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Custom thin scrollbar styles                                                */
+/* -------------------------------------------------------------------------- */
+/**
+ * Thin, subtle scrollbar for dropdowns and small containers.
+ * Uses webkit pseudo-elements for Chrome/Safari/Edge and Firefox properties.
+ */
+.scrollbar-thin {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+
+/* WebKit browsers (Chrome, Safari, Edge) */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}

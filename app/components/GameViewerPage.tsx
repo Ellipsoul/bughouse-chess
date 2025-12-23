@@ -737,10 +737,10 @@ export default function GameViewerPage() {
                   data-tooltip-id={APP_TOOLTIP_ID}
                   data-tooltip-content="Copy share link"
                   data-tooltip-place="bottom"
-                  className="inline-flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/60 px-3 py-1.5 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
                 >
-                  <span className="font-bold text-gray-50">{loadedGameId}</span>
-                  <Share className="h-4 w-4 text-gray-200" aria-hidden="true" />
+                  <span className="font-semibold">{loadedGameId}</span>
+                  <Share className="h-4 w-4" aria-hidden="true" />
                 </button>
               </>
             )}

@@ -12,7 +12,7 @@ import {
   DiscoveryCancellation,
   createMatchGameFromLoaded,
 } from "../../../app/utils/matchDiscovery";
-import { extractGameSummary } from "../../../app/components/MatchNavigation";
+import { extractGameSummary, computeMatchScore } from "../../../app/components/MatchNavigation";
 
 // Load fixtures
 function loadFixture(filename: string): ChessGame {
@@ -492,6 +492,147 @@ describe("extractGameSummary", () => {
     expect(extractGameSummary(matchGame, 0).gameNumber).toBe(1);
     expect(extractGameSummary(matchGame, 5).gameNumber).toBe(6);
     expect(extractGameSummary(matchGame, 14).gameNumber).toBe(15);
+  });
+});
+
+describe("computeMatchScore", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  /**
+   * Helper to create a MatchGame with a specific result.
+   */
+  function createMatchGameWithResult(result: string): MatchGame {
+    return {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: result,
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+  }
+
+  it("returns zeros for empty array", () => {
+    const score = computeMatchScore([]);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts single team1 win correctly", () => {
+    const games = [createMatchGameWithResult("1-0")];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(1);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts single team2 win correctly", () => {
+    const games = [createMatchGameWithResult("0-1")];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(1);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts single draw correctly", () => {
+    const games = [createMatchGameWithResult("1/2-1/2")];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(1);
+  });
+
+  it("computes score for a full match with mixed results", () => {
+    const games = [
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("0-1"),
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1/2-1/2"),
+      createMatchGameWithResult("0-1"),
+      createMatchGameWithResult("1-0"),
+    ];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(3);
+    expect(score.team2Wins).toBe(2);
+    expect(score.draws).toBe(1);
+  });
+
+  it("handles match with only team1 wins", () => {
+    const games = [
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1-0"),
+    ];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(3);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("handles match with only team2 wins", () => {
+    const games = [
+      createMatchGameWithResult("0-1"),
+      createMatchGameWithResult("0-1"),
+    ];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(2);
+    expect(score.draws).toBe(0);
+  });
+
+  it("handles match with only draws", () => {
+    const games = [
+      createMatchGameWithResult("1/2-1/2"),
+      createMatchGameWithResult("1/2-1/2"),
+      createMatchGameWithResult("1/2-1/2"),
+    ];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(3);
+  });
+
+  it("treats unknown result strings as draws", () => {
+    const games = [
+      createMatchGameWithResult("*"), // Ongoing/unknown
+      createMatchGameWithResult(""), // Empty
+    ];
+
+    const score = computeMatchScore(games);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(2);
   });
 });
 
