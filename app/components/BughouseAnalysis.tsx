@@ -247,6 +247,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const liveReplayStartPerfMsRef = useRef<number | null>(null);
   const liveReplayBaseElapsedDecisecondsRef = useRef(0);
   const liveReplayLastEmittedDecisecondsRef = useRef<number>(-1);
+  const liveReplaySpaceToggleRef = useRef<(() => boolean) | null>(null);
 
   const stopLiveReplayLoop = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -444,8 +445,21 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         (target.isContentEditable ||
           target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT");
+          target.tagName === "SELECT" ||
+          target.tagName === "BUTTON" ||
+          target.tagName === "A");
       if (isTypingTarget) return;
+
+      // Live replay play/pause toggle: Space.
+      // - Works only when the replay feature is eligible (same as the buttons).
+      // - While playing, Space pauses.
+      if (event.code === "Space" || event.key === " ") {
+        const didToggle = liveReplaySpaceToggleRef.current?.() ?? false;
+        if (didToggle) {
+          event.preventDefault();
+          return;
+        }
+      }
 
       // Live replay intentionally disables all keyboard navigation so playback cannot be
       // interrupted by accidental key presses.
@@ -756,9 +770,20 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     : liveReplayPlayDisabledReason ?? "Play live replay";
 
   const liveReplayStopDisabledReason = useMemo(() => {
+    if (isLiveReplayPlaying) return null;
     if (!processedGame) return "Load a game to enable Stop";
+    if (!liveReplayEligible) {
+      return "Mainline has been edited; Stop is only available on the original loaded line";
+    }
+    if (!isCursorOnMainline) {
+      return "Stop is only available while on the mainline";
+    }
+    if (!canGoBack) {
+      // Start position.
+      return "Already at the start";
+    }
     return null;
-  }, [processedGame]);
+  }, [canGoBack, isCursorOnMainline, isLiveReplayPlaying, liveReplayEligible, processedGame]);
 
   const liveReplayStopButtonTooltip = liveReplayStopDisabledReason ?? "Stop live replay (reset to start)";
 
@@ -879,6 +904,21 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     state.pendingPromotion,
     stopLiveReplayLoop,
   ]);
+
+  // Keep a stable, always-up-to-date Space handler without needing to reorder the keyboard effect.
+  useEffect(() => {
+    liveReplaySpaceToggleRef.current = () => {
+      if (isLiveReplayPlaying) {
+        handleLiveReplayPause();
+        return true;
+      }
+      if (canStartLiveReplay) {
+        handleLiveReplayPlay();
+        return true;
+      }
+      return false;
+    };
+  }, [canStartLiveReplay, handleLiveReplayPause, handleLiveReplayPlay, isLiveReplayPlaying]);
 
   // Cleanup the live replay loop on unmount.
   useEffect(() => {
@@ -1446,29 +1486,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             className="relative flex items-center justify-center"
             style={{ width: controlsWidth }}
           >
-            <div className="flex items-center gap-3">
-              <TooltipAnchor content="Jump to start (↑)">
-                <button
-                  onClick={handleStart}
-                  disabled={!canGoBack || isLiveReplayPlaying}
-                  className={controlButtonBaseClass}
-                  aria-label="Jump to start"
-                  type="button"
-                >
-                  <SkipBack aria-hidden className="h-5 w-5" />
-                </button>
-              </TooltipAnchor>
-              <TooltipAnchor content="Previous move (←)">
-                <button
-                  onClick={handlePrevious}
-                  disabled={!canGoBack || isLiveReplayPlaying}
-                  className={controlButtonBaseClass}
-                  aria-label="Previous move"
-                  type="button"
-                >
-                  <StepBack aria-hidden className="h-5 w-5" />
-                </button>
-              </TooltipAnchor>
+            {/* Live replay controls: bottom-left of the board controls area. */}
+            <div className="absolute left-1 bottom-0 inline-flex items-center gap-2">
               <TooltipAnchor content={liveReplayPlayButtonTooltip}>
                 <button
                   onClick={isLiveReplayPlaying ? handleLiveReplayPause : handleLiveReplayPlay}
@@ -1493,6 +1512,31 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   type="button"
                 >
                   <StopSquare aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <TooltipAnchor content="Jump to start (↑)">
+                <button
+                  onClick={handleStart}
+                  disabled={!canGoBack || isLiveReplayPlaying}
+                  className={controlButtonBaseClass}
+                  aria-label="Jump to start"
+                  type="button"
+                >
+                  <SkipBack aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+              <TooltipAnchor content="Previous move (←)">
+                <button
+                  onClick={handlePrevious}
+                  disabled={!canGoBack || isLiveReplayPlaying}
+                  className={controlButtonBaseClass}
+                  aria-label="Previous move"
+                  type="button"
+                >
+                  <StepBack aria-hidden className="h-5 w-5" />
                 </button>
               </TooltipAnchor>
               <TooltipAnchor content="Next move (→)">
