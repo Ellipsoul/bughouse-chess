@@ -32,6 +32,13 @@ import {
   setSkipLoadGameOverrideConfirm,
   shouldSkipLoadGameOverrideConfirm,
 } from "../utils/loadGameOverrideConfirmPreference";
+import MatchNavigation from "./MatchNavigation";
+import type { MatchGame, MatchDiscoveryStatus } from "../types/match";
+import {
+  discoverMatchGames,
+  createMatchGameFromLoaded,
+  DiscoveryCancellation,
+} from "../utils/matchDiscovery";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -175,6 +182,12 @@ export default function GameViewerPage() {
     null,
   );
 
+  // Match replay state
+  const [matchGames, setMatchGames] = useState<MatchGame[]>([]);
+  const [matchCurrentIndex, setMatchCurrentIndex] = useState(0);
+  const [matchDiscoveryStatus, setMatchDiscoveryStatus] = useState<MatchDiscoveryStatus>("idle");
+  const discoveryCancellationRef = useRef<DiscoveryCancellation | null>(null);
+
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
    * Keep this in sync with deployment.
@@ -280,6 +293,14 @@ export default function GameViewerPage() {
             if (clearInput) {
               setPrefetched({ status: "idle" });
             }
+            // Reset match state when loading a new game
+            if (discoveryCancellationRef.current) {
+              discoveryCancellationRef.current.cancel();
+              discoveryCancellationRef.current = null;
+            }
+            setMatchGames([]);
+            setMatchCurrentIndex(0);
+            setMatchDiscoveryStatus("idle");
           })
           .catch((err: unknown) => {
             // `toast.promise` already displays the error; avoid rendering an inline banner
@@ -355,6 +376,136 @@ export default function GameViewerPage() {
 
   const handleCancelLoadNewGame = useCallback(() => {
     setPendingLoadRequest(null);
+  }, []);
+
+  /**
+   * Initiates match discovery for the currently loaded game.
+   * Finds other games in the same match with identical team compositions.
+   */
+  const handleFindMatchGames = useCallback(() => {
+    if (!gameData) {
+      toast.error("No game loaded. Load a game first to find match games.");
+      return;
+    }
+
+    // Cancel any existing discovery
+    if (discoveryCancellationRef.current) {
+      discoveryCancellationRef.current.cancel();
+    }
+
+    const cancellation = new DiscoveryCancellation();
+    discoveryCancellationRef.current = cancellation;
+
+    // Create initial match game from currently loaded data
+    const initialMatchGame = createMatchGameFromLoaded(
+      gameData.original,
+      gameData.partner,
+      gameData.partnerId,
+    );
+
+    // Set initial state
+    setMatchGames([initialMatchGame]);
+    setMatchCurrentIndex(0);
+    setMatchDiscoveryStatus("discovering");
+
+    // Start discovery
+    discoverMatchGames(
+      {
+        originalGame: gameData.original,
+        partnerGame: gameData.partner,
+        partnerId: gameData.partnerId,
+      },
+      {
+        onGameFound: (newGame) => {
+          setMatchGames((prev) => {
+            // Avoid duplicates
+            if (prev.some((g) => g.gameId === newGame.gameId)) {
+              return prev;
+            }
+            // Insert in chronological order
+            const updated = [...prev, newGame];
+            updated.sort((a, b) => a.endTime - b.endTime);
+            return updated;
+          });
+        },
+        onComplete: (totalGames) => {
+          setMatchDiscoveryStatus("complete");
+          if (totalGames > 1) {
+            toast.success(`Found ${totalGames} games in this match`);
+          } else {
+            toast.success("No additional match games found");
+          }
+        },
+        onError: (error) => {
+          setMatchDiscoveryStatus("error");
+          toast.error(error.message || "Failed to find match games");
+        },
+        onProgress: (checked, found) => {
+          // Could update a progress indicator here if needed
+          console.debug(`Match discovery: checked ${checked}, found ${found}`);
+        },
+      },
+      cancellation,
+    );
+  }, [gameData]);
+
+  /**
+   * Navigates to the previous game in the match.
+   */
+  const handlePreviousGame = useCallback(() => {
+    if (matchCurrentIndex <= 0 || matchGames.length === 0) return;
+
+    const newIndex = matchCurrentIndex - 1;
+    const targetGame = matchGames[newIndex];
+
+    setMatchCurrentIndex(newIndex);
+    setGameData({
+      original: targetGame.original,
+      partner: targetGame.partner,
+      partnerId: targetGame.partnerGameId,
+    });
+  }, [matchCurrentIndex, matchGames]);
+
+  /**
+   * Navigates to the next game in the match.
+   */
+  const handleNextGame = useCallback(() => {
+    if (matchCurrentIndex >= matchGames.length - 1) return;
+
+    const newIndex = matchCurrentIndex + 1;
+    const targetGame = matchGames[newIndex];
+
+    setMatchCurrentIndex(newIndex);
+    setGameData({
+      original: targetGame.original,
+      partner: targetGame.partner,
+      partnerId: targetGame.partnerGameId,
+    });
+  }, [matchCurrentIndex, matchGames]);
+
+  /**
+   * Navigates to a specific game in the match by index.
+   */
+  const handleSelectGame = useCallback((index: number) => {
+    if (index < 0 || index >= matchGames.length) return;
+
+    const targetGame = matchGames[index];
+
+    setMatchCurrentIndex(index);
+    setGameData({
+      original: targetGame.original,
+      partner: targetGame.partner,
+      partnerId: targetGame.partnerGameId,
+    });
+  }, [matchGames]);
+
+  // Cleanup discovery on unmount
+  useEffect(() => {
+    return () => {
+      if (discoveryCancellationRef.current) {
+        discoveryCancellationRef.current.cancel();
+      }
+    };
   }, []);
 
   const schedulePrefetchForRawInput = useCallback((rawInput: string) => {
@@ -558,23 +709,42 @@ export default function GameViewerPage() {
             </div>
           </form>
 
-          {loadedGameId && (
-            <div className="ml-auto mr-12 sm:mr-14 inline-flex items-center gap-2 text-sm">
-              <span className="font-medium text-gray-200">Game ID:</span>
-              <button
-                type="button"
-                onClick={() => void handleCopyShareLink()}
-                aria-label={`Copy share link for game ${loadedGameId}`}
-                data-tooltip-id={APP_TOOLTIP_ID}
-                data-tooltip-content="Copy share link"
-                data-tooltip-place="bottom"
-                className="inline-flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/60 px-3 py-1.5 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
-              >
-                <span className="font-bold text-gray-50">{loadedGameId}</span>
-                <Share className="h-4 w-4 text-gray-200" aria-hidden="true" />
-              </button>
-            </div>
-          )}
+          {/* Match Navigation and Game ID section */}
+          <div className="ml-auto mr-12 sm:mr-14 inline-flex items-center gap-3">
+            <MatchNavigation
+              hasGameLoaded={!!loadedGameId}
+              discoveryStatus={matchDiscoveryStatus}
+              totalGames={matchGames.length}
+              currentIndex={matchCurrentIndex}
+              matchGames={matchGames}
+              onFindMatchGames={handleFindMatchGames}
+              onPreviousGame={handlePreviousGame}
+              onNextGame={handleNextGame}
+              onSelectGame={handleSelectGame}
+              isPending={isPending}
+            />
+
+            {loadedGameId && (
+              <>
+                {/* Vertical separator */}
+                <div className="h-6 w-px bg-gray-600" aria-hidden="true" />
+
+                {/* Game ID button */}
+                <button
+                  type="button"
+                  onClick={() => void handleCopyShareLink()}
+                  aria-label={`Copy share link for game ${loadedGameId}`}
+                  data-tooltip-id={APP_TOOLTIP_ID}
+                  data-tooltip-content="Copy share link"
+                  data-tooltip-place="bottom"
+                  className="inline-flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/60 px-3 py-1.5 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                >
+                  <span className="font-bold text-gray-50">{loadedGameId}</span>
+                  <Share className="h-4 w-4 text-gray-200" aria-hidden="true" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Keep the GitHub link out of the way: pinned to the far right edge. */}

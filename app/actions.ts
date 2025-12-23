@@ -1,5 +1,7 @@
 "use server";
 
+import type { PublicGameRecord, PublicGamesResponse } from "./types/match";
+
 /**
  * Shape of the chess.com live game payload used by the viewer.
  */
@@ -173,5 +175,79 @@ export async function findPartnerGameId(
   } catch (error) {
     console.error("Error finding partner game:", error);
     return null;
+  }
+}
+
+/**
+ * Fetches a player's games for a specific month from Chess.com's public API.
+ *
+ * @param username - Chess.com username (case-insensitive).
+ * @param year - Year (e.g., 2025).
+ * @param month - Month (1-12).
+ * @returns Array of game records, or empty array if the player/month has no games.
+ * @throws Error when the request fails for unexpected reasons.
+ *
+ * Note:
+ * - This uses Chess.com's public API which has rate limits.
+ * - The API may return 429 (Too Many Requests) if called too frequently.
+ * - Games are returned in chronological order within the month.
+ *
+ * @see https://api.chess.com/pub/player/{username}/games/{year}/{month}
+ */
+export async function fetchPlayerMonthlyGames(
+  username: string,
+  year: number,
+  month: number,
+): Promise<PublicGameRecord[]> {
+  if (!username) {
+    throw new Error("Username is required");
+  }
+
+  // Validate year and month
+  if (year < 2000 || year > 2100) {
+    throw new Error("Invalid year");
+  }
+  if (month < 1 || month > 12) {
+    throw new Error("Invalid month");
+  }
+
+  // Pad month to 2 digits (Chess.com API expects MM format)
+  const monthStr = month.toString().padStart(2, "0");
+
+  try {
+    const response = await fetch(
+      `https://api.chess.com/pub/player/${encodeURIComponent(username.toLowerCase())}/games/${year}/${monthStr}`,
+      {
+        headers: {
+          Accept: "application/json",
+          // Chess.com recommends including a User-Agent with contact info
+          "User-Agent": "BughouseAnalysis/1.0 (bughouse.aronteh.com)",
+        },
+      },
+    );
+
+    // 404 means player doesn't exist or has no games for this month
+    if (response.status === 404) {
+      return [];
+    }
+
+    // 429 means rate limited - propagate this so caller can handle
+    if (response.status === 429) {
+      throw new Error("Rate limited by Chess.com API. Please try again later.");
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch player games: ${response.status}`);
+    }
+
+    const data: PublicGamesResponse = await response.json();
+    return data.games ?? [];
+  } catch (error) {
+    // Re-throw rate limit errors as-is
+    if (error instanceof Error && error.message.includes("Rate limited")) {
+      throw error;
+    }
+    console.error("Error fetching player monthly games:", error);
+    throw new Error("Failed to fetch player games from Chess.com");
   }
 }
