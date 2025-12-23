@@ -23,9 +23,9 @@ const CONSECUTIVE_NON_MATCH_THRESHOLD = 3;
 
 /**
  * Delay between API requests in milliseconds.
- * Set to 1 second to respect Chess.com's rate limits.
+ * Set to 0.5 seconds  to respect Chess.com's rate limits.
  */
-const API_REQUEST_DELAY_MS = 1000;
+const API_REQUEST_DELAY_MS = 500;
 
 /**
  * Extracts the game ID from a Chess.com game URL.
