@@ -17,6 +17,11 @@ describe("processGameData", () => {
   let originalGame: ChessGame;
   let partnerGame: ChessGame;
 
+  const findChessTitleByUsername = (game: ChessGame, username: string): string | undefined => {
+    const player = [game.players.top, game.players.bottom].find((p) => p.username === username);
+    return player?.chessTitle;
+  };
+
   beforeEach(() => {
     // Load fixtures
     const originalFixture = JSON.parse(
@@ -48,6 +53,12 @@ describe("processGameData", () => {
     expect(result.players.aBlack.username).toBeTruthy();
     expect(result.players.bWhite.username).toBeTruthy();
     expect(result.players.bBlack.username).toBeTruthy();
+
+    // Chess titles should be propagated when present (and remain undefined when absent).
+    expect(result.players.aWhite.chessTitle).toBe(findChessTitleByUsername(originalGame, result.players.aWhite.username));
+    expect(result.players.aBlack.chessTitle).toBe(findChessTitleByUsername(originalGame, result.players.aBlack.username));
+    expect(result.players.bWhite.chessTitle).toBe(findChessTitleByUsername(partnerGame, result.players.bWhite.username));
+    expect(result.players.bBlack.chessTitle).toBe(findChessTitleByUsername(partnerGame, result.players.bBlack.username));
   });
 
   it("handles missing partner game", () => {
@@ -56,6 +67,18 @@ describe("processGameData", () => {
     expect(result.originalGame.moves.length).toBeGreaterThan(0);
     expect(result.partnerGame.moves).toEqual([]);
     expect(result.combinedMoves.length).toBeGreaterThan(0);
+  });
+
+  it("does not assume chessTitle exists (omitted for untitled players)", () => {
+    const gameWithoutTitles = JSON.parse(JSON.stringify(originalGame)) as ChessGame;
+    const top = gameWithoutTitles.players.top as unknown as Record<string, unknown>;
+    const bottom = gameWithoutTitles.players.bottom as unknown as Record<string, unknown>;
+    delete top.chessTitle;
+    delete bottom.chessTitle;
+
+    const result = processGameData(gameWithoutTitles, null);
+    expect(result.players.aWhite.chessTitle).toBeUndefined();
+    expect(result.players.aBlack.chessTitle).toBeUndefined();
   });
 
   it("merges moves in chronological order", () => {

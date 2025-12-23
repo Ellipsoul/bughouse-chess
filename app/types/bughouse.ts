@@ -43,6 +43,14 @@ export interface BughousePlayer {
    * Optional to keep the UI resilient when data is missing (e.g. partner game not found).
    */
   rating?: number;
+  /**
+   * Optional chess title from chess.com (e.g. "GM", "IM", "FM", "CM", "NM", and women-title variants).
+   *
+   * Important:
+   * - Chess.com **omits** this property entirely for untitled players.
+   * - Treat it as optional everywhere to avoid runtime errors when it is missing.
+   */
+  chessTitle?: string;
 }
 
 export interface BughouseGameState {

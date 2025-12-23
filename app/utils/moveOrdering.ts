@@ -8,9 +8,15 @@ import { parseChessComCompressedMoveList } from "../chesscom_movelist_parse";
  * The "top/bottom" seating can vary depending on the viewer context, so we must derive
  * White/Black by the provided `color` field rather than assuming a fixed mapping.
  */
+function normalizeChessTitle(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const normalized = raw.trim().toUpperCase();
+  return normalized ? normalized : undefined;
+}
+
 function getPlayersByColor(game: ChessGame | null | undefined): {
-  white: { username: string; rating: number } | null;
-  black: { username: string; rating: number } | null;
+  white: { username: string; rating: number; chessTitle?: string } | null;
+  black: { username: string; rating: number; chessTitle?: string } | null;
 } {
   if (!game) return { white: null, black: null };
 
@@ -20,9 +26,10 @@ function getPlayersByColor(game: ChessGame | null | undefined): {
   const normalizedTopColor = String(top.color || "").toLowerCase();
   const normalizedBottomColor = String(bottom.color || "").toLowerCase();
 
-  const asPlayer = (p: { username: string; rating: number }) => ({
+  const asPlayer = (p: { username: string; rating: number; chessTitle?: string }) => ({
     username: p.username || "Unknown",
     rating: p.rating,
+    chessTitle: normalizeChessTitle(p.chessTitle),
   });
 
   if (normalizedTopColor === "white") {
@@ -72,18 +79,22 @@ export function processGameData(
       aWhite: {
         username: originalPlayers.white?.username || "Unknown",
         rating: originalPlayers.white?.rating,
+        chessTitle: originalPlayers.white?.chessTitle,
       },
       aBlack: {
         username: originalPlayers.black?.username || "Unknown",
         rating: originalPlayers.black?.rating,
+        chessTitle: originalPlayers.black?.chessTitle,
       },
       bWhite: {
         username: partnerPlayers.white?.username || "Unknown",
         rating: partnerPlayers.white?.rating,
+        chessTitle: partnerPlayers.white?.chessTitle,
       },
       bBlack: {
         username: partnerPlayers.black?.username || "Unknown",
         rating: partnerPlayers.black?.rating,
+        chessTitle: partnerPlayers.black?.chessTitle,
       },
     },
     initialTime,

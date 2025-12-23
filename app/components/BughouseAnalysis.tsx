@@ -32,6 +32,7 @@ import { useAnalysisState } from "./useAnalysisState";
 import VariationSelector from "./VariationSelector";
 import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
+import { ChessTitleBadge } from "./ChessTitleBadge";
 import { TooltipAnchor } from "./TooltipAnchor";
 import type { BoardAnnotations } from "../utils/boardAnnotations";
 import {
@@ -959,6 +960,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         >
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
+            <ChessTitleBadge chessTitle={player.chessTitle} />
             <span className="truncate min-w-0" title={player.username}>
               {player.username}
             </span>

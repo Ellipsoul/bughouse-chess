@@ -11,6 +11,7 @@ import { BughouseReplayController } from "../utils/replayController";
 import { BughouseGameState, BughousePlayer } from "../types/bughouse";
 import { ChessGame } from "../actions";
 import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
+import { ChessTitleBadge } from "./ChessTitleBadge";
 import type { BoardAnnotations } from "../utils/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
@@ -288,6 +289,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
         style={{ width: boardSize }}
       >
         <div className="flex items-center gap-2 min-w-0">
+          <ChessTitleBadge chessTitle={player.chessTitle} />
           <span
             className="truncate min-w-0"
             title={
