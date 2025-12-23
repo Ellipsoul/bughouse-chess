@@ -12,7 +12,11 @@ import {
   DiscoveryCancellation,
   createMatchGameFromLoaded,
 } from "../../../app/utils/matchDiscovery";
-import { extractGameSummary, computeMatchScore } from "../../../app/components/MatchNavigation";
+import {
+  extractGameSummary,
+  computeMatchScore,
+  establishReferenceTeams,
+} from "../../../app/components/MatchNavigation";
 
 // Load fixtures
 function loadFixture(filename: string): ChessGame {
@@ -385,6 +389,51 @@ describe("matchDiscovery integration", () => {
   });
 });
 
+describe("establishReferenceTeams", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  it("establishes reference teams from first game", () => {
+    const matchGame: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: originalGame,
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+
+    const refTeams = establishReferenceTeams(matchGame);
+
+    // Team 1: boardA white (chickencrossroad) + boardB black (Emeraldddd)
+    expect(refTeams.team1.has("chickencrossroad")).toBe(true);
+    expect(refTeams.team1.has("emeraldddd")).toBe(true);
+
+    // Team 2: boardA black (littleplotkin) + boardB white (larso)
+    expect(refTeams.team2.has("littleplotkin")).toBe(true);
+    expect(refTeams.team2.has("larso")).toBe(true);
+  });
+
+  it("stores display names with original case", () => {
+    const matchGame: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: originalGame,
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+
+    const refTeams = establishReferenceTeams(matchGame);
+
+    expect(refTeams.team1Display).toEqual(["chickencrossroad", "Emeraldddd"]);
+    expect(refTeams.team2Display).toEqual(["littleplotkin", "larso"]);
+  });
+});
+
 describe("extractGameSummary", () => {
   let originalGame: ChessGame;
   let partnerGame: ChessGame;
@@ -394,7 +443,7 @@ describe("extractGameSummary", () => {
     partnerGame = loadFixture("160319845635.json");
   });
 
-  it("extracts game summary from MatchGame", () => {
+  it("extracts game summary with team-based fields", () => {
     const matchGame: MatchGame = {
       gameId: originalGame.game.id.toString(),
       partnerGameId: partnerGame.game.id.toString(),
@@ -406,10 +455,13 @@ describe("extractGameSummary", () => {
     const summary = extractGameSummary(matchGame, 0);
 
     expect(summary.gameNumber).toBe(1);
-    expect(summary.boardAWhite).toBe("chickencrossroad");
-    expect(summary.boardABlack).toBe("littleplotkin");
-    expect(summary.boardBWhite).toBe("larso");
-    expect(summary.boardBBlack).toBe("Emeraldddd");
+    // Team 1 = boardA white + boardB black (when team1 is playing white)
+    expect(summary.team1BoardA).toBe("chickencrossroad");
+    expect(summary.team1BoardB).toBe("Emeraldddd");
+    // Team 2 = boardA black + boardB white
+    expect(summary.team2BoardA).toBe("littleplotkin");
+    expect(summary.team2BoardB).toBe("larso");
+    expect(summary.team1IsWhite).toBe(true);
     expect(summary.result).toBe("0-1");
   });
 
@@ -492,6 +544,69 @@ describe("extractGameSummary", () => {
     expect(extractGameSummary(matchGame, 0).gameNumber).toBe(1);
     expect(extractGameSummary(matchGame, 5).gameNumber).toBe(6);
     expect(extractGameSummary(matchGame, 14).gameNumber).toBe(15);
+  });
+
+  it("correctly handles color swap when using reference teams", () => {
+    // First game: team1 has white on board A
+    const game1: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: originalGame, // chickencrossroad (W) vs littleplotkin (B)
+      partner: partnerGame,   // larso (W) vs Emeraldddd (B)
+      endTime: originalGame.game.endTime ?? 0,
+    };
+
+    // Second game: colors swapped (team1 now has black on board A)
+    // Swap the player names in the headers to simulate color swap
+    const swappedOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          White: "littleplotkin",  // Was black in game 1
+          Black: "chickencrossroad", // Was white in game 1
+          Result: "1-0", // littleplotkin wins (team2 wins this game)
+        },
+      },
+    };
+    const swappedPartner: ChessGame = {
+      ...partnerGame,
+      game: {
+        ...partnerGame.game,
+        pgnHeaders: {
+          ...partnerGame.game.pgnHeaders,
+          White: "Emeraldddd", // Was black in game 1
+          Black: "larso",      // Was white in game 1
+        },
+      },
+    };
+
+    const game2: MatchGame = {
+      gameId: "game2",
+      partnerGameId: "partner2",
+      original: swappedOriginal,
+      partner: swappedPartner,
+      endTime: (originalGame.game.endTime ?? 0) + 100,
+    };
+
+    // Establish reference from first game
+    const refTeams = establishReferenceTeams(game1);
+
+    // Get summary for game 2 using reference teams
+    const summary2 = extractGameSummary(game2, 1, refTeams);
+
+    // Team 1 should still be chickencrossroad + Emeraldddd (now playing black)
+    expect(summary2.team1BoardA).toBe("chickencrossroad");
+    expect(summary2.team1BoardB).toBe("Emeraldddd");
+    expect(summary2.team1IsWhite).toBe(false); // They're playing black now
+
+    // Team 2 should still be littleplotkin + larso (now playing white)
+    expect(summary2.team2BoardA).toBe("littleplotkin");
+    expect(summary2.team2BoardB).toBe("larso");
+
+    // littleplotkin (team2) won with white (1-0), so team2 wins
+    expect(summary2.winningTeam).toBe("team2");
   });
 });
 
@@ -633,6 +748,58 @@ describe("computeMatchScore", () => {
     expect(score.team1Wins).toBe(0);
     expect(score.team2Wins).toBe(0);
     expect(score.draws).toBe(2);
+  });
+
+  it("correctly attributes wins when teams swap colors", () => {
+    // Game 1: Team1 (chickencrossroad+Emeraldddd) has white, wins (1-0)
+    const game1 = createMatchGameWithResult("1-0");
+
+    // Game 2: Colors swapped - Team1 now has black
+    // Create a game where the colors are swapped
+    const swappedOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          White: "littleplotkin",    // Team2 player now white
+          Black: "chickencrossroad", // Team1 player now black
+          Result: "0-1", // Black wins = Team1 wins
+        },
+      },
+    };
+    const swappedPartner: ChessGame = {
+      ...partnerGame,
+      game: {
+        ...partnerGame.game,
+        pgnHeaders: {
+          ...partnerGame.game.pgnHeaders,
+          White: "Emeraldddd", // Team1 player now white on board B
+          Black: "larso",      // Team2 player now black on board B
+        },
+      },
+    };
+
+    const game2: MatchGame = {
+      gameId: "game2",
+      partnerGameId: "partner2",
+      original: swappedOriginal,
+      partner: swappedPartner,
+      endTime: (originalGame.game.endTime ?? 0) + 100,
+    };
+
+    // Game 3: Back to original colors, Team2 wins
+    const game3 = createMatchGameWithResult("0-1");
+
+    const games = [game1, game2, game3];
+    const score = computeMatchScore(games);
+
+    // Game 1: Team1 white, 1-0 -> Team1 wins
+    // Game 2: Team1 black, 0-1 -> Team1 wins (black won)
+    // Game 3: Team1 white, 0-1 -> Team2 wins (black won)
+    expect(score.team1Wins).toBe(2);
+    expect(score.team2Wins).toBe(1);
+    expect(score.draws).toBe(0);
   });
 });
 

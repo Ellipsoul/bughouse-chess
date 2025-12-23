@@ -6,30 +6,80 @@ import { APP_TOOLTIP_ID } from "../utils/tooltips";
 import type { MatchDiscoveryStatus, MatchGame } from "../types/match";
 
 /**
+ * Reference team composition established from the first game.
+ * Teams are identified by player names (case-insensitive) to handle color swaps.
+ */
+export interface ReferenceTeams {
+  /** Team 1 players (sorted lowercase for comparison) */
+  team1: Set<string>;
+  /** Team 2 players (sorted lowercase for comparison) */
+  team2: Set<string>;
+  /** Display names for Team 1 (original case) */
+  team1Display: [string, string];
+  /** Display names for Team 2 (original case) */
+  team2Display: [string, string];
+}
+
+/**
+ * Establishes reference teams from the first game in a match.
+ * Team1 = boardA white + boardB black, Team2 = boardA black + boardB white.
+ */
+export function establishReferenceTeams(firstGame: MatchGame): ReferenceTeams {
+  const boardAWhite = firstGame.original.game.pgnHeaders.White;
+  const boardABlack = firstGame.original.game.pgnHeaders.Black;
+  const boardBWhite = firstGame.partner?.game.pgnHeaders.White ?? "Unknown";
+  const boardBBlack = firstGame.partner?.game.pgnHeaders.Black ?? "Unknown";
+
+  return {
+    team1: new Set([boardAWhite.toLowerCase(), boardBBlack.toLowerCase()]),
+    team2: new Set([boardABlack.toLowerCase(), boardBWhite.toLowerCase()]),
+    team1Display: [boardAWhite, boardBBlack],
+    team2Display: [boardABlack, boardBWhite],
+  };
+}
+
+/**
+ * Checks if the current game's white player on board A is from the reference Team1.
+ */
+function isTeam1PlayingWhite(game: MatchGame, refTeams: ReferenceTeams): boolean {
+  const currentWhite = game.original.game.pgnHeaders.White.toLowerCase();
+  return refTeams.team1.has(currentWhite);
+}
+
+/**
  * Extracts a display-friendly summary of a match game for the dropdown.
- * Returns team names, colors, and result.
+ * Uses reference teams to maintain consistent player positioning.
  */
 export interface GameSummary {
   /** Game index (1-based for display) */
   gameNumber: number;
-  /** Board A white player username */
-  boardAWhite: string;
-  /** Board A black player username */
-  boardABlack: string;
-  /** Board B white player username */
-  boardBWhite: string;
-  /** Board B black player username */
-  boardBBlack: string;
+  /** Team 1 player on board A */
+  team1BoardA: string;
+  /** Team 1 player on board B */
+  team1BoardB: string;
+  /** Team 2 player on board A */
+  team2BoardA: string;
+  /** Team 2 player on board B */
+  team2BoardB: string;
+  /** Whether Team 1 is playing white this game */
+  team1IsWhite: boolean;
   /** Game result (e.g., "1-0", "0-1", "1/2-1/2") */
   result: string;
-  /** Which team won: "team1" (boardA white + boardB black), "team2", or "draw" */
+  /** Which team won from the reference perspective */
   winningTeam: "team1" | "team2" | "draw";
 }
 
 /**
  * Extracts game summary from a MatchGame for dropdown display.
+ * @param game - The match game to extract summary from
+ * @param index - The 0-based index of this game in the match
+ * @param refTeams - Reference teams established from the first game
  */
-export function extractGameSummary(game: MatchGame, index: number): GameSummary {
+export function extractGameSummary(
+  game: MatchGame,
+  index: number,
+  refTeams?: ReferenceTeams,
+): GameSummary {
   const original = game.original;
   const partner = game.partner;
 
@@ -42,22 +92,48 @@ export function extractGameSummary(game: MatchGame, index: number): GameSummary 
   // Get result
   const result = original.game.pgnHeaders.Result;
 
-  // Determine winning team
-  // In bughouse: Team 1 = boardA white + boardB black, Team 2 = boardA black + boardB white
-  // Result is from board A perspective
+  // If no reference teams provided, use this game to establish them
+  // (backwards compatibility for tests that don't provide refTeams)
+  const effectiveRefTeams = refTeams ?? establishReferenceTeams(game);
+  const team1PlayingWhite = isTeam1PlayingWhite(game, effectiveRefTeams);
+
+  // Assign players to teams based on reference
+  let team1BoardA: string;
+  let team1BoardB: string;
+  let team2BoardA: string;
+  let team2BoardB: string;
+
+  if (team1PlayingWhite) {
+    // Team 1 has white on board A, black on board B
+    team1BoardA = boardAWhite;
+    team1BoardB = boardBBlack;
+    team2BoardA = boardABlack;
+    team2BoardB = boardBWhite;
+  } else {
+    // Team 1 has black on board A, white on board B (swapped)
+    team1BoardA = boardABlack;
+    team1BoardB = boardBWhite;
+    team2BoardA = boardAWhite;
+    team2BoardB = boardBBlack;
+  }
+
+  // Determine winning team from reference perspective
   let winningTeam: "team1" | "team2" | "draw" = "draw";
   if (result === "1-0") {
-    winningTeam = "team1"; // Board A white won
+    // Board A white won
+    winningTeam = team1PlayingWhite ? "team1" : "team2";
   } else if (result === "0-1") {
-    winningTeam = "team2"; // Board A black won
+    // Board A black won
+    winningTeam = team1PlayingWhite ? "team2" : "team1";
   }
 
   return {
     gameNumber: index + 1,
-    boardAWhite,
-    boardABlack,
-    boardBWhite,
-    boardBBlack,
+    team1BoardA,
+    team1BoardB,
+    team2BoardA,
+    team2BoardB,
+    team1IsWhite: team1PlayingWhite,
     result,
     winningTeam,
   };
@@ -67,9 +143,9 @@ export function extractGameSummary(game: MatchGame, index: number): GameSummary 
  * Match score summary computed from all games.
  */
 export interface MatchScore {
-  /** Number of games won by Team 1 (boardA white + boardB black) */
+  /** Number of games won by reference Team 1 */
   team1Wins: number;
-  /** Number of games won by Team 2 (boardA black + boardB white) */
+  /** Number of games won by reference Team 2 */
   team2Wins: number;
   /** Number of draws */
   draws: number;
@@ -77,22 +153,40 @@ export interface MatchScore {
 
 /**
  * Computes the overall match score from an array of match games.
+ * Uses reference teams from the first game to correctly attribute wins
+ * even when teams swap colors between games.
  * @param games - Array of MatchGame objects
  * @returns MatchScore with team1Wins, team2Wins, and draws
  */
 export function computeMatchScore(games: MatchGame[]): MatchScore {
+  if (games.length === 0) {
+    return { team1Wins: 0, team2Wins: 0, draws: 0 };
+  }
+
+  const refTeams = establishReferenceTeams(games[0]);
   let team1Wins = 0;
   let team2Wins = 0;
   let draws = 0;
 
   for (const game of games) {
     const result = game.original.game.pgnHeaders.Result;
+    const team1PlayingWhite = isTeam1PlayingWhite(game, refTeams);
+
     if (result === "1-0") {
-      team1Wins++;
+      // Board A white won
+      if (team1PlayingWhite) {
+        team1Wins++;
+      } else {
+        team2Wins++;
+      }
     } else if (result === "0-1") {
-      team2Wins++;
+      // Board A black won
+      if (team1PlayingWhite) {
+        team2Wins++;
+      } else {
+        team1Wins++;
+      }
     } else {
-      // "1/2-1/2" or any other result counts as a draw
       draws++;
     }
   }
@@ -285,91 +379,11 @@ export default function MatchNavigation({
 
                 {/* Dropdown menu */}
                 {isDropdownOpen && matchGames.length > 0 && (
-                  <div
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 w-64 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
-                    role="listbox"
-                    aria-label="Select a game"
-                  >
-                    {/* Scrollable game list with custom thin scrollbar */}
-                    <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500">
-                      {matchGames.map((game, index) => {
-                        const summary = extractGameSummary(game, index);
-                        const isCurrentGame = index === currentIndex;
-
-                        return (
-                          <button
-                            key={game.gameId}
-                            type="button"
-                            role="option"
-                            aria-selected={isCurrentGame}
-                            onClick={() => handleSelectGame(index)}
-                            className={`w-full px-2 py-1.5 text-left transition-colors ${
-                              isCurrentGame
-                                ? "bg-mariner-600/30 border-l-2 border-mariner-400"
-                                : "hover:bg-gray-700/60"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              {/* Game number */}
-                              <span className="text-[10px] font-medium text-gray-400 w-8 shrink-0">
-                                #{summary.gameNumber}
-                              </span>
-
-                              {/* Team 1 (boardA white + boardB black) */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1">
-                                  <span className="w-2 h-2 bg-white border border-gray-500 shrink-0" />
-                                  <span className="text-[10px] text-gray-200 truncate">
-                                    {summary.boardAWhite}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="w-2 h-2 bg-gray-900 border border-gray-500 shrink-0" />
-                                  <span className="text-[10px] text-gray-200 truncate">
-                                    {summary.boardBBlack}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Result */}
-                              <span
-                                className={`text-[10px] font-bold shrink-0 px-1 ${
-                                  summary.winningTeam === "team1"
-                                    ? "text-green-400"
-                                    : summary.winningTeam === "team2"
-                                      ? "text-red-400"
-                                      : "text-gray-400"
-                                }`}
-                              >
-                                {summary.result}
-                              </span>
-
-                              {/* Team 2 (boardA black + boardB white) */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] text-gray-200 truncate">
-                                    {summary.boardABlack}
-                                  </span>
-                                  <span className="w-2 h-2 bg-gray-900 border border-gray-500 shrink-0" />
-                                </div>
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-[10px] text-gray-200 truncate">
-                                    {summary.boardBWhite}
-                                  </span>
-                                  <span className="w-2 h-2 bg-white border border-gray-500 shrink-0" />
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Match score summary */}
-                    {matchGames.length > 0 && (
-                      <MatchScoreSummary games={matchGames} />
-                    )}
-                  </div>
+                  <MatchDropdown
+                    games={matchGames}
+                    currentIndex={currentIndex}
+                    onSelectGame={handleSelectGame}
+                  />
                 )}
               </>
             ) : null}
@@ -412,19 +426,136 @@ export default function MatchNavigation({
 }
 
 /**
+ * Dropdown component showing all games in a match with consistent team positioning.
+ */
+function MatchDropdown({
+  games,
+  currentIndex,
+  onSelectGame,
+}: {
+  games: MatchGame[];
+  currentIndex: number;
+  onSelectGame: (index: number) => void;
+}) {
+  if (games.length === 0) return null;
+
+  // Establish reference teams from first game
+  const refTeams = establishReferenceTeams(games[0]);
+
+  return (
+    <div
+      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 w-64 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
+      role="listbox"
+      aria-label="Select a game"
+    >
+      {/* Scrollable game list with custom thin scrollbar */}
+      <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500">
+        {games.map((game, index) => {
+          const summary = extractGameSummary(game, index, refTeams);
+          const isCurrentGame = index === currentIndex;
+
+          return (
+            <button
+              key={game.gameId}
+              type="button"
+              role="option"
+              aria-selected={isCurrentGame}
+              onClick={() => onSelectGame(index)}
+              className={`w-full px-2 py-1.5 text-left transition-colors ${
+                isCurrentGame
+                  ? "bg-mariner-600/30 border-l-2 border-mariner-400"
+                  : "hover:bg-gray-700/60"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                {/* Game number */}
+                <span className="text-[10px] font-medium text-gray-400 w-8 shrink-0">
+                  #{summary.gameNumber}
+                </span>
+
+                {/* Team 1 - always on left side */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                        summary.team1IsWhite ? "bg-white" : "bg-gray-900"
+                      }`}
+                    />
+                    <span className="text-[10px] text-gray-200 truncate">
+                      {summary.team1BoardA}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                        summary.team1IsWhite ? "bg-gray-900" : "bg-white"
+                      }`}
+                    />
+                    <span className="text-[10px] text-gray-200 truncate">
+                      {summary.team1BoardB}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Result */}
+                <span
+                  className={`text-[10px] font-bold shrink-0 px-1 ${
+                    summary.winningTeam === "team1"
+                      ? "text-green-400"
+                      : summary.winningTeam === "team2"
+                        ? "text-red-400"
+                        : "text-gray-400"
+                  }`}
+                >
+                  {summary.result}
+                </span>
+
+                {/* Team 2 - always on right side */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-gray-200 truncate">
+                      {summary.team2BoardA}
+                    </span>
+                    <span
+                      className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                        summary.team1IsWhite ? "bg-gray-900" : "bg-white"
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[10px] text-gray-200 truncate">
+                      {summary.team2BoardB}
+                    </span>
+                    <span
+                      className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                        summary.team1IsWhite ? "bg-white" : "bg-gray-900"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Match score summary */}
+      <MatchScoreSummary games={games} refTeams={refTeams} />
+    </div>
+  );
+}
+
+/**
  * Displays the final match score summary at the bottom of the dropdown.
  */
-function MatchScoreSummary({ games }: { games: MatchGame[] }) {
+function MatchScoreSummary({
+  games,
+  refTeams,
+}: {
+  games: MatchGame[];
+  refTeams: ReferenceTeams;
+}) {
   const score = computeMatchScore(games);
-
-  // Get team names from first game for display
-  const firstGame = games[0];
-  if (!firstGame) return null;
-
-  const team1Player1 = firstGame.original.game.pgnHeaders.White;
-  const team1Player2 = firstGame.partner?.game.pgnHeaders.Black ?? "Unknown";
-  const team2Player1 = firstGame.original.game.pgnHeaders.Black;
-  const team2Player2 = firstGame.partner?.game.pgnHeaders.White ?? "Unknown";
 
   return (
     <div className="border-t-2 border-gray-600 px-2 py-2 bg-gray-800/80">
@@ -432,10 +563,10 @@ function MatchScoreSummary({ games }: { games: MatchGame[] }) {
         {/* Team 1 names */}
         <div className="flex-1 min-w-0 text-left">
           <span className="text-[9px] text-gray-400 truncate block">
-            {team1Player1}
+            {refTeams.team1Display[0]}
           </span>
           <span className="text-[9px] text-gray-400 truncate block">
-            {team1Player2}
+            {refTeams.team1Display[1]}
           </span>
         </div>
 
@@ -456,10 +587,10 @@ function MatchScoreSummary({ games }: { games: MatchGame[] }) {
         {/* Team 2 names */}
         <div className="flex-1 min-w-0 text-right">
           <span className="text-[9px] text-gray-400 truncate block">
-            {team2Player1}
+            {refTeams.team2Display[0]}
           </span>
           <span className="text-[9px] text-gray-400 truncate block">
-            {team2Player2}
+            {refTeams.team2Display[1]}
           </span>
         </div>
       </div>
