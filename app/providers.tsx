@@ -37,7 +37,7 @@ export default function Providers({
   return (
     <>
       <Toaster
-        position="bottom-left"
+        position="bottom-right"
         toastOptions={{
           className: "text-base",
           duration: 4500,
