@@ -780,7 +780,12 @@ export default function GameViewerPage() {
           The move list(s) inside the analysis UI remain independently scrollable. */}
       <main className="flex w-full flex-1 overflow-hidden">
         <div className="mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 py-4 sm:px-6 lg:px-8">
+          {/*
+            Use `key` to force remount when game changes (e.g., navigating between match games).
+            This cleanly resets all internal state including live replay timers/RAF loops.
+          */}
           <BughouseAnalysis
+            key={loadedGameId ?? "no-game"}
             gameData={gameData}
             isLoading={isPending}
             onAnalysisDirtyChange={setAnalysisIsDirty}
