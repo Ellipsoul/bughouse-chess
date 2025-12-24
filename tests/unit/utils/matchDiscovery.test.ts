@@ -607,6 +607,112 @@ describe("extractGameSummary", () => {
 
     // littleplotkin (team2) won with white (1-0), so team2 wins
     expect(summary2.winningTeam).toBe("team2");
+
+    // Display result should be from Team 1's perspective (left side)
+    // Team 2 won, so displayResult should be "0-1"
+    expect(summary2.displayResult).toBe("0-1");
+  });
+
+  it("displays result from Team 1 perspective when Team 1 wins", () => {
+    const matchGame: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: "1-0", // Team 1 (white on board A) wins
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+
+    const summary = extractGameSummary(matchGame, 0);
+
+    expect(summary.winningTeam).toBe("team1");
+    expect(summary.displayResult).toBe("1-0"); // Team 1 won = "1-0"
+  });
+
+  it("flips displayResult when Team 1 wins while playing black", () => {
+    // Team 1 (chickencrossroad + Emeraldddd) playing black this game
+    const swappedOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          White: "littleplotkin",
+          Black: "chickencrossroad",
+          Result: "0-1", // Black (Team 1) wins
+        },
+      },
+    };
+    const swappedPartner: ChessGame = {
+      ...partnerGame,
+      game: {
+        ...partnerGame.game,
+        pgnHeaders: {
+          ...partnerGame.game.pgnHeaders,
+          White: "Emeraldddd",
+          Black: "larso",
+        },
+      },
+    };
+
+    // First establish reference teams from original game
+    const refGame: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: originalGame,
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+    const refTeams = establishReferenceTeams(refGame);
+
+    // Now get summary for the swapped game
+    const swappedGame: MatchGame = {
+      gameId: "swapped",
+      partnerGameId: "swappedPartner",
+      original: swappedOriginal,
+      partner: swappedPartner,
+      endTime: (originalGame.game.endTime ?? 0) + 100,
+    };
+
+    const summary = extractGameSummary(swappedGame, 1, refTeams);
+
+    // Raw result is "0-1" (black won)
+    expect(summary.result).toBe("0-1");
+    // Team 1 won (they were black), so displayResult should be "1-0"
+    expect(summary.winningTeam).toBe("team1");
+    expect(summary.displayResult).toBe("1-0");
+  });
+
+  it("preserves draw notation in displayResult", () => {
+    const drawGame: MatchGame = {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: "1/2-1/2",
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+
+    const summary = extractGameSummary(drawGame, 0);
+
+    expect(summary.winningTeam).toBe("draw");
+    expect(summary.displayResult).toBe("1/2-1/2");
   });
 });
 

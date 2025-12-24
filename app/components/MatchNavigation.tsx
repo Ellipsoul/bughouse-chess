@@ -63,8 +63,13 @@ export interface GameSummary {
   team2BoardB: string;
   /** Whether Team 1 is playing white this game */
   team1IsWhite: boolean;
-  /** Game result (e.g., "1-0", "0-1", "1/2-1/2") */
+  /** Original game result from PGN (e.g., "1-0", "0-1", "1/2-1/2") */
   result: string;
+  /**
+   * Display result from Team 1's perspective (left side of dropdown).
+   * "1-0" means Team 1 won, "0-1" means Team 2 won.
+   */
+  displayResult: string;
   /** Which team won from the reference perspective */
   winningTeam: "team1" | "team2" | "draw";
 }
@@ -127,6 +132,18 @@ export function extractGameSummary(
     winningTeam = team1PlayingWhite ? "team2" : "team1";
   }
 
+  // Compute display result from Team 1's perspective (left side of dropdown)
+  // "1-0" = Team 1 won, "0-1" = Team 2 won
+  let displayResult: string;
+  if (winningTeam === "team1") {
+    displayResult = "1-0";
+  } else if (winningTeam === "team2") {
+    displayResult = "0-1";
+  } else {
+    // Keep original draw notation (could be "1/2-1/2", "*", etc.)
+    displayResult = result;
+  }
+
   return {
     gameNumber: index + 1,
     team1BoardA,
@@ -135,6 +152,7 @@ export function extractGameSummary(
     team2BoardB,
     team1IsWhite: team1PlayingWhite,
     result,
+    displayResult,
     winningTeam,
   };
 }
@@ -507,7 +525,7 @@ function MatchDropdown({
                         : "text-gray-400"
                   }`}
                 >
-                  {summary.result}
+                  {summary.displayResult}
                 </span>
 
                 {/* Team 2 - always on right side */}
