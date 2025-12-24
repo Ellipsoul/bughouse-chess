@@ -149,7 +149,8 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
             "g": "g1",
             "h": "h1",
         } as const;
-        return squareMap[symbol as keyof typeof squareMap];
+        const result = squareMap[symbol as keyof typeof squareMap];
+        return result;
     }
 
     // Main parsing loop

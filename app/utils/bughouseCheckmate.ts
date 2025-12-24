@@ -14,9 +14,9 @@ import { Chess, type Color, type Square } from "chess.js";
  * Notes / invariants:
  * - This intentionally ignores whether the checked side currently has pieces in reserve.
  *   Even with an empty reserve, future captures on the *other* board could yield blockers.
- * - We do **not** use the “last moved piece” to determine the checker because bughouse (and chess)
+ * - We do **not** use the "last moved piece" to determine the checker because bughouse (and chess)
  *   allows discovered checks. We use `board.attackers()` from the king square in the current position.
- * - `chess.js` uses the side-to-move as the “checked side” in checkmate positions, so we locate the
+ * - `chess.js` uses the side-to-move as the "checked side" in checkmate positions, so we locate the
  *   king for `board.turn()`.
  */
 
@@ -63,7 +63,7 @@ export function isBughouseCheckmate(board: Chess): boolean {
 /**
  * Bughouse-aware suffix for display/notation.
  *
- * Important: This assumes the position is already in the “after move” state, where the side-to-move
+ * Important: This assumes the position is already in the "after move" state, where the side-to-move
  * is the opponent of the mover. That matches chess.js SAN semantics and how this codebase calls it.
  */
 export function getBughouseCheckSuffix(board: Chess): "" | "+" | "#" {
@@ -140,5 +140,3 @@ function sign(n: number): -1 | 0 | 1 {
   if (n === 0) return 0;
   return n > 0 ? 1 : -1;
 }
-
-

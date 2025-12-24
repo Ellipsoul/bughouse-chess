@@ -402,6 +402,9 @@ export function useAnalysisState(): UseAnalysisStateResult {
 
   const loadGameMainline = useCallback(
     (combinedMoves: BughouseMove[]): { ok: true } | { ok: false; message: string } => {
+      // Pre-process moves to reorder any simultaneous checkmate situations
+      const reorderedMoves = reorderSimultaneousCheckmateMove(combinedMoves);
+
       const rootId = "root";
       const rootPosition = createInitialPositionSnapshot();
       const nodesById: Record<string, AnalysisNode> = {
@@ -417,12 +420,14 @@ export function useAnalysisState(): UseAnalysisStateResult {
       let cursorId = rootId;
       let position = rootPosition;
 
-      for (const move of combinedMoves) {
+      for (let i = 0; i < reorderedMoves.length; i++) {
+        const move = reorderedMoves[i];
         const applied = validateAndApplyMoveFromNotation(position, {
           board: move.board,
           side: move.side,
           move: move.move,
         });
+
         if (applied.type !== "ok") {
           return {
             ok: false,
@@ -687,5 +692,114 @@ function collectDescendants(nodesById: Record<string, AnalysisNode>, nodeId: str
     stack.push(...child.children);
   }
   return result;
+}
+
+/**
+ * Pre-process combined moves to handle simultaneous move ordering issues.
+ *
+ * In bughouse, moves on different boards can happen simultaneously. This creates
+ * ordering ambiguities that can cause validation failures:
+ *
+ * 1. **Checkmate case**: Checkmate on board A while board B has a move in-flight.
+ *    The non-checkmating move should come before the checkmate.
+ *
+ * 2. **Piece availability case**: A drop on board A uses a piece that was just
+ *    captured on board B. If ordered wrong, the piece isn't available yet.
+ *
+ * This function detects when a move fails due to ordering issues and attempts
+ * to swap adjacent cross-board moves to find a valid sequence.
+ *
+ * @remarks
+ * Since simultaneous moves must share the same timestamp, we only check the
+ * immediately adjacent moves (one forward, one backward). The algorithm:
+ * - Forward check: swaps with next move if it's on a different board with same timestamp
+ * - Backward check: swaps with previous move if it's on a different board with same timestamp
+ */
+export function reorderSimultaneousCheckmateMove(combinedMoves: BughouseMove[]): BughouseMove[] {
+  if (combinedMoves.length < 2) return combinedMoves;
+
+  // We may need to perform multiple swaps, so work with a mutable copy
+  const reordered = [...combinedMoves];
+  let position = createInitialPositionSnapshot();
+
+  for (let i = 0; i < reordered.length; i++) {
+    const move = reordered[i];
+    const applied = validateAndApplyMoveFromNotation(position, {
+      board: move.board,
+      side: move.side,
+      move: move.move,
+    });
+
+    if (applied.type !== "ok") {
+      // Strategy 1: Check the NEXT move (i+1) - it might need to come before this one
+      // This handles piece availability: a capture at the same timestamp provides the piece for this drop
+      if (i + 1 < reordered.length) {
+        const nextMove = reordered[i + 1];
+
+        // Only attempt swap if moves are on different boards and have the same timestamp
+        if (move.board !== nextMove.board && move.timestamp === nextMove.timestamp) {
+          // Try swapping: put next move before the failing move
+          const swapped = [...reordered];
+          swapped[i] = nextMove;
+          swapped[i + 1] = move;
+
+          // Verify the swap works
+          if (verifySequenceWorks(swapped, i + 1)) {
+            // Swap succeeded - recursively process the rest in case there are more issues
+            return reorderSimultaneousCheckmateMove(swapped);
+          }
+        }
+      }
+
+      // Strategy 2: Check the PREVIOUS move (i-1) - the failing move might need to come before it
+      // This handles checkmate case: the failing move should come before a checkmate at the same timestamp
+      if (i > 0) {
+        const prevMove = reordered[i - 1];
+
+        // Only attempt swap if moves are on different boards and have the same timestamp
+        if (move.board !== prevMove.board && move.timestamp === prevMove.timestamp) {
+          // Try swapping: put failing move before the previous move
+          const swapped = [...reordered];
+          swapped[i - 1] = move;
+          swapped[i] = prevMove;
+
+          // Verify the swap works
+          if (verifySequenceWorks(swapped, i)) {
+            // Swap succeeded - recursively process the rest in case there are more issues
+            return reorderSimultaneousCheckmateMove(swapped);
+          }
+        }
+      }
+
+      // No valid swap found - return what we have
+      // Let loadGameMainline handle the error
+      return reordered;
+    }
+
+    position = applied.next;
+  }
+
+  return reordered;
+}
+
+/**
+ * Verify that a reordered sequence works up to the given end index.
+ * Replays the entire sequence from the beginning to include all state.
+ */
+function verifySequenceWorks(sequence: BughouseMove[], endIndex: number): boolean {
+  let position = createInitialPositionSnapshot();
+
+  for (let i = 0; i <= endIndex && i < sequence.length; i++) {
+    const move = sequence[i];
+    const applied = validateAndApplyMoveFromNotation(position, {
+      board: move.board,
+      side: move.side,
+      move: move.move,
+    });
+    if (applied.type !== "ok") return false;
+    position = applied.next;
+  }
+
+  return true;
 }
 

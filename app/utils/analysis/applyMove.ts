@@ -74,6 +74,21 @@ export function getAllowedActors(position: BughousePositionSnapshot): Array<{
 }
 
 /**
+ * Options for move validation.
+ */
+export interface ValidateAndApplyOptions {
+  /**
+   * If true, skip the checkmate check at the start of validation.
+   *
+   * This is used when loading games from chess.com where a "simultaneous" move
+   * on the other board may have been made at the exact moment checkmate occurred.
+   * In bughouse, such moves are valid because players don't instantly know the
+   * other board has ended.
+   */
+  bypassCheckmateCheck?: boolean;
+}
+
+/**
  * Validate an attempted move against the current bughouse position and apply it if legal.
  *
  * This is the core rules engine used by:
@@ -84,8 +99,9 @@ export function getAllowedActors(position: BughousePositionSnapshot): Array<{
 export function validateAndApplyBughouseHalfMove(
   position: BughousePositionSnapshot,
   attempted: AttemptedBughouseHalfMove,
+  options?: ValidateAndApplyOptions,
 ): ValidateAndApplyResult {
-  if (isBughouseOverByCheckmate(position)) {
+  if (!options?.bypassCheckmateCheck && isBughouseOverByCheckmate(position)) {
     return { type: "error", message: "Game is already over." };
   }
 
@@ -257,6 +273,7 @@ export function validateAndApplyBughouseHalfMove(
 export function validateAndApplyMoveFromNotation(
   position: BughousePositionSnapshot,
   params: { board: BughouseBoardId; side: BughouseSide; move: string },
+  options?: ValidateAndApplyOptions,
 ): ValidateAndApplyResult {
   const { board, side } = params;
   const rawMove = params.move.trim();
@@ -271,7 +288,7 @@ export function validateAndApplyMoveFromNotation(
       side,
       piece: dropParsed.piece,
       to: dropParsed.to,
-    });
+    }, options);
   }
 
   // Normal: let chess.js parse + normalize, then replay it as a from/to move.
@@ -294,7 +311,7 @@ export function validateAndApplyMoveFromNotation(
     from: result.from as Square,
     to: result.to as Square,
     promotion: result.promotion as BughousePromotionPiece | undefined,
-  });
+  }, options);
 }
 
 function buildNextSnapshot(

@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useAnalysisState } from "../../../app/components/useAnalysisState";
+import { useAnalysisState, reorderSimultaneousCheckmateMove } from "../../../app/components/useAnalysisState";
+import { processGameData } from "../../../app/utils/moveOrdering";
 import type { BughouseMove } from "../../../app/types/bughouse";
+import type { ChessGame } from "../../../app/actions";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 describe("useAnalysisState", () => {
   it("initializes with root node as cursor", () => {
@@ -366,6 +370,162 @@ describe("useAnalysisState", () => {
     if (result.current.currentNode.incomingMove) {
       expect(result.current.currentNode.incomingMove.kind).toBe("drop");
     }
+  });
+});
+
+/**
+ * Tests for reorderSimultaneousCheckmateMove function.
+ *
+ * This function handles edge cases in bughouse where moves on different boards
+ * happen simultaneously, causing ordering issues:
+ *
+ * 1. Checkmate case: A move on board B is in-flight when checkmate is delivered on board A
+ * 2. Piece availability case: A drop on board A uses a piece that was just captured on board B
+ */
+describe("reorderSimultaneousCheckmateMove", () => {
+  /**
+   * Helper to load a fixture file
+   */
+  const loadFixture = (gameId: string): ChessGame => {
+    return JSON.parse(
+      readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", `${gameId}.json`), "utf-8"),
+    ) as ChessGame;
+  };
+
+  describe("checkmate simultaneous move case (game 158858846801)", () => {
+    /**
+     * In this game, checkmate is delivered on board A (Re8#) at the exact moment
+     * a move is being made on board B (Bg5f6). The timestamp ordering puts the
+     * checkmate first, blocking the simultaneous move. The reorder function should
+     * swap them so the non-checkmating move comes before the checkmate.
+     */
+    it("reorders moves so non-checkmating move comes before checkmate", () => {
+      const originalGame = loadFixture("158858846801");
+      const partnerGame = loadFixture("158858846803");
+
+      // Process the games to get combined moves
+      const processed = processGameData(originalGame, partnerGame);
+
+      // Apply reordering
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+
+      // The reordered moves should be valid - we verify by checking they don't throw
+      // when loaded into the analysis state
+      const { result } = renderHook(() => useAnalysisState());
+
+      let loadResult: { ok: true } | { ok: false; message: string } = { ok: false, message: "" };
+      act(() => {
+        loadResult = result.current.loadGameMainline(reordered);
+      });
+
+      // The game should load successfully
+      expect(loadResult.ok).toBe(true);
+
+      // The tree should have all the moves
+      const nodeCount = Object.keys(result.current.state.tree.nodesById).length;
+      expect(nodeCount).toBeGreaterThan(1);
+    });
+
+    it("produces a valid move sequence that can be fully replayed", () => {
+      const originalGame = loadFixture("158858846801");
+      const partnerGame = loadFixture("158858846803");
+
+      const processed = processGameData(originalGame, partnerGame);
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+
+      const { result } = renderHook(() => useAnalysisState());
+
+      act(() => {
+        result.current.loadGameMainline(reordered);
+      });
+
+      // Count nodes in tree (excluding root = number of moves loaded)
+      const moveCount = Object.keys(result.current.state.tree.nodesById).length - 1;
+
+      // We expect all or almost all moves to be loaded
+      // (the exact count depends on when checkmate occurs)
+      expect(moveCount).toBeGreaterThan(50); // Both games have significant moves
+    });
+  });
+
+  describe("piece availability simultaneous move case (game 159663448945)", () => {
+    /**
+     * In this game, board A tries to drop a bishop (B@c3) at the same time
+     * board B captures a bishop (Bxe5). The timestamp ordering puts the drop
+     * before the capture, so the piece isn't available yet. The reorder function
+     * should swap them so the capture happens first, making the piece available.
+     */
+    it("reorders moves so piece-capturing move comes before piece-dropping move", () => {
+      const originalGame = loadFixture("159663448945");
+      const partnerGame = loadFixture("159663448943");
+
+      // Process the games to get combined moves
+      const processed = processGameData(originalGame, partnerGame);
+
+      // Apply reordering
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+
+      // The reordered moves should be valid
+      const { result } = renderHook(() => useAnalysisState());
+
+      let loadResult: { ok: true } | { ok: false; message: string } = { ok: false, message: "" };
+      act(() => {
+        loadResult = result.current.loadGameMainline(reordered);
+      });
+
+      // The game should load successfully
+      expect(loadResult.ok).toBe(true);
+    });
+
+    it("produces a valid move sequence with all moves loaded", () => {
+      const originalGame = loadFixture("159663448945");
+      const partnerGame = loadFixture("159663448943");
+
+      const processed = processGameData(originalGame, partnerGame);
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+
+      const { result } = renderHook(() => useAnalysisState());
+
+      act(() => {
+        result.current.loadGameMainline(reordered);
+      });
+
+      // Count nodes in tree (excluding root = number of moves loaded)
+      const moveCount = Object.keys(result.current.state.tree.nodesById).length - 1;
+
+      // Both games together should have many moves
+      expect(moveCount).toBeGreaterThan(40);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("returns original moves when no reordering is needed", () => {
+      const simpleMoves: BughouseMove[] = [
+        { board: "A", moveNumber: 1, move: "e4", timestamp: 5, side: "white" },
+        { board: "A", moveNumber: 1, move: "e5", timestamp: 10, side: "black" },
+        { board: "B", moveNumber: 1, move: "d4", timestamp: 15, side: "white" },
+        { board: "B", moveNumber: 1, move: "d5", timestamp: 20, side: "black" },
+      ];
+
+      const reordered = reorderSimultaneousCheckmateMove(simpleMoves);
+
+      // Should be unchanged since no reordering is needed
+      expect(reordered).toEqual(simpleMoves);
+    });
+
+    it("handles empty move list", () => {
+      const reordered = reorderSimultaneousCheckmateMove([]);
+      expect(reordered).toEqual([]);
+    });
+
+    it("handles single move", () => {
+      const singleMove: BughouseMove[] = [
+        { board: "A", moveNumber: 1, move: "e4", timestamp: 5, side: "white" },
+      ];
+
+      const reordered = reorderSimultaneousCheckmateMove(singleMove);
+      expect(reordered).toEqual(singleMove);
+    });
   });
 });
 

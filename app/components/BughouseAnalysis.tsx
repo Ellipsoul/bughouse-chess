@@ -27,7 +27,7 @@ import {
 } from "../utils/analysis/applyMove";
 import ChessBoard from "./ChessBoard";
 import PieceReserveVertical from "./PieceReserveVertical";
-import { useAnalysisState } from "./useAnalysisState";
+import { reorderSimultaneousCheckmateMove, useAnalysisState } from "./useAnalysisState";
 import VariationSelector from "./VariationSelector";
 import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
@@ -362,10 +362,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const combinedMovesForMoveTimes = useMemo((): BughouseMove[] | undefined => {
     if (!processedGame?.combinedMoves?.length) return undefined;
 
+    // Pre-process moves to handle simultaneous checkmate situations
+    const reorderedMoves = reorderSimultaneousCheckmateMove(processedGame.combinedMoves);
+
     const sanitized: BughouseMove[] = [];
     let position = createInitialPositionSnapshot();
 
-    for (const combinedMove of processedGame.combinedMoves) {
+    for (const combinedMove of reorderedMoves) {
       const applied = validateAndApplyMoveFromNotation(position, {
         board: combinedMove.board,
         side: combinedMove.side,
