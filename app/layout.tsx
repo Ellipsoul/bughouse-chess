@@ -23,9 +23,9 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "Bughouse Chess Viewer",
-  description: "A modern implementation of Bughouse Chess",
-  applicationName: "Bughouse Chess Viewer",
+  title: "Relay - Bughouse Analysis",
+  description: "A minimalistic elegant tool for analyzing and replaying Bughouse Chess matches",
+  applicationName: "Relay",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -62,7 +62,7 @@ export default function RootLayout({
     >
       {/* Hard clamp the app to the viewport: the document should never scroll.
           Scrollable regions (like the move list) handle their own overflow. */}
-      <body className="h-[100dvh] overflow-hidden antialiased">
+      <body className="h-dvh overflow-hidden antialiased">
         <Providers>
           <main className="w-full h-full overflow-hidden">{children}</main>
         </Providers>
