@@ -1,140 +1,139 @@
-# Relay - Bughouse Chess Analysis Tool
+# Relay — Bughouse Chess Replay & Analysis Tool
 
-**Deployed at https://bughouse.aronteh.com/**
+**[Try the App Here](https://bughouse.aronteh.com/)**
 
-Welcome! This is a web app for **replaying and analyzing bughouse games from
-chess.com**.
+Relay is an elegant tool for **replaying and analyzing bughouse games from
+chess.com**. It loads both boards of a bughouse match (the “partner” game),
+merges the moves into a single timeline, and gives you a powerful two-board UI
+for **drops**, **variations**, **live replay**, and **fast navigation**.
 
-It loads both boards of a bughouse match (the “partner” game), merges the moves
-into a single timeline, and gives you an interactive two-board analysis UI with
-**drops**, **variations**, and **keyboard navigation**.
+---
 
-## Key Features
+## For Players (everything you can do)
 
-### Load Bughouse games from chess.com
+### Open a game
 
-- **Load by game ID**: paste a chess.com _live game ID_ and the app fetches the
-  game.
-- **Auto-detect the partner board**: if chess.com provides a `partnerGameId`, we
-  use it; otherwise the app probes nearby IDs to find the paired bughouse board.
-- **Open games via URL**: `https://bughouse.aronteh.com/?gameId=159878252255`
-- **User scripts**: Install browser extensions to quickly open games from
-  chess.com:
-  - **Bookmarklet**: One-click bookmark to open the current game (see
-    [`user_scripts/bookmarklet.md`](user_scripts/bookmarklet.md))
-  - **TamperMonkey script**: Automatically adds "Ellipviewer" buttons to
-    bughouse games in game history (see
-    [`user_scripts/tampermonkey.md`](user_scripts/tampermonkey.md))
+- **Paste a chess.com live game ID** (e.g. `159878252255`)
+- **Or open a link directly**:
+  `https://bughouse.aronteh.com/?gameId=159878252255`
+- **Partner board auto-detection**
+  - If chess.com provides `partnerGameId`, Relay uses it.
+  - Otherwise, Relay probes nearby IDs to find the paired board.
 
-### Replay a full two-board bughouse match
+### Replay the match (two boards, one timeline)
 
-- **Two synchronized boards** (A and B) rendered side-by-side.
-- **Merged move timeline**: moves from both boards are ordered by timestamp so
-  you can step through the match as it actually unfolded.
-- **Clocks**: shows remaining time snapshots per player (as provided by
-  chess.com), synchronized with the current position.
-- **Responsive layout**: boards resize to fit the available width.
+- **Two synchronized boards** (A and B) side-by-side.
+- **Merged move timeline** ordered by timestamp so you can step through the
+  match as it actually unfolded (including simultaneous-move quirks).
+- **Clocks** shown per player (as provided by chess.com), synchronized to the
+  current position.
+- **Live replay mode**: play the match back in (approximate) real time using the
+  original timestamps, with play/pause + seeking.
 
-### Analyze positions interactively (like an analysis board, but bughouse-aware)
+### Analyze positions interactively (bughouse-aware)
 
-- **Make moves directly on the board** via drag-and-drop.
-- **Bughouse drops**:
+- **Make moves directly on the board** (drag-and-drop).
+- **Bughouse drops**
   - Click a reserve piece to “arm” a drop, then click a target square.
   - Or drag reserve pieces onto the board.
-- **Promotion handling**: when a move needs promotion, the UI asks you to pick a
+- **Promotion picker**: when a move needs promotion, Relay asks you to pick a
   piece.
-- **Bughouse reserves update correctly**: captures on one board feed the
-  partner’s reserve for later drops.
+- **Reserves update correctly**: captures on one board feed the partner’s
+  reserve.
 
-### Explore and manage variations
+### Variations (branching analysis)
 
-- **Branching analysis tree**: play alternative lines from any position.
+- **Branching analysis tree**: explore alternative lines from any position.
 - **Variation selector**: when a node has multiple continuations, stepping
   forward can open a selector.
-- **Move list with inline variations**: the mainline stays in a 4-column layout
-  (A/B, white/black), and variations are displayed beneath the relevant move.
-- **Context menu tools**:
-  - **Promote variation** (make a side line the mainline).
-  - **Delete from here** (delete all continuations after a node).
+- **Move list with inline variations**: a 4-column layout (A/B × white/black)
+  with side lines shown under the relevant move.
+- **Tools**
+  - **Promote variation** (make a side line the mainline)
+  - **Delete from here** (truncate continuations)
 
-### Keyboard + quality-of-life controls
+### Notes & quality-of-life
 
-- **Arrow keys**: navigate moves (and variations when applicable).
-- **Up/Down**: jump to start/end of the current line.
-- **Flip boards**: press **f** (or use the flip button).
+- **Board annotations**: add highlights/arrows to help reason about lines.
+- **Keyboard navigation**
+  - **Left/Right**: back/forward
+  - **Up/Down**: jump to start/end of the current line
+  - **f**: flip boards
+  - Live replay intentionally disables most editing/navigation so playback stays
+    stable.
 - **Toasts**: clear feedback for load states, illegal moves, promotions, etc.
+- **Responsive layout**: boards resize to fit available width; reserves support
+  a compact density mode.
 
-## Technologies Used
+### Match navigation (multi-game)
 
-### Frameworks & UI
+If you’re playing a bughouse match consisting of multiple consecutive games,
+Relay can help you **discover and step through subsequent games** with the same
+four players and the same team pairings (rate-limited to be gentle to
+chess.com).
 
-- **Next.js** (App Router) for the application framework.
-- **React** for the interactive UI.
-- **TypeScript** for type safety.
-- **Tailwind CSS** for styling.
-- **lucide-react** for icons.
-- **react-hot-toast** for notifications.
+### Quick-open helpers (optional)
 
-### Firebase (Firestore metrics + Analytics)
+- **Bookmarklet**: one-click bookmark to open the current game in Relay (see
+  [`user_scripts/bookmarklet.md`](user_scripts/bookmarklet.md))
+- **TamperMonkey**: adds “Ellipviewer” buttons to bughouse games in chess.com
+  game history (see
+  [`user_scripts/ellipviewer_installation.md`](user_scripts/ellipviewer_installation.md))
 
-This project uses **Firestore** (via **Firebase Admin SDK**) to store a simple
-global metric: **how many games have been loaded**.
+---
 
-- The browser **does not** talk to Firestore directly.
-- The app calls a server endpoint (`/api/metrics/game-load`) which
-  increments/reads a counter stored at Firestore document `metrics/global`.
+## For Developers (setup, architecture, contributing)
 
-This project also uses **Firebase Analytics** (via **Firebase Web SDK**) to
-track user interactions:
+### Tech stack
 
-- **Load Game button clicks**: tracked with event `load_game_button_click`
-- Firebase Analytics has built-in throttling to prevent excessive event logging
-- Analytics is initialized automatically on the client side and gracefully
-  handles cases where it's not configured or not supported
+- **Next.js** (App Router) + **React** + **TypeScript**
+- **Tailwind CSS** for styling
+- **chess.js** for rules/legality and FEN state
+- **chessboard.js** (with **jQuery**) for board rendering
+- **Vitest** for unit tests + **Cypress Component Testing** for UI components
 
-### Chess / bughouse domain logic
+### Architecture map (where to look)
 
-- **chess.js** for rules, legal move validation, check/checkmate detection, and
-  FEN state.
-- **Bughouse move + reserve rules** implemented in app utilities:
-  - Drops are represented as `P@e4` (optionally suffixed with `+/#`).
-  - Captures feed the partner board’s reserve.
-  - Promotions are tracked (including visual marking of promoted squares).
+- **Core bughouse rules / move application**: `app/utils/analysis/applyMove.ts`
+- **Analysis tree + navigation + promotions/variations**:
+  `app/components/useAnalysisState.ts`
+- **Clock simulation + live replay primitives**:
+  `app/utils/analysis/buildBughouseClockTimeline.ts`,
+  `app/utils/analysis/liveReplay.ts`
+- **Move ordering + chess.com ingestion**: `app/utils/moveOrdering.ts`,
+  `app/chesscom_movelist_parse.ts`
+- **Replay controller (imperative stepping + undo)**:
+  `app/utils/replayController.ts`
+- **Main UI**: `app/components/GameViewerPage.tsx`,
+  `app/components/BughouseAnalysis.tsx`
 
-### Board rendering
+### Firebase (optional, for metrics + analytics)
 
-- **chessboard.js** for board UI, integrated via a small client wrapper.
-- **jQuery** is used because chessboard.js expects it.
+Relay supports:
 
-### Data ingestion
+- **Firestore** (Admin SDK) for a single global metric: **how many games were
+  loaded**
+- **Firebase Analytics** (Web SDK) for basic interaction tracking (e.g. “Load
+  Game” clicks)
 
-- The app fetches chess.com live game payloads from
-  `https://www.chess.com/callback/live/game/<gameId>`.
-- chess.com’s compressed `moveList` format is parsed and normalized before being
-  merged into a single bughouse timeline.
+Privacy design:
 
-### Tooling
+- The browser does **not** talk to Firestore directly.
+- The app uses a server route (`/api/metrics/game-load`) which increments/reads
+  a counter stored at Firestore document `metrics/global`.
+- The metric is intentionally anonymous and low-cardinality (no per-game IDs
+  stored).
 
-- **ESLint** + **TypeScript** typechecking via `npm run lint`.
-- **@vercel/analytics** for deployment analytics.
-
-## Development
-
-### Prerequisites
-
-- Node.js + npm
-
-### Firebase / Firestore setup (local + production)
+#### Firebase / Firestore setup (local + production)
 
 1. Create a Firebase project
 2. Enable Firestore (Native mode)
 3. Enable **Firebase Analytics** for your web app (Project settings →
    Integrations → Google Analytics)
-4. Create a **Service Account** (Project settings → Service accounts) and copy
-   the JSON credentials.
+4. Create a **Service Account** and copy the JSON credentials
 5. Register your web app in Firebase Console (Project settings → General → Your
    apps → Add app → Web)
-6. Set these environment variables (recommended in `.env.local` for local dev):
+6. Set these environment variables (recommended in `.env.local`):
 
 **Server-side (Firestore Admin SDK):**
 
@@ -148,10 +147,6 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY--
 
 **Client-side (Firebase Analytics):**
 
-All client-side variables must be prefixed with `NEXT_PUBLIC_` to be accessible
-in the browser. These values can be found in your Firebase Console under Project
-Settings → General → Your apps → Web app config:
-
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
@@ -159,15 +154,11 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789012"
 NEXT_PUBLIC_FIREBASE_APP_ID="1:123456789012:web:abcdef123456"
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"  # Required for Analytics
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"
 ```
 
-The `measurementId` (also called `measurement_id` in some Firebase docs) is
-automatically created when you enable Analytics for your web app. It typically
-starts with `G-`.
-
-Security recommendation: you can keep Firestore security rules fully locked down
-(deny all). The server uses Firebase Admin SDK and bypasses rules.
+Security recommendation: you can keep Firestore rules fully locked down (deny
+all). The server uses Firebase Admin SDK and bypasses rules.
 
 ### Run locally
 
@@ -176,100 +167,31 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-### Scripts
+### Useful scripts
 
-- `npm run dev`: start the dev server
-- `npm run build`: production build
-- `npm run start`: run the production server
 - `npm run lint`: TypeScript check + ESLint
 - `npm run format`: ESLint auto-fix
-- `npm run test`: run unit tests (Vitest) + Cypress component tests
-- `npm run test:unit`: run unit tests once
-- `npm run test:watch`: run unit tests in watch mode
-- `npm run test:coverage`: run unit tests with coverage report
-- `npm run test:component`: run Cypress Component Tests headlessly
-- `npm run test:component:open`: open Cypress Component Testing UI
-- `npm run fixtures:record`: record chess.com game fixtures for testing
+- `npm run test:unit`: Vitest unit tests once
+- `npm run test:component`: Cypress component tests headlessly
+- `npm run fixtures:record`: record chess.com fixtures for tests
 
-## Testing
+### Testing strategy
 
-This project uses a comprehensive testing strategy with **Vitest** for unit
-tests and **Cypress Component Testing** for UI component tests.
+- **Unit tests (Vitest)** cover deterministic domain logic (move rules, clock
+  simulation, parsing).
+- **Component tests (Cypress)** cover UI components like promotion selection,
+  variation selection, move tree rendering, and reserve interactions.
 
-### Unit Tests (Vitest)
+### Contributing
 
-Unit tests cover all deterministic bughouse domain logic:
+Contributions are welcome — especially around:
 
-- **Bughouse move rules engine** (`app/utils/analysis/applyMove.ts`)
-  - Normal moves, drops, promotions, captures
-  - Reserve management and partner board feeding
-  - Turn enforcement and legality validation
-- **Bughouse checkmate detection** (`app/utils/bughouseCheckmate.ts`)
-  - Blockable vs unblockable checkmates
-  - Double-check and knight-check handling
-- **Clock timeline building**
-  (`app/utils/analysis/buildBughouseClockTimeline.ts`)
-  - Two-clock simulation correctness
-  - Non-monotonic timestamp handling
-- **Game data processing** (`app/utils/moveOrdering.ts`)
-  - Player color mapping
-  - Move merging and chronological ordering
-- **Move conversion** (`app/utils/moveConverter.ts`)
-  - Chess.com notation normalization
-- **Analysis state management** (`app/components/useAnalysisState.ts`)
-  - Tree navigation, variations, promotions
-  - Clock anchor logic
+- bughouse edge cases / legality correctness
+- UI/UX polish and accessibility
+- performance improvements for large games
+- more fixtures + regression tests for tricky chess.com payloads
 
-Run unit tests:
-
-```bash
-npm run test              # Run once
-npm run test:watch        # Watch mode
-npm run test:coverage     # With coverage report
-```
-
-Coverage reports are generated in `coverage/` directory. We aim for near-100%
-coverage on domain logic.
-
-### Component Tests (Cypress)
-
-Component tests verify UI component behavior:
-
-- **PromotionPicker**: promotion selection UI
-- **VariationSelector**: branch selection dialog
-- **MoveTree**: parenthesized variation rendering
-- **MoveListWithVariations**: 4-column move list with variations
-- **PieceReserveVertical**: reserve piece display and interaction
-
-Run component tests:
-
-```bash
-npm run cy:component        # Open Cypress UI
-npm run cy:component:run    # Run headlessly
-```
-
-### Test Fixtures
-
-Chess.com game data is recorded as fixtures to avoid live API calls during
-tests. Fixtures are stored in `tests/fixtures/chesscom/`.
-
-To record new fixtures:
-
-```bash
-npm run fixtures:record
-# Or with specific game IDs:
-tsx scripts/recordChessComFixtures.ts <gameId1> <gameId2> ...
-```
-
-The script automatically finds and records partner games when available.
-
-### Git Hooks (Husky)
-
-Quality gates are enforced via Git hooks:
-
-- **pre-commit**: Runs `lint-staged` to auto-fix linting issues on staged files
-- **pre-push**: Runs full test suite (`lint` + `test` + `cy:component:run`)
-
-These hooks ensure code quality before commits and pushes.
+If you’re adding new domain logic, prefer pure functions in `app/utils/**` and
+accompany them with unit tests under `tests/unit/**`.

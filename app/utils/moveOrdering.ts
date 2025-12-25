@@ -1,4 +1,21 @@
-// Move ordering system based on timestamps - adapted from bughouse-viewer
+/**
+ * Bughouse move ordering + timeline normalization.
+ *
+ * This module takes **two chess.com bughouse boards** (A + B) and produces a single,
+ * interleaved move timeline ordered by time so the UI can replay the match as it
+ * unfolded.
+ *
+ * Key constraints/quirks from chess.com payloads:
+ * - Moves arrive as a compressed movelist string (see `parseChessComCompressedMoveList`).
+ * - Per-board timing is represented via `moveTimestamps`, which in bughouse are expressed
+ *   in **deciseconds** (tenths of a second) and represent the mover's remaining time.
+ * - Timestamps are not always perfectly aligned with the number of moves, so we defensively
+ *   clamp/truncate.
+ *
+ * Implementation note:
+ * This file is adapted from the open-source "bughouse-viewer" move ordering logic,
+ * with additional normalization to match our bughouse-specific SAN conventions.
+ */
 import { BughouseMove, ProcessedGameData } from "../types/bughouse";
 import { ChessGame } from "../actions";
 import { parseChessComCompressedMoveList } from "../chesscom_movelist_parse";
@@ -192,7 +209,15 @@ function createCombinedMoveList(
   let aIndex = 0;
   let bIndex = 0;
 
-  // Merge moves based on timestamps
+  /**
+   * Merge moves based on timestamps.
+   *
+   * Tie-breaking:
+   * If two moves have the same computed timestamp we currently prefer board A first.
+   * This is inherently ambiguous in real bughouse (simultaneous moves), so downstream
+   * logic that cares about strict legality should still be prepared to reorder adjacent
+   * same-timestamp cross-board moves (see `reorderSimultaneousCheckmateMove`).
+   */
   while (aIndex < movesA.length || bIndex < movesB.length) {
     const aEmpty = aIndex >= movesA.length;
     const bEmpty = bIndex >= movesB.length;
@@ -232,7 +257,25 @@ function calculateMoveTimes(
   initialTime: number,
   timeIncrement: number
 ): Array<{ timestamp: number }> {
-  // Adapted from getMoveTimes function in bughouse-viewer
+  /**
+   * Convert chess.com's per-move "remaining time" series into an **elapsed time** series.
+   *
+   * chess.com encodes `moveTimestamps` in a bughouse game as: after each ply, the mover's
+   * remaining clock time (deciseconds). To interleave two boards we want a monotonic-ish
+   * "time since start" for each ply.
+   *
+   * The trick (from bughouse-viewer) is that in bughouse the two clocks on a board are
+   * effectively a "shared bucket" over the match:
+   * - `remainingTime` at ply i can be approximated as (mover remaining) + (opponent remaining).
+   * - `sumGivenTime` at ply i is \(2 * initial + increments\) (in deciseconds).
+   * - elapsed = given - remaining.
+   *
+   * Units:
+   * - `initialTime` from chess.com is in seconds.
+   * - `timeIncrement` is in seconds.
+   * - `timestamps[]` values are in deciseconds.
+   * - Therefore we multiply increments by 10 to express everything in deciseconds.
+   */
   if (!timestamps.length) return [];
 
   const moveTimestamps: Array<{ timestamp: number }> = [];

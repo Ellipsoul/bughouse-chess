@@ -1,3 +1,22 @@
+/**
+ * Bughouse replay controller (two-board, timestamp-aware).
+ *
+ * This is an imperative, stateful companion to the UI that can:
+ * - Step forward/backward through an interleaved (A+B) move list
+ * - Keep piece reserves in sync (captures feed partner reserves)
+ * - Track promoted pieces (for correct reserve pawn conversion)
+ * - Provide per-move clock snapshots and per-board move durations for the move list UI
+ *
+ * Why a controller?
+ * - The replay UI needs fast “seek” + “undo” behavior; using chess.js alone for that would
+ *   require replaying from the start each time. We instead maintain an explicit history
+ *   stack for O(1) step-back.
+ *
+ * Important invariants:
+ * - `combinedMoves` timestamps are assumed to be in **deciseconds** (chess.com bughouse format).
+ * - The controller may normalize `move.move` strings to canonical SAN (and normalize `+/#`),
+ *   but it does so on an internal copy to avoid mutating caller-owned data.
+ */
 import { Chess, PieceSymbol, Color, Square } from 'chess.js';
 import {
   BughouseClocksSnapshotByBoard,
@@ -93,7 +112,8 @@ export class BughouseReplayController {
   constructor(processedData: ProcessedGameData) {
     this.boardA = new Chess();
     this.boardB = new Chess();
-    this.combinedMoves = processedData.combinedMoves;
+    // Never mutate caller-owned `processedData`. We sanitize/normalize move strings internally.
+    this.combinedMoves = processedData.combinedMoves.map((m) => ({ ...m }));
     this.initialTime = processedData.initialTime;
     this.pieceReserves = {
       A: { white: {}, black: {} },
@@ -177,7 +197,9 @@ export class BughouseReplayController {
             move.move = normalizeSanSuffixForBughouse({ san: result.san, board });
           }
         } catch (e) {
-          console.error('Sanitize castle error', e);
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Sanitize castle error', e);
+          }
         }
       } else {
         try {
@@ -191,7 +213,9 @@ export class BughouseReplayController {
             }
           }
         } catch (e) {
-          console.error(`Error sanitizing move ${move.move}`, e);
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`Error sanitizing move ${move.move}`, e);
+          }
         }
       }
     }
@@ -220,10 +244,18 @@ export class BughouseReplayController {
       const suffix = this.getCheckSuffix(board);
       move.move = `${pieceChar.toUpperCase()}@${square}${suffix}`;
     } catch (e) {
-      console.error('Error applying drop move during sanitization', e);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error applying drop move during sanitization', e);
+      }
     }
   }
 
+  /**
+   * Snapshot of the controller's current state, suitable for direct UI rendering.
+   *
+   * Note: FEN values come from the live chess.js instances; `moves[]` history comes from the
+   * controller's applied-moves list (which may contain normalized SAN).
+   */
   public getCurrentGameState(): BughouseGameState {
     return {
       ...this.gameState,
@@ -350,7 +382,9 @@ export class BughouseReplayController {
         // Regular move
         const convertedMove = validateAndConvertMove(move.move, board);
         if (!convertedMove) {
-          console.error(`Could not convert move: ${move.move}`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`Could not convert move: ${move.move}`);
+          }
           return false;
         }
 
@@ -397,7 +431,9 @@ export class BughouseReplayController {
         }
       }
     } catch (error) {
-      console.error('Error executing move:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error executing move:', error);
+      }
     }
 
     return false;
@@ -419,7 +455,12 @@ export class BughouseReplayController {
     // Validate reserve
     const reserves = this.pieceReserves[move.board][move.side];
     if (!reserves[pieceType] || reserves[pieceType] <= 0) {
-      console.warn(`Attempting to drop ${pieceType} on ${square} but reserve is empty/missing`, reserves);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `Attempting to drop ${pieceType} on ${square} but reserve is empty/missing`,
+          reserves,
+        );
+      }
       // We proceed anyway to keep replay going if possible, assuming PGN is correct
     }
 
@@ -456,7 +497,9 @@ export class BughouseReplayController {
         return true;
       }
     } catch (error) {
-      console.error('Error executing drop move:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error executing drop move:', error);
+      }
     }
 
     return false;
@@ -481,7 +524,9 @@ export class BughouseReplayController {
          return true;
       }
     } catch (error) {
-      console.error('Error executing castle move:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error executing castle move:', error);
+      }
     }
     return false;
   }
@@ -541,7 +586,8 @@ export class BughouseReplayController {
   }
 
   public getCombinedMoves(): BughouseMove[] {
-    return this.combinedMoves;
+    // Return a shallow copy so callers don't accidentally mutate controller internals.
+    return this.combinedMoves.slice();
   }
 
   /**
@@ -555,11 +601,12 @@ export class BughouseReplayController {
 
   public getDebugInfo(): string {
     let debugInfo = `BPGN (Bughouse Portable Game Notation)\n`;
-    debugInfo += `Players: ${this.players.aWhite} & ${this.players.bBlack} vs ${this.players.aBlack} & ${this.players.bWhite}\n\n`;
+    debugInfo += `Players: ${this.players.aWhite.username} & ${this.players.bBlack.username} vs ${this.players.aBlack.username} & ${this.players.bWhite.username}\n\n`;
     debugInfo += `Move Order by Timestamp:\n`;
 
     this.combinedMoves.forEach((move, index) => {
-      const moveStr = `${index + 1}. Board ${move.board} (${move.side}): ${move.move} [${move.timestamp.toFixed(3)}s]`;
+      const seconds = Number.isFinite(move.timestamp) ? move.timestamp / 10 : 0;
+      const moveStr = `${index + 1}. Board ${move.board} (${move.side}): ${move.move} [${seconds.toFixed(1)}s]`;
       if (index === this.currentMoveIndex) {
         debugInfo += `> ${moveStr} < CURRENT\n`;
       } else {

@@ -1,3 +1,43 @@
+/**
+ * `useAnalysisState` is the core client-side store for Relay's analysis UI.
+ *
+ * Conceptually we model analysis as a persistent-ish tree:
+ * - **Nodes** are positions (two FENs + reserves + promoted markers)
+ * - **Edges** are bughouse half-moves (normal moves or drops)
+ * - Each node can have multiple continuations; one is designated the **mainline**
+ *
+ * The hook exposes UI-friendly state in addition to pure game state:
+ * - `cursorNodeId`: “where the user is” right now (may be in a variation)
+ * - `selectedNodeId`: what the UI has highlighted (often equals cursor, but not always)
+ * - `clockAnchorNodeId`: the most recent mainline node visited; used to keep time-based
+ *   derived UI (clocks/live replay eligibility) stable while exploring side lines.
+ *
+ * Implementation notes:
+ * - Uses a pure reducer so updates are deterministic and easy to test.
+ * - IDs are stable across renders and avoid a hard dependency on `crypto.randomUUID`.
+ *
+ * @example
+ * ```ts
+ * const {
+ *   state,
+ *   currentPosition,
+ *   tryApplyMove,
+ *   navBack,
+ *   navForwardOrOpenSelector,
+ * } = useAnalysisState();
+ *
+ * const result = tryApplyMove({
+ *   kind: "drop",
+ *   board: "A",
+ *   side: "white",
+ *   piece: "n",
+ *   to: "e4",
+ * });
+ * if (result.type === "needs_promotion") {
+ *   // open promotion picker using `state.pendingPromotion`
+ * }
+ * ```
+ */
 import { useCallback, useMemo, useReducer } from "react";
 import type { Square } from "chess.js";
 import type { BughouseMove } from "../types/bughouse";

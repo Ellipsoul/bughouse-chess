@@ -53,6 +53,12 @@ export function createInitialPositionSnapshot(): BughousePositionSnapshot {
   };
 }
 
+/**
+ * Create an empty reserve structure for both boards.
+ *
+ * Shape is intentionally “total” (always contains A/B and white/black objects) so
+ * downstream code can safely read/write counts without optional chaining.
+ */
 export function createEmptyReserves(): PieceReserves {
   return {
     A: { white: {}, black: {} },
