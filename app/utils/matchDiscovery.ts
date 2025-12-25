@@ -34,17 +34,16 @@ const MAX_TIME_GAP_SECONDS = 3600;
  * Delay between API requests in milliseconds.
  * Set to 0.5 seconds  to respect Chess.com's rate limits.
  */
-const API_REQUEST_DELAY_MS = 500;
+const API_REQUEST_DELAY_MS = 250;
 
 /**
  * Extracts the game ID from a Chess.com game URL.
  *
  * @param url - Full Chess.com game URL (e.g., "https://www.chess.com/game/live/159028650535")
- * @returns The game ID as a string, or null if extraction fails.
+ * @returns The game ID as a string, or null if extraction fails (e.g. 159028650535)
  *
  * @example
  * extractGameIdFromUrl("https://www.chess.com/game/live/159028650535")
- * // Returns: "159028650535"
  */
 export function extractGameIdFromUrl(url: string): string | null {
   if (!url) return null;
