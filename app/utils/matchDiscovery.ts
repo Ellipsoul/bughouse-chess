@@ -23,6 +23,12 @@ import type {
 const CONSECUTIVE_NON_MATCH_THRESHOLD = 3;
 
 /**
+ * Maximum time gap (in seconds) between consecutive games in the same match.
+ * If the gap exceeds 1 hour (3600 seconds), the games are considered separate matches.
+ */
+const MAX_TIME_GAP_SECONDS = 3600;
+
+/**
  * Delay between API requests in milliseconds.
  * Set to 0.5 seconds  to respect Chess.com's rate limits.
  */
@@ -254,6 +260,9 @@ async function searchInDirection(
 ): Promise<number> {
   let consecutiveNonMatches = 0;
   let directionGamesFound = 0;
+  // Track the endTime of the last found game in this direction
+  // Start with the initial game's endTime as the reference point
+  let lastFoundEndTime = initialEndTime;
 
   for (const { year, month } of monthsToCheck) {
     if (context.cancellation?.isCancelled()) {
@@ -304,6 +313,26 @@ async function searchInDirection(
       // Stop if we've hit too many consecutive non-matches
       if (consecutiveNonMatches >= CONSECUTIVE_NON_MATCH_THRESHOLD) {
         return directionGamesFound;
+      }
+
+      // Check time gap: if the gap between this candidate and the last found game
+      // exceeds 1 hour, stop searching in this direction (separate match)
+      if (direction === "before") {
+        // For backward search: lastFoundEndTime is more recent, candidate is older
+        // Gap = lastFoundEndTime - candidate.end_time
+        const timeGap = lastFoundEndTime - candidate.end_time;
+        if (timeGap > MAX_TIME_GAP_SECONDS) {
+          // Time gap too large, this is a different match
+          return directionGamesFound;
+        }
+      } else {
+        // For forward search: candidate is more recent, lastFoundEndTime is older
+        // Gap = candidate.end_time - lastFoundEndTime
+        const timeGap = candidate.end_time - lastFoundEndTime;
+        if (timeGap > MAX_TIME_GAP_SECONDS) {
+          // Time gap too large, this is a different match
+          return directionGamesFound;
+        }
       }
 
       // Rate limit: wait before the next request
@@ -360,13 +389,17 @@ async function searchInDirection(
         directionGamesFound++;
         context.gamesFound++;
 
+        const matchGameEndTime = candidateGame.game.endTime ?? candidate.end_time;
         const matchGame: MatchGame = {
           gameId: candidateGameId,
           partnerGameId: candidatePartnerId,
           original: candidateGame,
           partner: candidatePartner,
-          endTime: candidateGame.game.endTime ?? candidate.end_time,
+          endTime: matchGameEndTime,
         };
+
+        // Update the last found endTime for time gap checking
+        lastFoundEndTime = matchGameEndTime;
 
         context.callbacks.onGameFound(matchGame, direction);
         context.callbacks.onProgress?.(context.gamesChecked, context.gamesFound);
