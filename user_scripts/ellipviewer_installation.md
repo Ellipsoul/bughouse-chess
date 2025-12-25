@@ -77,7 +77,7 @@ the appropriate extension for your browser:
      `https://www.chess.com/member/ellipsoul/games`)
    - Check that the buttons are now rendered
 
-![Tampermonkey Buttons](/public/assets/tampermonkey_Buttons.png)
+![Tampermonkey Buttons](/public/assets/tampermonkey_buttons.png)
 
 ### Alternative: Manual Installation
 
