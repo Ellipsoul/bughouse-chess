@@ -668,24 +668,26 @@ export default function ChessBoard(
     }
   }, [fen, flip, size]);
 
-  // Decorate promoted pieces with a subtle outline so they are visually distinct.
-  useEffect(() => {
+  /**
+   * Apply promotion markers to the specified squares.
+   * This is extracted to a function so it can be called both when promotedSquares changes
+   * and after FEN updates to restore markers that chessboard.js may have removed.
+   *
+   * We always ensure the correct state (removing incorrect color classes and adding correct ones)
+   * to handle cases where chessboard.js replaces DOM elements.
+   */
+  const applyPromotionMarkers = useCallback(() => {
     const boardElement = document.getElementById(boardId);
     if (!boardElement) return;
-
-    // Clear old markers
-    const existing = boardElement.querySelectorAll(".bh-promoted-square");
-    existing.forEach((el) => {
-      el.classList.remove("bh-promoted-square");
-      el.classList.remove("bh-promoted-square--white");
-      el.classList.remove("bh-promoted-square--black");
-    });
 
     // Apply markers for current promoted squares
     promotedSquares.forEach((square) => {
       const squareEl = boardElement.querySelector(`[data-square="${square}"]`);
       if (squareEl instanceof HTMLElement) {
         const color = squareColorMap.get(square);
+        // Remove any existing color classes first to ensure correct state
+        squareEl.classList.remove("bh-promoted-square--white", "bh-promoted-square--black");
+        // Add the base class and correct color class
         squareEl.classList.add("bh-promoted-square");
         if (color === "w") {
           squareEl.classList.add("bh-promoted-square--white");
@@ -695,6 +697,59 @@ export default function ChessBoard(
       }
     });
   }, [boardId, promotedSquares, squareColorMap]);
+
+  // Decorate promoted pieces with a subtle outline so they are visually distinct.
+  // This effect runs when promotedSquares or squareColorMap changes.
+  useEffect(() => {
+    const boardElement = document.getElementById(boardId);
+    if (!boardElement) return;
+
+    // Clear old markers from squares that are no longer promoted
+    const existing = boardElement.querySelectorAll(".bh-promoted-square");
+    const promotedSet = new Set(promotedSquares);
+    existing.forEach((el) => {
+      const square = el.getAttribute("data-square");
+      if (square && !promotedSet.has(square)) {
+        el.classList.remove("bh-promoted-square");
+        el.classList.remove("bh-promoted-square--white");
+        el.classList.remove("bh-promoted-square--black");
+      }
+    });
+
+    // Apply markers for current promoted squares
+    applyPromotionMarkers();
+  }, [boardId, promotedSquares, squareColorMap, applyPromotionMarkers]);
+
+  // Re-apply promotion markers after FEN updates or when interactions are enabled/disabled,
+  // since chessboard.js may remove them when updating the board DOM. This handles cases like
+  // live replay pausing/resuming (where interactionsEnabled changes but FEN might not).
+  // We use a single requestAnimationFrame to wait for chessboard.js to finish updating.
+  // We only re-apply if markers are actually missing to avoid unnecessary DOM manipulation.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (promotedSquares.length === 0) return; // No markers to apply
+
+    const id = window.requestAnimationFrame(() => {
+      // Check if any markers are missing and re-apply if needed
+      const boardElement = document.getElementById(boardId);
+      if (!boardElement) return;
+
+      let needsReapply = false;
+      for (const square of promotedSquares) {
+        const squareEl = boardElement.querySelector(`[data-square="${square}"]`);
+        if (squareEl instanceof HTMLElement && !squareEl.classList.contains("bh-promoted-square")) {
+          needsReapply = true;
+          break;
+        }
+      }
+
+      if (needsReapply) {
+        applyPromotionMarkers();
+      }
+    });
+
+    return () => window.cancelAnimationFrame(id);
+  }, [boardId, fen, interactionsEnabled, promotedSquares, applyPromotionMarkers]);
 
   // Provide a pointer cursor on the board when a reserve piece is armed.
   useEffect(() => {
