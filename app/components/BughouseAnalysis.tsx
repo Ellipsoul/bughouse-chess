@@ -1065,25 +1065,52 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           ? getClockTintClasses({ diffDeciseconds, team, isFrozen: options.clocksFrozen })
           : null;
       const neutralText = options.clocksFrozen ? "text-white/55" : "text-white/90";
-      const shouldHideRating = isCompactLandscape && boardSize <= 235;
+      /**
+       * `isCompactLandscape` is tuned for phone-landscape (short viewport height), so it will not
+       * trigger on iPad Mini landscape. However, iPad Mini can still yield relatively small boards
+       * once we account for reserve columns + gaps, and at that point the player name bar needs
+       * to “tighten up” earlier to avoid excessive truncation.
+       */
+      const NARROW_PLAYER_BAR_BOARD_SIZE_PX = 340;
+      const HIDE_TITLE_BADGE_BOARD_SIZE_PX = 360;
+      const HIDE_RATING_BOARD_SIZE_PX = 320;
+
+      const isNarrowPlayerBar = boardSize <= NARROW_PLAYER_BAR_BOARD_SIZE_PX;
+      const shouldHideTitleBadge = isCompactLandscape || boardSize <= HIDE_TITLE_BADGE_BOARD_SIZE_PX;
+      const shouldHideRating = (isCompactLandscape && boardSize <= 235) || boardSize <= HIDE_RATING_BOARD_SIZE_PX;
 
       return (
         <div
           className={[
-            "flex items-center justify-between w-full font-bold text-white tracking-wide",
+            "flex items-center justify-between w-full font-bold text-white",
+            isNarrowPlayerBar ? "tracking-normal" : "tracking-wide",
             // On very small phone-landscape viewports, prioritize showing player names.
-            isCompactLandscape ? "px-2 text-xs" : "px-3 text-base lg:text-xl",
+            isCompactLandscape
+              ? "px-2 text-xs"
+              : isNarrowPlayerBar
+                ? "px-2 text-sm"
+                : "px-3 text-base lg:text-xl",
           ].join(" ")}
           style={{ width: boardSize }}
         >
-        <div className={["flex items-center min-w-0", isCompactLandscape ? "gap-1.5" : "gap-2"].join(" ")}>
-          <div className={["flex items-center min-w-0", isCompactLandscape ? "gap-1.5" : "gap-2"].join(" ")}>
+        <div
+          className={[
+            "flex items-center min-w-0",
+            isCompactLandscape || isNarrowPlayerBar ? "gap-1.5" : "gap-2",
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex items-center min-w-0",
+              isCompactLandscape || isNarrowPlayerBar ? "gap-1.5" : "gap-2",
+            ].join(" ")}
+          >
             {/* On very small screens, titles consume too much horizontal space. */}
-            {!isCompactLandscape ? <ChessTitleBadge chessTitle={player.chessTitle} /> : null}
+            {!shouldHideTitleBadge ? <ChessTitleBadge chessTitle={player.chessTitle} /> : null}
             <span
               className={[
                 "truncate min-w-0",
-                isCompactLandscape ? "text-[11px] leading-tight" : "",
+                isCompactLandscape || isNarrowPlayerBar ? "text-[11px] leading-tight" : "",
               ].join(" ")}
               title={player.username}
             >

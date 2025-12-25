@@ -283,15 +283,33 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
       const tint = getClockTintClasses({ diffDeciseconds, team });
       const neutral = "text-white/90";
 
+      /**
+       * Keep replay headers readable on smaller tablet landscape widths (e.g. iPad Mini) by
+       * tightening spacing earlier based on the computed `boardSize`.
+       */
+      const NARROW_PLAYER_BAR_BOARD_SIZE_PX = 340;
+      const HIDE_TITLE_BADGE_BOARD_SIZE_PX = 360;
+      const HIDE_RATING_BOARD_SIZE_PX = 320;
+
+      const isNarrowPlayerBar = boardSize <= NARROW_PLAYER_BAR_BOARD_SIZE_PX;
+      const shouldHideTitleBadge = boardSize <= HIDE_TITLE_BADGE_BOARD_SIZE_PX;
+      const shouldHideRating = boardSize <= HIDE_RATING_BOARD_SIZE_PX;
+
       return (
       <div
-        className="flex items-center justify-between w-full px-3 text-base lg:text-xl font-bold text-white tracking-wide"
+        className={[
+          "flex items-center justify-between w-full font-bold text-white",
+          isNarrowPlayerBar ? "px-2 text-sm tracking-normal" : "px-3 text-base lg:text-xl tracking-wide",
+        ].join(" ")}
         style={{ width: boardSize }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <ChessTitleBadge chessTitle={player.chessTitle} />
+        <div className={["flex items-center min-w-0", isNarrowPlayerBar ? "gap-1.5" : "gap-2"].join(" ")}>
+          {!shouldHideTitleBadge ? <ChessTitleBadge chessTitle={player.chessTitle} /> : null}
           <span
-            className="truncate min-w-0"
+            className={[
+              "truncate min-w-0",
+              isNarrowPlayerBar ? "text-[11px] leading-tight" : "",
+            ].join(" ")}
             title={
               formatElo(player.rating)
                 ? `${player.username} (${formatElo(player.rating)})`
@@ -300,11 +318,16 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
           >
             {player.username}
           </span>
-          {formatElo(player.rating) && (
-            <span className="shrink-0 text-xs lg:text-sm font-semibold text-white/60">
+          {!shouldHideRating && formatElo(player.rating) ? (
+            <span
+              className={[
+                "shrink-0 font-semibold text-white/60",
+                isNarrowPlayerBar ? "text-[11px]" : "text-xs lg:text-sm",
+              ].join(" ")}
+            >
               ({formatElo(player.rating)})
             </span>
-          )}
+          ) : null}
         </div>
         <span
           className={[
