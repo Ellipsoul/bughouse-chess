@@ -131,5 +131,57 @@ describe("deriveBughouseConclusionSummary", () => {
       expect(result.sourceBoard).toBe("A");
     }
   });
+
+  it("preserves original casing of resultMessage when Termination matches it", () => {
+    // This test verifies that when pgnHeaders.Termination contains the same text as resultMessage,
+    // we use resultMessage directly to preserve its original casing (preventing unwanted capitalization).
+    const lowercaseMessage = "larso won with their bughouse partner";
+    const gameWithMatchingTermination: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        isFinished: true,
+        resultMessage: lowercaseMessage,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          Result: "0-1",
+          Termination: lowercaseMessage, // Same text as resultMessage
+        },
+      },
+    };
+
+    const result = deriveBughouseConclusionSummary(gameWithMatchingTermination, null);
+    expect(result).toBeTruthy();
+    if (result) {
+      // Should preserve the original lowercase casing from resultMessage
+      expect(result.reason).toBe(lowercaseMessage);
+      expect(result.reason).not.toBe("Larso won with their bughouse partner");
+    }
+  });
+
+  it("preserves original casing even when Termination has different casing", () => {
+    // Test case-insensitive matching: Termination might have different casing than resultMessage
+    const lowercaseMessage = "player won by resignation";
+    const gameWithDifferentCasing: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        isFinished: true,
+        resultMessage: lowercaseMessage,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          Result: "1-0",
+          Termination: "PLAYER WON BY RESIGNATION", // Different casing
+        },
+      },
+    };
+
+    const result = deriveBughouseConclusionSummary(gameWithDifferentCasing, null);
+    expect(result).toBeTruthy();
+    if (result) {
+      // Should use resultMessage's original casing, not the capitalized Termination
+      expect(result.reason).toBe(lowercaseMessage);
+    }
+  });
 });
 

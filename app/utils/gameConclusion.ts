@@ -62,7 +62,15 @@ function deriveSummaryFromSingleGame(game: ChessGame, sourceBoard: "A" | "B"): G
     game.game.gameEndReason?.trim() ||
     "";
 
-  const reason = humanizeReason(reasonRaw) || (game.game.resultMessage?.trim() ?? "");
+  const resultMessage = game.game.resultMessage?.trim() ?? "";
+
+  // If reasonRaw matches resultMessage, use resultMessage directly to preserve its original casing.
+  // Otherwise, try to humanize reasonRaw, and fall back to resultMessage if humanization yields nothing.
+  const reason =
+    reasonRaw && reasonRaw.toLowerCase() === resultMessage.toLowerCase()
+      ? resultMessage
+      : humanizeReason(reasonRaw) || resultMessage;
+
   if (!result || !reason) return null;
 
   return { result, reason, sourceBoard };
