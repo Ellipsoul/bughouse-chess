@@ -107,4 +107,3 @@ export interface AnalysisTree {
   rootId: string;
   nodesById: Record<string, AnalysisNode>;
 }
-

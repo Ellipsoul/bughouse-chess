@@ -168,7 +168,6 @@ describe("MoveListWithVariations", () => {
     });
   });
 
-
   it("shows player names in header", () => {
     const defaultProps = createDefaultProps();
     cy.mount(<MoveListWithVariations {...defaultProps} />);
@@ -178,4 +177,3 @@ describe("MoveListWithVariations", () => {
     cy.contains("Player4").should("exist");
   });
 });
-

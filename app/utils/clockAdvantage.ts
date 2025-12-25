@@ -91,5 +91,3 @@ export function getClockTintClasses(options: {
 
   return [text, glow].filter(Boolean).join(" ");
 }
-
-

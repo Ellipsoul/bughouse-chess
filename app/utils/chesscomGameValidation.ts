@@ -41,5 +41,3 @@ export function getNonBughouseGameErrorMessage(
 
   return `This game is not a Bughouse game (variant: ${prettyType}). Please provide a Bughouse game ID.`;
 }
-
-

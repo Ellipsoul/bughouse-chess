@@ -109,5 +109,3 @@ export async function POST(request: NextRequest): Promise<NextResponse<MetricsRe
     return NextResponse.json({ gamesLoaded: 0 }, { status: 200 });
   }
 }
-
-

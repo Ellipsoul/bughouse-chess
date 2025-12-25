@@ -153,5 +153,3 @@ export function buildBughouseClockTimeline(
 
   return { timeline, moveDurationsByGlobalIndex, meta };
 }
-
-

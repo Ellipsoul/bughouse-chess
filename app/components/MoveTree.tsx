@@ -254,4 +254,3 @@ export default function MoveTree({
     </div>
   );
 }
-

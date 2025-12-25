@@ -87,4 +87,3 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   const app = getFirebaseApp();
   return getAnalytics(app);
 }
-

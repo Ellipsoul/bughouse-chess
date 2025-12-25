@@ -153,4 +153,3 @@ describe("normalizeSanSuffixForBughouse", () => {
     expect(normalized).not.toContain("#+");
   });
 });
-

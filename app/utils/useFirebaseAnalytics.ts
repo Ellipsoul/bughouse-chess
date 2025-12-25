@@ -84,4 +84,3 @@ export function logAnalyticsEvent(
     return false;
   }
 }
-

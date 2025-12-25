@@ -556,4 +556,3 @@ export function createMatchGameFromLoaded(
     endTime: originalGame.game.endTime ?? 0,
   };
 }
-

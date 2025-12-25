@@ -205,4 +205,3 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
 };
 
 export default PieceReserveVertical;
-

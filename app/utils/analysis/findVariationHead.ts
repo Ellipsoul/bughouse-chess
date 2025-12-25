@@ -45,5 +45,3 @@ export function findContainingVariationHeadNodeId(
 
   return null;
 }
-
-

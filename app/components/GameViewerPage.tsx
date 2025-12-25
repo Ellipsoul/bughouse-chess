@@ -858,5 +858,3 @@ export default function GameViewerPage() {
     </div>
   );
 }
-
-

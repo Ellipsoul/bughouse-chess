@@ -151,4 +151,3 @@ describe("MoveTree", () => {
     cy.contains("e4").parent().should("have.class", "bg-amber-200/15");
   });
 });
-

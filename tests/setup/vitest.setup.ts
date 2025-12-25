@@ -14,5 +14,3 @@ if (typeof globalThis.crypto === "undefined") {
   // @ts-expect-error - minimal polyfill for environments without global crypto
   globalThis.crypto = webcrypto;
 }
-
-

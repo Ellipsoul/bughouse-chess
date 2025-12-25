@@ -27,4 +27,3 @@ export function getRandomSampleGameId(): string {
   const randomIndex = Math.floor(Math.random() * SAMPLE_GAME_IDS.length);
   return SAMPLE_GAME_IDS[randomIndex] ?? SAMPLE_GAME_IDS[0] ?? "";
 }
-

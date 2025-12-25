@@ -151,5 +151,3 @@ describe("liveReplay utilities", () => {
     expect(isPristineLoadedMainline({ tree: truncated, combinedMoves })).toBe(false);
   });
 });
-
-

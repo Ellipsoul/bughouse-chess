@@ -344,7 +344,7 @@ describe("matchDiscovery", () => {
 
 describe("matchDiscovery integration", () => {
   // These tests verify the full workflow with mocked API calls
-  
+
   describe("team validation across games", () => {
     let game1Board1: ChessGame;
     let game1Board2: ChessGame;
@@ -908,4 +908,3 @@ describe("computeMatchScore", () => {
     expect(score.draws).toBe(0);
   });
 });
-

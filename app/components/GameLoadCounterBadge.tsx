@@ -133,5 +133,3 @@ export function GameLoadCounterBadge({
 
   return <GameLoadCounterFloating label={label} />;
 }
-
-

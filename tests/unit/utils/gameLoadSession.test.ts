@@ -55,5 +55,3 @@ describe("gameLoadSession helpers", () => {
     expect(hasRecordedGameLoadThisSession(storage, "")).toBe(false);
   });
 });
-
-

@@ -218,4 +218,3 @@ export function createEmptyMatchState(): MatchState {
     discoveredCount: 0,
   };
 }
-

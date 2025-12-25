@@ -43,5 +43,3 @@ export function getAdminFirestore(): admin.firestore.Firestore {
 
   return admin.firestore();
 }
-
-

@@ -39,5 +39,3 @@ export function markRecordedGameLoadThisSession(
   if (!gameId) return;
   storage.setItem(buildKey(gameId), "1");
 }
-
-

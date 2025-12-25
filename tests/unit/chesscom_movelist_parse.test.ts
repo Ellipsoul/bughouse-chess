@@ -41,7 +41,7 @@ describe("parseChessComCompressedMoveList", () => {
     // Check if fixture contains drops
     const moveList = fixtureGame.game.moveList;
     const moves = parseChessComCompressedMoveList(moveList);
-    
+
     // Bughouse games often have drops, but not always
     // Just verify the parser doesn't crash
     expect(moves.length).toBeGreaterThan(0);
@@ -50,7 +50,7 @@ describe("parseChessComCompressedMoveList", () => {
   it("parses castling moves", () => {
     const moveList = fixtureGame.game.moveList;
     const moves = parseChessComCompressedMoveList(moveList);
-    
+
     // Not all games have castling, but parser should handle it
     expect(moves.length).toBeGreaterThan(0);
   });
@@ -58,7 +58,7 @@ describe("parseChessComCompressedMoveList", () => {
   it("parses promotion moves", () => {
     const moveList = fixtureGame.game.moveList;
     const moves = parseChessComCompressedMoveList(moveList);
-    
+
     // Not all games have promotions, but parser should handle it
     expect(moves.length).toBeGreaterThan(0);
   });
@@ -76,7 +76,7 @@ describe("parseChessComCompressedMoveList", () => {
       const fixture = JSON.parse(
         readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", `${gameId}.json`), "utf-8"),
       ) as ChessGame;
-      
+
       if (fixture.game.moveList) {
         const moves = parseChessComCompressedMoveList(fixture.game.moveList);
         expect(moves.length).toBeGreaterThan(0);
@@ -89,4 +89,3 @@ describe("parseChessComCompressedMoveList", () => {
     }
   });
 });
-

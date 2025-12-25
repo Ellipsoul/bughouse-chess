@@ -41,5 +41,3 @@ describe("loadGameOverrideConfirmPreference", () => {
     expect(data.get("bughouse:ui:skipLoadGameOverrideConfirm")).toBe(undefined);
   });
 });
-
-

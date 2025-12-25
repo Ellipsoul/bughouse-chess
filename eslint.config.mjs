@@ -64,6 +64,11 @@ export default tseslint.config(
 
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs["core-web-vitals"].rules,
+
+      // Whitespace and formatting rules to catch loose warnings
+      "no-trailing-spaces": "error",
+      "no-multiple-empty-lines": ["error", { max: 1, maxEOF: 0 }],
+      "eol-last": ["error", "always"],
     },
     settings: {
       react: {

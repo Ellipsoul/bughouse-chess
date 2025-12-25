@@ -1773,4 +1773,3 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 };
 
 export default BughouseAnalysis;
-

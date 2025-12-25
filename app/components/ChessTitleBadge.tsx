@@ -98,5 +98,3 @@ export function ChessTitleBadge({ chessTitle, className }: ChessTitleBadgeProps)
     </span>
   );
 }
-
-

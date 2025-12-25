@@ -87,4 +87,3 @@ describe("PieceReserveVertical", () => {
     cy.get('[alt*="black"]').should("exist");
   });
 });
-

@@ -1119,4 +1119,3 @@ export default function ChessBoard(
     </div>
   );
 }
-

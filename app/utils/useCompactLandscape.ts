@@ -37,5 +37,3 @@ export function useCompactLandscape(): boolean {
 }
 
 export const __private__COMPACT_LANDSCAPE_MEDIA_QUERY = COMPACT_LANDSCAPE_MEDIA_QUERY;
-
-

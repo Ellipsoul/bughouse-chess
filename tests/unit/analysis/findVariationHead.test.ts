@@ -238,4 +238,3 @@ describe("findContainingVariationHeadNodeId", () => {
     expect(result).toBeNull();
   });
 });
-

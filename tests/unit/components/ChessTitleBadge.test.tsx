@@ -27,5 +27,3 @@ describe("ChessTitleBadge", () => {
     expect(badge.className).toContain("text-black");
   });
 });
-
-

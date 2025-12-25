@@ -93,4 +93,3 @@ describe("PromotionPicker", () => {
     cy.get('img[alt="Knight"]').should("not.exist");
   });
 });
-

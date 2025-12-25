@@ -204,4 +204,3 @@ describe("VariationSelector", () => {
     cy.contains("d4").closest("button").should("have.class", "bg-amber-200/15");
   });
 });
-

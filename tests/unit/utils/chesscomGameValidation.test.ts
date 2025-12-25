@@ -24,5 +24,3 @@ describe("getNonBughouseGameErrorMessage", () => {
     expect(message).toContain("not a Bughouse");
   });
 });
-
-

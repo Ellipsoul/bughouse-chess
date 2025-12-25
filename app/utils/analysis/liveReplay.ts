@@ -216,5 +216,3 @@ export function isPristineLoadedMainline(params: {
 
   return true;
 }
-
-

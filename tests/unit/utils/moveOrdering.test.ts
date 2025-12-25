@@ -154,4 +154,3 @@ describe("processGameData", () => {
     expect(result.players.aBlack.username).toBeTruthy();
   });
 });
-

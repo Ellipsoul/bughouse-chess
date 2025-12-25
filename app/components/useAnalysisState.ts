@@ -30,7 +30,6 @@ export interface VariationSelectorState {
   selectedChildIndex: number;
 }
 
-
 export interface PendingPromotionState {
   board: BughouseBoardId;
   from: Square;
@@ -802,4 +801,3 @@ function verifySequenceWorks(sequence: BughouseMove[], endIndex: number): boolea
 
   return true;
 }
-

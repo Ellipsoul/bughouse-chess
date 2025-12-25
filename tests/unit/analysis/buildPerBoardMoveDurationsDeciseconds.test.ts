@@ -42,5 +42,3 @@ describe("buildPerBoardMoveDurationsDeciseconds", () => {
     expect(buildPerBoardMoveDurationsDeciseconds(combinedMoves)).toEqual([0, 4]);
   });
 });
-
-

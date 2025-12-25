@@ -60,5 +60,3 @@ export function toggleArrowInList(
   if (idx === -1) return [...list, key];
   return [...list.slice(0, idx), ...list.slice(idx + 1)];
 }
-
-

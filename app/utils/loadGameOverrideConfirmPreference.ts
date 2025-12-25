@@ -31,5 +31,3 @@ export function setSkipLoadGameOverrideConfirm(
   if (!value) return;
   storage.setItem(STORAGE_KEY, "1");
 }
-
-

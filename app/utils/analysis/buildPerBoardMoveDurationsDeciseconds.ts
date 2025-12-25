@@ -31,5 +31,3 @@ export function buildPerBoardMoveDurationsDeciseconds(combinedMoves: BughouseMov
     return duration;
   });
 }
-
-

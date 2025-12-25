@@ -530,4 +530,3 @@ describe("validateAndApplyMoveFromNotation", () => {
     expect(result.type).toBe("error");
   });
 });
-

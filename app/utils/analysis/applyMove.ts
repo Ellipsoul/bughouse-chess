@@ -413,4 +413,3 @@ function resolveCapturedSquare(result: Pick<Move, "captured" | "flags" | "to" | 
   }
   return result.to as Square;
 }
-

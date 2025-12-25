@@ -175,4 +175,3 @@ describe("buildBughouseClockTimeline", () => {
     expect(result.timeline[1].A.white).toBe(3000);
   });
 });
-

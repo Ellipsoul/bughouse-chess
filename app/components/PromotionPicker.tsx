@@ -178,4 +178,3 @@ export default function PromotionPicker({ board, to, side, allowed, onPick, onCa
     </div>
   );
 }
-

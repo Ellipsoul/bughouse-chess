@@ -47,5 +47,3 @@ describe("BughouseAnalysis live replay controls", () => {
     cy.get('[aria-label="Previous move"]').should("not.be.disabled");
   });
 });
-
-
