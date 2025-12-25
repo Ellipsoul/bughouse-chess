@@ -88,7 +88,7 @@ export function ChessTitleBadge({ chessTitle, className }: ChessTitleBadgeProps)
       aria-label={`Chess title: ${normalized}`}
       title={`Chess title: ${normalized}`}
       className={[
-        "inline-flex items-center justify-center rounded-[3px] px-1 py-[1px]",
+        "inline-flex items-center justify-center rounded-[3px] px-1 py-px",
         "text-[9px] leading-none font-extrabold tracking-tight",
         style.className,
         className ?? "",
