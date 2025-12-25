@@ -9,9 +9,11 @@ import type { ChessGame } from "../actions";
 import { fetchChessGame, fetchPlayerMonthlyGames } from "../actions";
 import type {
   DiscoveryDirection,
+  DiscoveryMode,
   MatchDiscoveryCallbacks,
   MatchDiscoveryParams,
   MatchGame,
+  PartnerPair,
   PublicGameRecord,
   TeamComposition,
 } from "../types/match";
@@ -128,6 +130,29 @@ export function areTeamsIdentical(
 }
 
 /**
+ * Checks if a specific partner pair is present in a game's team composition.
+ * The pair can be on either team (team1 or team2).
+ *
+ * @param pair - The partner pair to look for (sorted lowercase usernames).
+ * @param composition - The team composition to check.
+ * @returns True if the pair is found as partners in either team.
+ */
+export function isPartnerPairPresent(
+  pair: PartnerPair,
+  composition: TeamComposition,
+): boolean {
+  const [p1, p2] = pair.usernames;
+
+  // Check if the pair matches team1
+  const matchesTeam1 = composition.team1[0] === p1 && composition.team1[1] === p2;
+
+  // Check if the pair matches team2
+  const matchesTeam2 = composition.team2[0] === p1 && composition.team2[1] === p2;
+
+  return matchesTeam1 || matchesTeam2;
+}
+
+/**
  * Gets the white player's username from a game.
  */
 function getWhitePlayer(game: ChessGame): string | null {
@@ -241,6 +266,10 @@ interface SearchContext {
   cancellation?: DiscoveryCancellation;
   gamesChecked: number;
   gamesFound: number;
+  /** Discovery mode: full match or partner pair. */
+  mode: DiscoveryMode;
+  /** Selected partner pair for "partnerPair" mode. */
+  selectedPair?: PartnerPair;
 }
 
 /**
@@ -377,9 +406,19 @@ async function searchInDirection(
           continue;
         }
 
-        // Check if the teams match
+        // Check if the game matches based on discovery mode
         const candidateTeams = extractTeamComposition(candidateGame, candidatePartner);
-        if (!areTeamsIdentical(context.referenceTeams, candidateTeams)) {
+        let isMatch: boolean;
+
+        if (context.mode === "partnerPair" && context.selectedPair) {
+          // For partner pair mode: check if the selected pair is partnered in this game
+          isMatch = isPartnerPairPresent(context.selectedPair, candidateTeams);
+        } else {
+          // For full match mode: check if all 4 players and pairings are identical
+          isMatch = areTeamsIdentical(context.referenceTeams, candidateTeams);
+        }
+
+        if (!isMatch) {
           consecutiveNonMatches++;
           continue;
         }
@@ -434,7 +473,7 @@ export async function discoverMatchGames(
   callbacks: MatchDiscoveryCallbacks,
   cancellation?: DiscoveryCancellation,
 ): Promise<void> {
-  const { originalGame, partnerGame } = params;
+  const { originalGame, partnerGame, mode = "fullMatch", selectedPair } = params;
 
   // Get the reference team composition
   const referenceTeams = extractTeamComposition(originalGame, partnerGame);
@@ -453,15 +492,24 @@ export async function discoverMatchGames(
     return;
   }
 
-  // Pick one player to use for archive lookup
-  const players = getAllPlayerUsernames(originalGame, partnerGame);
-  if (players.length === 0) {
-    callbacks.onError(new Error("No player usernames found"));
-    return;
-  }
+  // Pick one player to use for archive lookup.
+  // IMPORTANT: For partner pair mode, we must use one of the selected pair's players
+  // to search their game archive. Using an opponent's archive would not find the
+  // partner pair's games together.
+  let archivePlayer: string;
 
-  // Use the first player's archive
-  const archivePlayer = players[0];
+  if (mode === "partnerPair" && selectedPair) {
+    // Use the first player from the selected partner pair
+    archivePlayer = selectedPair.usernames[0];
+  } else {
+    // For full match mode, any of the four players works
+    const players = getAllPlayerUsernames(originalGame, partnerGame);
+    if (players.length === 0) {
+      callbacks.onError(new Error("No player usernames found"));
+      return;
+    }
+    archivePlayer = players[0];
+  }
 
   const currentYear = dateInfo.year;
   const currentMonth = dateInfo.month;
@@ -475,6 +523,8 @@ export async function discoverMatchGames(
     cancellation,
     gamesChecked: 0,
     gamesFound: 0,
+    mode,
+    selectedPair,
   };
 
   try {

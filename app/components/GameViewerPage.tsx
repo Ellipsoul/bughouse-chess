@@ -33,7 +33,11 @@ import {
   shouldSkipLoadGameOverrideConfirm,
 } from "../utils/loadGameOverrideConfirmPreference";
 import MatchNavigation from "./MatchNavigation";
-import type { MatchGame, MatchDiscoveryStatus } from "../types/match";
+import MatchDiscoveryModeModal, {
+  type DiscoveryModeSelection,
+} from "./MatchDiscoveryModeModal";
+import type { MatchGame, MatchDiscoveryStatus, PartnerPair } from "../types/match";
+import { extractPartnerPairs } from "../types/match";
 import {
   discoverMatchGames,
   createMatchGameFromLoaded,
@@ -189,6 +193,11 @@ export default function GameViewerPage() {
   const [matchCurrentIndex, setMatchCurrentIndex] = useState(0);
   const [matchDiscoveryStatus, setMatchDiscoveryStatus] = useState<MatchDiscoveryStatus>("idle");
   const discoveryCancellationRef = useRef<DiscoveryCancellation | null>(null);
+
+  // Match discovery modal state
+  const [isDiscoveryModalOpen, setIsDiscoveryModalOpen] = useState(false);
+  /** Selected partner pair for displaying in the dropdown (tracks which pair was searched). */
+  const [selectedPairForDisplay, setSelectedPairForDisplay] = useState<PartnerPair | null>(null);
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -381,83 +390,111 @@ export default function GameViewerPage() {
   }, []);
 
   /**
-   * Initiates match discovery for the currently loaded game.
-   * Finds other games in the same match with identical team compositions.
+   * Opens the match discovery mode selection modal.
+   * The user can then choose between full match or partner pair discovery.
    */
   const handleFindMatchGames = useCallback(() => {
     if (!gameData) {
       toast.error("No game loaded. Load a game first to find match games.");
       return;
     }
-
-    // Cancel any existing discovery
-    if (discoveryCancellationRef.current) {
-      discoveryCancellationRef.current.cancel();
-    }
-
-    const cancellation = new DiscoveryCancellation();
-    discoveryCancellationRef.current = cancellation;
-
-    // Create initial match game from currently loaded data
-    const initialMatchGame = createMatchGameFromLoaded(
-      gameData.original,
-      gameData.partner,
-      gameData.partnerId,
-    );
-
-    // Set initial state
-    setMatchGames([initialMatchGame]);
-    setMatchCurrentIndex(0);
-    setMatchDiscoveryStatus("discovering");
-
-    // Start discovery (searches both backward and forward)
-    discoverMatchGames(
-      {
-        originalGame: gameData.original,
-        partnerGame: gameData.partner,
-        partnerId: gameData.partnerId,
-      },
-      {
-        onGameFound: (newGame, direction) => {
-          setMatchGames((prev) => {
-            // Avoid duplicates
-            if (prev.some((g) => g.gameId === newGame.gameId)) {
-              return prev;
-            }
-            // Insert in chronological order
-            const updated = [...prev, newGame];
-            updated.sort((a, b) => a.endTime - b.endTime);
-            return updated;
-          });
-
-          // When games are found before the initial game, the initial game's
-          // index shifts up by one. Update currentIndex to stay on the initial game.
-          if (direction === "before") {
-            setMatchCurrentIndex((prev) => prev + 1);
-          }
-        },
-        onComplete: (totalGames, initialGameIndex) => {
-          setMatchDiscoveryStatus("complete");
-          // Ensure currentIndex is set to the initial game's final position
-          setMatchCurrentIndex(initialGameIndex);
-          if (totalGames > 1) {
-            toast.success(`Found ${totalGames} games in this match`);
-          } else {
-            toast.success("No additional match games found");
-          }
-        },
-        onError: (error) => {
-          setMatchDiscoveryStatus("error");
-          toast.error(error.message || "Failed to find match games");
-        },
-        onProgress: (checked, found) => {
-          // Could update a progress indicator here if needed
-          console.debug(`Match discovery: checked ${checked}, found ${found}`);
-        },
-      },
-      cancellation,
-    );
+    setIsDiscoveryModalOpen(true);
   }, [gameData]);
+
+  /**
+   * Handles the discovery mode selection from the modal.
+   * Initiates the appropriate discovery based on user's choice.
+   */
+  const handleDiscoveryModeSelect = useCallback(
+    (selection: DiscoveryModeSelection) => {
+      setIsDiscoveryModalOpen(false);
+
+      if (!gameData) return;
+
+      // Cancel any existing discovery
+      if (discoveryCancellationRef.current) {
+        discoveryCancellationRef.current.cancel();
+      }
+
+      const cancellation = new DiscoveryCancellation();
+      discoveryCancellationRef.current = cancellation;
+
+      // Create initial match game from currently loaded data
+      const initialMatchGame = createMatchGameFromLoaded(
+        gameData.original,
+        gameData.partner,
+        gameData.partnerId,
+      );
+
+      // Track the selected pair for display purposes
+      setSelectedPairForDisplay(selection.selectedPair ?? null);
+
+      // Set initial state
+      setMatchGames([initialMatchGame]);
+      setMatchCurrentIndex(0);
+      setMatchDiscoveryStatus("discovering");
+
+      // Start discovery (searches both backward and forward)
+      discoverMatchGames(
+        {
+          originalGame: gameData.original,
+          partnerGame: gameData.partner,
+          partnerId: gameData.partnerId,
+          mode: selection.mode,
+          selectedPair: selection.selectedPair,
+        },
+        {
+          onGameFound: (newGame, direction) => {
+            setMatchGames((prev) => {
+              // Avoid duplicates
+              if (prev.some((g) => g.gameId === newGame.gameId)) {
+                return prev;
+              }
+              // Insert in chronological order
+              const updated = [...prev, newGame];
+              updated.sort((a, b) => a.endTime - b.endTime);
+              return updated;
+            });
+
+            // When games are found before the initial game, the initial game's
+            // index shifts up by one. Update currentIndex to stay on the initial game.
+            if (direction === "before") {
+              setMatchCurrentIndex((prev) => prev + 1);
+            }
+          },
+          onComplete: (totalGames, initialGameIndex) => {
+            setMatchDiscoveryStatus("complete");
+            // Ensure currentIndex is set to the initial game's final position
+            setMatchCurrentIndex(initialGameIndex);
+            const seriesType =
+              selection.mode === "partnerPair" ? "partner series" : "match";
+            if (totalGames > 1) {
+              toast.success(`Found ${totalGames} games in this ${seriesType}`);
+            } else {
+              toast.success(`No additional ${seriesType} games found`);
+            }
+          },
+          onError: (error) => {
+            setMatchDiscoveryStatus("error");
+            toast.error(error.message || "Failed to find match games");
+          },
+          onProgress: (checked, found) => {
+            // Could update a progress indicator here if needed
+            console.debug(`Match discovery: checked ${checked}, found ${found}`);
+          },
+        },
+        cancellation,
+      );
+    },
+    [gameData],
+  );
+
+  /**
+   * Handles cancellation of the discovery mode modal.
+   */
+  const handleDiscoveryModalCancel = useCallback(() => {
+    setIsDiscoveryModalOpen(false);
+  }, []);
 
   /**
    * Navigates to the previous game in the match.
@@ -673,6 +710,14 @@ export default function GameViewerPage() {
           onCancel={handleCancelLoadNewGame}
         />
       ) : null}
+      <MatchDiscoveryModeModal
+        open={isDiscoveryModalOpen}
+        partnerPairs={
+          gameData ? extractPartnerPairs(gameData.original, gameData.partner) : null
+        }
+        onSelect={handleDiscoveryModeSelect}
+        onCancel={handleDiscoveryModalCancel}
+      />
       {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
       <header
         className={[
@@ -761,6 +806,7 @@ export default function GameViewerPage() {
               totalGames={matchGames.length}
               currentIndex={matchCurrentIndex}
               matchGames={matchGames}
+              selectedPair={selectedPairForDisplay}
               onFindMatchGames={handleFindMatchGames}
               onPreviousGame={handlePreviousGame}
               onNextGame={handleNextGame}

@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
-import type { TeamComposition, MatchGame } from "../../../app/types/match";
+import type { TeamComposition, MatchGame, PartnerPair } from "../../../app/types/match";
+import { extractPartnerPairs } from "../../../app/types/match";
 import {
   extractGameIdFromUrl,
   extractTeamComposition,
   areTeamsIdentical,
+  isPartnerPairPresent,
   getAllPlayerUsernames,
   parsePgnDate,
   DiscoveryCancellation,
@@ -14,7 +16,9 @@ import {
 } from "../../../app/utils/matchDiscovery";
 import {
   extractGameSummary,
+  extractPartnerPairGameSummary,
   computeMatchScore,
+  computePartnerPairScore,
   establishReferenceTeams,
 } from "../../../app/components/MatchNavigation";
 
@@ -186,6 +190,80 @@ describe("matchDiscovery", () => {
       };
 
       expect(areTeamsIdentical(comp1, comp2)).toBe(true);
+    });
+  });
+
+  describe("isPartnerPairPresent", () => {
+    it("returns true when pair matches team1", () => {
+      const pair: PartnerPair = {
+        usernames: ["alice", "bob"],
+        displayNames: ["Alice", "Bob"],
+      };
+      const composition: TeamComposition = {
+        team1: ["alice", "bob"],
+        team2: ["charlie", "dave"],
+      };
+
+      expect(isPartnerPairPresent(pair, composition)).toBe(true);
+    });
+
+    it("returns true when pair matches team2", () => {
+      const pair: PartnerPair = {
+        usernames: ["charlie", "dave"],
+        displayNames: ["Charlie", "Dave"],
+      };
+      const composition: TeamComposition = {
+        team1: ["alice", "bob"],
+        team2: ["charlie", "dave"],
+      };
+
+      expect(isPartnerPairPresent(pair, composition)).toBe(true);
+    });
+
+    it("returns false when pair is not present", () => {
+      const pair: PartnerPair = {
+        usernames: ["alice", "charlie"], // Not a valid partner pair
+        displayNames: ["Alice", "Charlie"],
+      };
+      const composition: TeamComposition = {
+        team1: ["alice", "bob"],
+        team2: ["charlie", "dave"],
+      };
+
+      expect(isPartnerPairPresent(pair, composition)).toBe(false);
+    });
+
+    it("returns false when only one player matches", () => {
+      const pair: PartnerPair = {
+        usernames: ["alice", "eve"], // Alice is present but Eve is not
+        displayNames: ["Alice", "Eve"],
+      };
+      const composition: TeamComposition = {
+        team1: ["alice", "bob"],
+        team2: ["charlie", "dave"],
+      };
+
+      expect(isPartnerPairPresent(pair, composition)).toBe(false);
+    });
+
+    it("handles pair with different opponents correctly", () => {
+      // Same pair, but different opponents in different games
+      const pair: PartnerPair = {
+        usernames: ["alice", "bob"],
+        displayNames: ["Alice", "Bob"],
+      };
+
+      const comp1: TeamComposition = {
+        team1: ["alice", "bob"],
+        team2: ["charlie", "dave"], // Opponents 1
+      };
+      const comp2: TeamComposition = {
+        team1: ["eve", "frank"], // Different opponents
+        team2: ["alice", "bob"], // Same pair, but on team2
+      };
+
+      expect(isPartnerPairPresent(pair, comp1)).toBe(true);
+      expect(isPartnerPairPresent(pair, comp2)).toBe(true);
     });
   });
 
@@ -905,6 +983,390 @@ describe("computeMatchScore", () => {
     // Game 3: Team1 white, 0-1 -> Team2 wins (black won)
     expect(score.team1Wins).toBe(2);
     expect(score.team2Wins).toBe(1);
+    expect(score.draws).toBe(0);
+  });
+});
+
+describe("extractPartnerPairs", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  it("extracts two partner pairs from game data", () => {
+    const pairs = extractPartnerPairs(originalGame, partnerGame);
+
+    expect(pairs).not.toBeNull();
+    expect(pairs).toHaveLength(2);
+  });
+
+  it("returns null when partner game is missing", () => {
+    const pairs = extractPartnerPairs(originalGame, null);
+
+    expect(pairs).toBeNull();
+  });
+
+  it("correctly identifies partner pairings", () => {
+    const pairs = extractPartnerPairs(originalGame, partnerGame);
+
+    expect(pairs).not.toBeNull();
+    if (!pairs) return;
+
+    const [pair1, pair2] = pairs;
+
+    // Pair 1: Board A white + Board B black (chickencrossroad + Emeraldddd)
+    expect(pair1.usernames).toContain("chickencrossroad");
+    expect(pair1.usernames).toContain("emeraldddd");
+
+    // Pair 2: Board A black + Board B white (littleplotkin + larso)
+    expect(pair2.usernames).toContain("littleplotkin");
+    expect(pair2.usernames).toContain("larso");
+  });
+
+  it("stores display names with original case", () => {
+    const pairs = extractPartnerPairs(originalGame, partnerGame);
+
+    expect(pairs).not.toBeNull();
+    if (!pairs) return;
+
+    const [pair1] = pairs;
+
+    // Display names should preserve original case
+    expect(pair1.displayNames).toContain("chickencrossroad");
+    expect(pair1.displayNames).toContain("Emeraldddd");
+  });
+
+  it("returns usernames sorted for consistent comparison", () => {
+    const pairs = extractPartnerPairs(originalGame, partnerGame);
+
+    expect(pairs).not.toBeNull();
+    if (!pairs) return;
+
+    for (const pair of pairs) {
+      expect(pair.usernames[0] <= pair.usernames[1]).toBe(true);
+    }
+  });
+});
+
+describe("extractPartnerPairGameSummary", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  /**
+   * Helper to create a MatchGame for testing.
+   */
+  function createMatchGame(original: ChessGame, partner: ChessGame): MatchGame {
+    return {
+      gameId: original.game.id.toString(),
+      partnerGameId: partner.game.id.toString(),
+      original,
+      partner,
+      endTime: original.game.endTime ?? 0,
+    };
+  }
+
+  it("extracts partner pair game summary", () => {
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.gameNumber).toBe(1);
+    expect(summary.pairBoardA).toBe("chickencrossroad");
+    expect(summary.pairBoardB).toBe("Emeraldddd");
+  });
+
+  it("correctly identifies opponents", () => {
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.opponentBoardA).toBe("littleplotkin");
+    expect(summary.opponentBoardB).toBe("larso");
+  });
+
+  it("determines pair color correctly when playing white", () => {
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    // chickencrossroad is white on board A
+    expect(summary.pairIsWhiteOnBoardA).toBe(true);
+  });
+
+  it("determines pair color correctly when playing black", () => {
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    // Select the other pair (they are black on board A)
+    const pair: PartnerPair = {
+      usernames: ["larso", "littleplotkin"],
+      displayNames: ["larso", "littleplotkin"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.pairIsWhiteOnBoardA).toBe(false);
+  });
+
+  it("correctly determines pair win (pair was white and won)", () => {
+    // Modify game so white wins
+    const winningOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          Result: "1-0",
+        },
+      },
+    };
+    const matchGame = createMatchGame(winningOriginal, partnerGame);
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.pairWon).toBe(true);
+    expect(summary.pairLost).toBe(false);
+    expect(summary.displayResult).toBe("1-0");
+  });
+
+  it("correctly determines pair loss (pair was white and lost)", () => {
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    // Original game result is "0-1", meaning black won
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.pairWon).toBe(false);
+    expect(summary.pairLost).toBe(true);
+    expect(summary.displayResult).toBe("0-1");
+  });
+
+  it("correctly determines pair win (pair was black and won)", () => {
+    // Original game: white=chickencrossroad, black=littleplotkin, result=0-1 (black won)
+    const matchGame = createMatchGame(originalGame, partnerGame);
+    // Select the pair that was playing black
+    const pair: PartnerPair = {
+      usernames: ["larso", "littleplotkin"],
+      displayNames: ["larso", "littleplotkin"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.pairWon).toBe(true);
+    expect(summary.pairLost).toBe(false);
+    expect(summary.displayResult).toBe("1-0"); // Flipped to show from pair's perspective
+  });
+
+  it("handles draws correctly", () => {
+    const drawOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          Result: "1/2-1/2",
+        },
+      },
+    };
+    const matchGame = createMatchGame(drawOriginal, partnerGame);
+    const pair: PartnerPair = {
+      usernames: ["chickencrossroad", "emeraldddd"],
+      displayNames: ["chickencrossroad", "Emeraldddd"],
+    };
+
+    const summary = extractPartnerPairGameSummary(matchGame, 0, pair);
+
+    expect(summary.pairWon).toBe(false);
+    expect(summary.pairLost).toBe(false);
+    expect(summary.displayResult).toBe("1/2-1/2");
+  });
+});
+
+describe("computePartnerPairScore", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  /**
+   * Helper to create a MatchGame with a specific result.
+   */
+  function createMatchGameWithResult(result: string): MatchGame {
+    return {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: result,
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+  }
+
+  const pair: PartnerPair = {
+    usernames: ["chickencrossroad", "emeraldddd"],
+    displayNames: ["chickencrossroad", "Emeraldddd"],
+  };
+
+  it("returns zeros for empty array", () => {
+    const score = computePartnerPairScore([], pair);
+
+    expect(score.pairWins).toBe(0);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts pair win correctly", () => {
+    // Pair is white on board A, 1-0 means white won
+    const games = [createMatchGameWithResult("1-0")];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(1);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts pair loss correctly", () => {
+    // Pair is white on board A, 0-1 means black won
+    const games = [createMatchGameWithResult("0-1")];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(0);
+    expect(score.pairLosses).toBe(1);
+    expect(score.draws).toBe(0);
+  });
+
+  it("counts draw correctly", () => {
+    const games = [createMatchGameWithResult("1/2-1/2")];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(0);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(1);
+  });
+
+  it("computes score for series with mixed results", () => {
+    const games = [
+      createMatchGameWithResult("1-0"), // Pair wins
+      createMatchGameWithResult("0-1"), // Pair loses
+      createMatchGameWithResult("1-0"), // Pair wins
+      createMatchGameWithResult("1/2-1/2"), // Draw
+      createMatchGameWithResult("1-0"), // Pair wins
+    ];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(3);
+    expect(score.pairLosses).toBe(1);
+    expect(score.draws).toBe(1);
+  });
+
+  it("handles series with only wins", () => {
+    const games = [
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1-0"),
+    ];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(3);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("handles series with only losses", () => {
+    const games = [
+      createMatchGameWithResult("0-1"),
+      createMatchGameWithResult("0-1"),
+    ];
+
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(0);
+    expect(score.pairLosses).toBe(2);
+    expect(score.draws).toBe(0);
+  });
+
+  it("correctly scores when pair swaps colors between games", () => {
+    // Game 1: Pair is white, wins (1-0)
+    const game1 = createMatchGameWithResult("1-0");
+
+    // Game 2: Colors swapped - Pair is now black, wins (0-1)
+    const swappedOriginal: ChessGame = {
+      ...originalGame,
+      game: {
+        ...originalGame.game,
+        pgnHeaders: {
+          ...originalGame.game.pgnHeaders,
+          White: "littleplotkin",
+          Black: "chickencrossroad",
+          Result: "0-1", // Black (pair) wins
+        },
+      },
+    };
+    const swappedPartner: ChessGame = {
+      ...partnerGame,
+      game: {
+        ...partnerGame.game,
+        pgnHeaders: {
+          ...partnerGame.game.pgnHeaders,
+          White: "larso",
+          Black: "Emeraldddd",
+        },
+      },
+    };
+    const game2: MatchGame = {
+      gameId: "game2",
+      partnerGameId: "partner2",
+      original: swappedOriginal,
+      partner: swappedPartner,
+      endTime: (originalGame.game.endTime ?? 0) + 100,
+    };
+
+    const games = [game1, game2];
+    const score = computePartnerPairScore(games, pair);
+
+    expect(score.pairWins).toBe(2);
+    expect(score.pairLosses).toBe(0);
     expect(score.draws).toBe(0);
   });
 });

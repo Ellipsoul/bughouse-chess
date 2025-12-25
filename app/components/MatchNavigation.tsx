@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { APP_TOOLTIP_ID } from "../utils/tooltips";
-import type { MatchDiscoveryStatus, MatchGame } from "../types/match";
+import type { MatchDiscoveryStatus, MatchGame, PartnerPair } from "../types/match";
 
 /**
  * Reference team composition established from the first game.
@@ -170,6 +170,160 @@ export interface MatchScore {
 }
 
 /**
+ * Summary of a game from the partner pair's perspective.
+ */
+export interface PartnerPairGameSummary {
+  /** Game index (1-based for display) */
+  gameNumber: number;
+  /** Partner on board A */
+  pairBoardA: string;
+  /** Partner on board B */
+  pairBoardB: string;
+  /** Opponent on board A */
+  opponentBoardA: string;
+  /** Opponent on board B */
+  opponentBoardB: string;
+  /** Whether the partner pair is playing white on board A */
+  pairIsWhiteOnBoardA: boolean;
+  /** Original game result from PGN */
+  result: string;
+  /** Display result from pair's perspective ("1-0" = pair won) */
+  displayResult: string;
+  /** Whether the partner pair won */
+  pairWon: boolean;
+  /** Whether the partner pair lost */
+  pairLost: boolean;
+}
+
+/**
+ * Extracts game summary from the selected partner pair's perspective.
+ * @param game - The match game to extract summary from
+ * @param index - The 0-based index of this game in the series
+ * @param selectedPair - The selected partner pair
+ */
+export function extractPartnerPairGameSummary(
+  game: MatchGame,
+  index: number,
+  selectedPair: PartnerPair,
+): PartnerPairGameSummary {
+  const original = game.original;
+  const partner = game.partner;
+
+  const boardAWhite = original.game.pgnHeaders.White;
+  const boardABlack = original.game.pgnHeaders.Black;
+  const boardBWhite = partner?.game.pgnHeaders.White ?? "Unknown";
+  const boardBBlack = partner?.game.pgnHeaders.Black ?? "Unknown";
+  const result = original.game.pgnHeaders.Result;
+
+  // Check which color the selected pair is playing on board A
+  const pairUsernames = new Set(selectedPair.usernames);
+  const boardAWhiteLower = boardAWhite.toLowerCase();
+
+  // If board A white is in the selected pair, they're playing white on board A
+  const pairIsWhiteOnBoardA = pairUsernames.has(boardAWhiteLower);
+
+  let pairBoardA: string;
+  let pairBoardB: string;
+  let opponentBoardA: string;
+  let opponentBoardB: string;
+
+  if (pairIsWhiteOnBoardA) {
+    // Pair is white on A, black on B (normal partner pairing)
+    pairBoardA = boardAWhite;
+    pairBoardB = boardBBlack;
+    opponentBoardA = boardABlack;
+    opponentBoardB = boardBWhite;
+  } else {
+    // Pair is black on A, white on B
+    pairBoardA = boardABlack;
+    pairBoardB = boardBWhite;
+    opponentBoardA = boardAWhite;
+    opponentBoardB = boardBBlack;
+  }
+
+  // Determine if pair won
+  let pairWon = false;
+  let pairLost = false;
+
+  if (result === "1-0") {
+    // Board A white won
+    pairWon = pairIsWhiteOnBoardA;
+    pairLost = !pairIsWhiteOnBoardA;
+  } else if (result === "0-1") {
+    // Board A black won
+    pairWon = !pairIsWhiteOnBoardA;
+    pairLost = pairIsWhiteOnBoardA;
+  }
+
+  // Display result from pair's perspective
+  let displayResult: string;
+  if (pairWon) {
+    displayResult = "1-0";
+  } else if (pairLost) {
+    displayResult = "0-1";
+  } else {
+    displayResult = result;
+  }
+
+  return {
+    gameNumber: index + 1,
+    pairBoardA,
+    pairBoardB,
+    opponentBoardA,
+    opponentBoardB,
+    pairIsWhiteOnBoardA,
+    result,
+    displayResult,
+    pairWon,
+    pairLost,
+  };
+}
+
+/**
+ * Partner pair series score.
+ */
+export interface PartnerPairScore {
+  /** Number of games won by the partner pair */
+  pairWins: number;
+  /** Number of games lost by the partner pair */
+  pairLosses: number;
+  /** Number of draws */
+  draws: number;
+}
+
+/**
+ * Computes the series score for a partner pair.
+ * @param games - Array of MatchGame objects
+ * @param selectedPair - The selected partner pair
+ * @returns PartnerPairScore with wins, losses, and draws
+ */
+export function computePartnerPairScore(
+  games: MatchGame[],
+  selectedPair: PartnerPair,
+): PartnerPairScore {
+  if (games.length === 0) {
+    return { pairWins: 0, pairLosses: 0, draws: 0 };
+  }
+
+  let pairWins = 0;
+  let pairLosses = 0;
+  let draws = 0;
+
+  for (let i = 0; i < games.length; i++) {
+    const summary = extractPartnerPairGameSummary(games[i], i, selectedPair);
+    if (summary.pairWon) {
+      pairWins++;
+    } else if (summary.pairLost) {
+      pairLosses++;
+    } else {
+      draws++;
+    }
+  }
+
+  return { pairWins, pairLosses, draws };
+}
+
+/**
  * Computes the overall match score from an array of match games.
  * Uses reference teams from the first game to correctly attribute wins
  * even when teams swap colors between games.
@@ -237,6 +391,11 @@ export interface MatchNavigationProps {
    */
   matchGames?: MatchGame[];
   /**
+   * The selected partner pair for partner pair discovery mode.
+   * When set, the dropdown will show this pair on the left side.
+   */
+  selectedPair?: PartnerPair | null;
+  /**
    * Callback when user clicks "Find Match Games".
    */
   onFindMatchGames: () => void;
@@ -279,6 +438,7 @@ export default function MatchNavigation({
   totalGames,
   currentIndex,
   matchGames = [],
+  selectedPair = null,
   onFindMatchGames,
   onPreviousGame,
   onNextGame,
@@ -429,6 +589,7 @@ export default function MatchNavigation({
                   <MatchDropdown
                     games={matchGames}
                     currentIndex={currentIndex}
+                    selectedPair={selectedPair}
                     onSelectGame={handleSelectGame}
                   />
                 )}
@@ -478,20 +639,25 @@ export default function MatchNavigation({
 
 /**
  * Dropdown component showing all games in a match with consistent team positioning.
+ * For partner pair mode, shows the selected pair on the left and opponents on the right.
  */
 function MatchDropdown({
   games,
   currentIndex,
+  selectedPair,
   onSelectGame,
 }: {
   games: MatchGame[];
   currentIndex: number;
+  selectedPair?: PartnerPair | null;
   onSelectGame: (index: number) => void;
 }) {
   if (games.length === 0) return null;
 
-  // Establish reference teams from first game
+  // For partner pair mode, we use the selectedPair directly
+  // For full match mode, establish reference teams from first game
   const refTeams = establishReferenceTeams(games[0]);
+  const isPartnerPairMode = selectedPair != null;
 
   return (
     <div
@@ -502,9 +668,97 @@ function MatchDropdown({
       {/* Scrollable game list with custom thin scrollbar */}
       <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500">
         {games.map((game, index) => {
-          const summary = extractGameSummary(game, index, refTeams);
           const isCurrentGame = index === currentIndex;
 
+          // Render differently based on mode
+          if (isPartnerPairMode) {
+            const pairSummary = extractPartnerPairGameSummary(game, index, selectedPair);
+            return (
+              <button
+                key={game.gameId}
+                type="button"
+                role="option"
+                aria-selected={isCurrentGame}
+                onClick={() => onSelectGame(index)}
+                className={`w-full px-2 py-1.5 text-left transition-colors ${
+                  isCurrentGame
+                    ? "bg-mariner-600/30 border-l-2 border-mariner-400"
+                    : "hover:bg-gray-700/60"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  {/* Game number */}
+                  <span className="text-[10px] font-medium text-gray-400 w-8 shrink-0">
+                    #{pairSummary.gameNumber}
+                  </span>
+
+                  {/* Partner pair - always on left side */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                          pairSummary.pairIsWhiteOnBoardA ? "bg-white" : "bg-gray-900"
+                        }`}
+                      />
+                      <span className="text-[10px] text-gray-200 truncate">
+                        {pairSummary.pairBoardA}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                          pairSummary.pairIsWhiteOnBoardA ? "bg-gray-900" : "bg-white"
+                        }`}
+                      />
+                      <span className="text-[10px] text-gray-200 truncate">
+                        {pairSummary.pairBoardB}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Result */}
+                  <span
+                    className={`text-[10px] font-bold shrink-0 px-1 ${
+                      pairSummary.pairWon
+                        ? "text-green-400"
+                        : pairSummary.pairLost
+                          ? "text-red-400"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {pairSummary.displayResult}
+                  </span>
+
+                  {/* Opponents - always on right side */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-[10px] text-gray-200 truncate">
+                        {pairSummary.opponentBoardA}
+                      </span>
+                      <span
+                        className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                          pairSummary.pairIsWhiteOnBoardA ? "bg-gray-900" : "bg-white"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-[10px] text-gray-200 truncate">
+                        {pairSummary.opponentBoardB}
+                      </span>
+                      <span
+                        className={`w-2 h-2 border border-gray-500 shrink-0 ${
+                          pairSummary.pairIsWhiteOnBoardA ? "bg-white" : "bg-gray-900"
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          // Full match mode
+          const summary = extractGameSummary(game, index, refTeams);
           return (
             <button
               key={game.gameId}
@@ -590,8 +844,12 @@ function MatchDropdown({
         })}
       </div>
 
-      {/* Match score summary */}
-      <MatchScoreSummary games={games} refTeams={refTeams} />
+      {/* Score summary */}
+      {isPartnerPairMode ? (
+        <PartnerPairScoreSummary games={games} selectedPair={selectedPair} />
+      ) : (
+        <MatchScoreSummary games={games} refTeams={refTeams} />
+      )}
     </div>
   );
 }
@@ -642,6 +900,59 @@ function MatchScoreSummary({
           </span>
           <span className="text-[9px] text-gray-400 truncate block">
             {refTeams.team2Display[1]}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Displays the partner pair series score summary at the bottom of the dropdown.
+ */
+function PartnerPairScoreSummary({
+  games,
+  selectedPair,
+}: {
+  games: MatchGame[];
+  selectedPair: PartnerPair;
+}) {
+  const score = computePartnerPairScore(games, selectedPair);
+
+  return (
+    <div className="border-t-2 border-gray-600 px-2 py-2 bg-gray-800/80">
+      <div className="flex items-center justify-between gap-2">
+        {/* Partner pair names */}
+        <div className="flex-1 min-w-0 text-left">
+          <span className="text-[9px] text-gray-400 truncate block">
+            {selectedPair.displayNames[0]}
+          </span>
+          <span className="text-[9px] text-gray-400 truncate block">
+            {selectedPair.displayNames[1]}
+          </span>
+        </div>
+
+        {/* Final score */}
+        <div className="shrink-0 text-center">
+          <span className="text-[11px] font-bold text-gray-200">
+            <span className="text-green-400">{score.pairWins}</span>
+            <span className="text-gray-500 mx-1">-</span>
+            <span className="text-red-400">{score.pairLosses}</span>
+          </span>
+          {score.draws > 0 && (
+            <span className="text-[9px] text-gray-500 block">
+              ({score.draws} draw{score.draws !== 1 ? "s" : ""})
+            </span>
+          )}
+        </div>
+
+        {/* "vs Various" label for opponents */}
+        <div className="flex-1 min-w-0 text-right">
+          <span className="text-[9px] text-gray-500 italic block">
+            vs various
+          </span>
+          <span className="text-[9px] text-gray-500 italic block">
+            opponents
           </span>
         </div>
       </div>
