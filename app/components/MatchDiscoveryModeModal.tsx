@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { Users, UserCheck } from "lucide-react";
 import type { PartnerPair, DiscoveryMode } from "../types/match";
+import { useCompactLandscape } from "../utils/useCompactLandscape";
 
 /**
  * Result of the discovery mode selection.
@@ -40,6 +41,7 @@ export default function MatchDiscoveryModeModal({
   onCancel,
 }: MatchDiscoveryModeModalProps) {
   const fullMatchButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isCompact = useCompactLandscape();
 
   // Focus the primary action on open
   useEffect(() => {
@@ -70,8 +72,45 @@ export default function MatchDiscoveryModeModal({
     onSelect({ mode: "partnerPair", selectedPair: pair });
   };
 
+  // Compact styles for phone landscape mode
+  const dialogClassName = isCompact
+    ? "relative z-10 w-64 max-w-[calc(100vw-1rem)] max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 shadow-2xl"
+    : "relative z-10 w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 shadow-2xl";
+
+  const containerClassName = isCompact ? "p-2" : "p-5";
+
+  const titleClassName = isCompact
+    ? "mb-1 text-[10px] font-semibold tracking-wide text-gray-100"
+    : "mb-4 text-sm font-semibold tracking-wide text-gray-100";
+
+  const optionsSpacingClassName = isCompact ? "space-y-1" : "space-y-3";
+
+  const buttonClassName = isCompact
+    ? "w-full flex items-center gap-1.5 p-1.5 rounded-md border border-gray-600 bg-gray-800/60 hover:bg-gray-700/80 hover:border-gray-500 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+    : "w-full flex items-center gap-3 p-3 rounded-lg border border-gray-600 bg-gray-800/60 hover:bg-gray-700/80 hover:border-gray-500 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60";
+
+  const iconClassName = isCompact ? "h-3.5 w-3.5 shrink-0" : "h-5 w-5 shrink-0";
+
+  const labelClassName = isCompact
+    ? "text-[10px] font-medium text-gray-100"
+    : "text-sm font-medium text-gray-100";
+
+  const descriptionClassName = isCompact
+    ? "text-[8px] text-gray-400 leading-tight"
+    : "text-xs text-gray-400 leading-tight";
+
+  const sectionLabelClassName = isCompact
+    ? "text-[8px] text-gray-500 uppercase tracking-wider pt-0.5"
+    : "text-xs text-gray-500 uppercase tracking-wider pt-2";
+
+  const cancelButtonClassName = isCompact
+    ? "rounded border border-gray-700 bg-gray-800 px-2 py-0.5 text-[9px] text-gray-100 hover:bg-gray-700/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
+    : "rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50";
+
+  const cancelContainerClassName = isCompact ? "mt-1.5 flex justify-end" : "mt-5 flex justify-end";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-2">
       {/* Backdrop */}
       <button
         type="button"
@@ -80,64 +119,51 @@ export default function MatchDiscoveryModeModal({
         onClick={onCancel}
       />
 
-      {/* Dialog - responsive sizing */}
+      {/* Dialog */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Select match discovery mode"
-        className="relative z-10 w-full max-w-[calc(100vw-1rem)] sm:max-w-md rounded-lg sm:rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
+        className={dialogClassName}
       >
-        <div className="p-3 sm:p-5">
-          <div className="mb-2 sm:mb-4 text-xs sm:text-sm font-semibold tracking-wide text-gray-100">
-            Find Match Games
-          </div>
+        <div className={containerClassName}>
+          {/* Title */}
+          <div className={titleClassName}>Find Match Games</div>
 
-          <p className="text-xs sm:text-sm text-gray-300 leading-relaxed mb-3 sm:mb-5">
-            What type of game series would you like to find?
-          </p>
-
-          <div className="space-y-2 sm:space-y-3">
+          {/* Options */}
+          <div className={optionsSpacingClassName}>
             {/* Full Match Option */}
             <button
               ref={fullMatchButtonRef}
               type="button"
               onClick={handleFullMatch}
-              className="w-full flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-md sm:rounded-lg border border-gray-600 bg-gray-800/60 hover:bg-gray-700/80 hover:border-gray-500 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+              className={buttonClassName}
             >
-              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-mariner-400 mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-medium text-gray-100">Full Match (4 Players)</div>
-                <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-                  Find games where all four players are the same
-                </div>
+              <Users className={`${iconClassName} text-mariner-400`} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className={labelClassName}>Full Match (4 Players)</div>
+                <div className={descriptionClassName}>All four players are the same</div>
               </div>
             </button>
 
             {/* Partner Pair Options */}
             {partnerPairs && (
               <>
-                <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider pt-1 sm:pt-2">
-                  Partner Series
-                </div>
+                <div className={sectionLabelClassName}>Partner Series</div>
 
                 {partnerPairs.map((pair, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handlePartnerPair(pair)}
-                    className="w-full flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-md sm:rounded-lg border border-gray-600 bg-gray-800/60 hover:bg-gray-700/80 hover:border-gray-500 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+                    className={buttonClassName}
                   >
-                    <UserCheck
-                      className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 mt-0.5 shrink-0"
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs sm:text-sm font-medium text-gray-100 truncate">
+                    <UserCheck className={`${iconClassName} text-emerald-400`} aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      <div className={`${labelClassName} truncate`}>
                         {pair.displayNames[0]} & {pair.displayNames[1]}
                       </div>
-                      <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-                        Find games where these two partnered together
-                      </div>
+                      <div className={descriptionClassName}>These two partnered together</div>
                     </div>
                   </button>
                 ))}
@@ -145,19 +171,15 @@ export default function MatchDiscoveryModeModal({
             )}
 
             {!partnerPairs && (
-              <div className="text-[10px] sm:text-xs text-gray-500 p-2 sm:p-3 bg-gray-800/40 rounded-md sm:rounded-lg border border-gray-700">
+              <div className={`${descriptionClassName} p-2 bg-gray-800/40 rounded-md border border-gray-700`}>
                 Partner pair options require both boards to be loaded.
               </div>
             )}
           </div>
 
           {/* Cancel button */}
-          <div className="mt-3 sm:mt-5 flex justify-end">
-            <button
-              type="button"
-              className="rounded-md border border-gray-700 bg-gray-800 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-gray-100 hover:bg-gray-700/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
-              onClick={onCancel}
-            >
+          <div className={cancelContainerClassName}>
+            <button type="button" className={cancelButtonClassName} onClick={onCancel}>
               Cancel
             </button>
           </div>
