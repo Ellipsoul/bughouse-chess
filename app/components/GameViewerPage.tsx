@@ -408,7 +408,7 @@ export default function GameViewerPage() {
     setMatchCurrentIndex(0);
     setMatchDiscoveryStatus("discovering");
 
-    // Start discovery
+    // Start discovery (searches both backward and forward)
     discoverMatchGames(
       {
         originalGame: gameData.original,
@@ -416,7 +416,7 @@ export default function GameViewerPage() {
         partnerId: gameData.partnerId,
       },
       {
-        onGameFound: (newGame) => {
+        onGameFound: (newGame, direction) => {
           setMatchGames((prev) => {
             // Avoid duplicates
             if (prev.some((g) => g.gameId === newGame.gameId)) {
@@ -427,9 +427,17 @@ export default function GameViewerPage() {
             updated.sort((a, b) => a.endTime - b.endTime);
             return updated;
           });
+
+          // When games are found before the initial game, the initial game's
+          // index shifts up by one. Update currentIndex to stay on the initial game.
+          if (direction === "before") {
+            setMatchCurrentIndex((prev) => prev + 1);
+          }
         },
-        onComplete: (totalGames) => {
+        onComplete: (totalGames, initialGameIndex) => {
           setMatchDiscoveryStatus("complete");
+          // Ensure currentIndex is set to the initial game's final position
+          setMatchCurrentIndex(initialGameIndex);
           if (totalGames > 1) {
             toast.success(`Found ${totalGames} games in this match`);
           } else {

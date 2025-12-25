@@ -8,6 +8,7 @@
 import type { ChessGame } from "../actions";
 import { fetchChessGame, fetchPlayerMonthlyGames } from "../actions";
 import type {
+  DiscoveryDirection,
   MatchDiscoveryCallbacks,
   MatchDiscoveryParams,
   MatchGame,
@@ -225,14 +226,171 @@ async function delay(ms: number, cancellation?: DiscoveryCancellation): Promise<
 }
 
 /**
- * Discovers match games by scanning the player's monthly game archives.
+ * Internal search context shared between forward and backward searches.
+ */
+interface SearchContext {
+  referenceTeams: TeamComposition;
+  archivePlayer: string;
+  callbacks: MatchDiscoveryCallbacks;
+  cancellation?: DiscoveryCancellation;
+  gamesChecked: number;
+  gamesFound: number;
+}
+
+/**
+ * Searches for match games in one direction (before or after the initial game).
+ *
+ * @param context - Shared search context with reference teams and callbacks.
+ * @param initialEndTime - Unix timestamp of the initial game.
+ * @param monthsToCheck - List of year/month pairs to search.
+ * @param direction - "before" or "after" the initial game.
+ * @returns Number of games found in this direction.
+ */
+async function searchInDirection(
+  context: SearchContext,
+  initialEndTime: number,
+  monthsToCheck: Array<{ year: number; month: number }>,
+  direction: DiscoveryDirection,
+): Promise<number> {
+  let consecutiveNonMatches = 0;
+  let directionGamesFound = 0;
+
+  for (const { year, month } of monthsToCheck) {
+    if (context.cancellation?.isCancelled()) {
+      return directionGamesFound;
+    }
+
+    // Fetch the archive
+    let archive: PublicGameRecord[];
+    try {
+      archive = await fetchPlayerMonthlyGames(context.archivePlayer, year, month);
+    } catch (error) {
+      // If this is a rate limit, propagate the error
+      if (error instanceof Error && error.message.includes("Rate limited")) {
+        context.callbacks.onError(error);
+        return directionGamesFound;
+      }
+      // Otherwise try the next month
+      console.warn(`Failed to fetch archive for ${year}/${month}:`, error);
+      continue;
+    }
+
+    // Filter for bughouse games in the correct direction
+    let candidates: PublicGameRecord[];
+    if (direction === "before") {
+      // Games before the initial game, sorted newest first (to go backward in time)
+      candidates = archive
+        .filter((game) => game.rules === "bughouse")
+        .filter((game) => game.end_time < initialEndTime)
+        .sort((a, b) => b.end_time - a.end_time);
+    } else {
+      // Games after the initial game, sorted oldest first (to go forward in time)
+      candidates = archive
+        .filter((game) => game.rules === "bughouse")
+        .filter((game) => game.end_time > initialEndTime)
+        .sort((a, b) => a.end_time - b.end_time);
+    }
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    // Process each candidate with rate limiting
+    for (const candidate of candidates) {
+      if (context.cancellation?.isCancelled()) {
+        return directionGamesFound;
+      }
+
+      // Stop if we've hit too many consecutive non-matches
+      if (consecutiveNonMatches >= CONSECUTIVE_NON_MATCH_THRESHOLD) {
+        return directionGamesFound;
+      }
+
+      // Rate limit: wait before the next request
+      if (context.gamesChecked > 0) {
+        await delay(API_REQUEST_DELAY_MS, context.cancellation);
+      }
+
+      context.gamesChecked++;
+      context.callbacks.onProgress?.(context.gamesChecked, context.gamesFound);
+
+      // Extract game ID from URL
+      const candidateGameId = extractGameIdFromUrl(candidate.url);
+      if (!candidateGameId) {
+        consecutiveNonMatches++;
+        continue;
+      }
+
+      try {
+        // Fetch the full game data
+        const candidateGame = await fetchChessGame(candidateGameId);
+        if (!candidateGame) {
+          consecutiveNonMatches++;
+          continue;
+        }
+
+        // Get the partner game ID
+        const candidatePartnerIdNum = candidateGame.game.partnerGameId;
+        if (!candidatePartnerIdNum) {
+          consecutiveNonMatches++;
+          continue;
+        }
+
+        const candidatePartnerId = candidatePartnerIdNum.toString();
+
+        // Rate limit before fetching partner
+        await delay(API_REQUEST_DELAY_MS, context.cancellation);
+
+        // Fetch the partner game
+        const candidatePartner = await fetchChessGame(candidatePartnerId);
+        if (!candidatePartner) {
+          consecutiveNonMatches++;
+          continue;
+        }
+
+        // Check if the teams match
+        const candidateTeams = extractTeamComposition(candidateGame, candidatePartner);
+        if (!areTeamsIdentical(context.referenceTeams, candidateTeams)) {
+          consecutiveNonMatches++;
+          continue;
+        }
+
+        // Match found!
+        consecutiveNonMatches = 0;
+        directionGamesFound++;
+        context.gamesFound++;
+
+        const matchGame: MatchGame = {
+          gameId: candidateGameId,
+          partnerGameId: candidatePartnerId,
+          original: candidateGame,
+          partner: candidatePartner,
+          endTime: candidateGame.game.endTime ?? candidate.end_time,
+        };
+
+        context.callbacks.onGameFound(matchGame, direction);
+        context.callbacks.onProgress?.(context.gamesChecked, context.gamesFound);
+      } catch (error) {
+        // Log but continue checking other games
+        console.warn(`Failed to check candidate game ${candidateGameId}:`, error);
+        consecutiveNonMatches++;
+      }
+    }
+  }
+
+  return directionGamesFound;
+}
+
+/**
+ * Discovers match games by scanning the player's monthly game archives
+ * in both directions (before and after the initially loaded game).
  *
  * The discovery process:
- * 1. Fetches the monthly game archive for one of the players
- * 2. Filters for bughouse games after the loaded game's timestamp
+ * 1. Searches backward for games before the initial game
+ * 2. Searches forward for games after the initial game
  * 3. For each candidate, fetches full game data via the callback API
  * 4. Validates that all 4 players and team pairings match
- * 5. Stops when 3 consecutive non-matching games are found
+ * 5. Stops in each direction when 3 consecutive non-matching games are found
  *
  * @param params - The initial game data (original + partner).
  * @param callbacks - Event callbacks for progress, completion, and errors.
@@ -272,150 +430,69 @@ export async function discoverMatchGames(
   // Use the first player's archive
   const archivePlayer = players[0];
 
-  let gamesFound = 0;
-  let consecutiveNonMatches = 0;
-  let gamesChecked = 0;
+  const currentYear = dateInfo.year;
+  const currentMonth = dateInfo.month;
+  const dayOfMonth = parseInt(originalGame.game.pgnHeaders.Date.split(".")[2] ?? "15", 10);
+
+  // Create search context
+  const context: SearchContext = {
+    referenceTeams,
+    archivePlayer,
+    callbacks,
+    cancellation,
+    gamesChecked: 0,
+    gamesFound: 0,
+  };
 
   try {
-    // Fetch games for the current month
-    const currentYear = dateInfo.year;
-    const currentMonth = dateInfo.month;
-    let archiveExhausted = false;
+    // === PHASE 1: Search backward (games before the initial game) ===
+    const backwardMonths: Array<{ year: number; month: number }> = [
+      { year: currentYear, month: currentMonth },
+    ];
 
-    // We may need to check the next month too if the game was near month end
-    const monthsToCheck = [
+    // Add previous month if we're in the first half of the month
+    if (dayOfMonth <= 15) {
+      const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+      backwardMonths.push({ year: prevYear, month: prevMonth });
+    }
+
+    const gamesFoundBefore = await searchInDirection(
+      context,
+      initialEndTime,
+      backwardMonths,
+      "before",
+    );
+
+    if (cancellation?.isCancelled()) {
+      return;
+    }
+
+    // === PHASE 2: Search forward (games after the initial game) ===
+    const forwardMonths: Array<{ year: number; month: number }> = [
       { year: currentYear, month: currentMonth },
     ];
 
     // Add next month if we're in the latter half of the month
-    const dayOfMonth = parseInt(originalGame.game.pgnHeaders.Date.split(".")[2] ?? "1", 10);
     if (dayOfMonth >= 15) {
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
       const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
-      monthsToCheck.push({ year: nextYear, month: nextMonth });
+      forwardMonths.push({ year: nextYear, month: nextMonth });
     }
 
-    for (const { year, month } of monthsToCheck) {
-      if (cancellation?.isCancelled()) {
-        return;
-      }
-
-      if (archiveExhausted) {
-        break;
-      }
-
-      // Fetch the archive
-      let archive: PublicGameRecord[];
-      try {
-        archive = await fetchPlayerMonthlyGames(archivePlayer, year, month);
-      } catch (error) {
-        // If this is a rate limit, propagate the error
-        if (error instanceof Error && error.message.includes("Rate limited")) {
-          callbacks.onError(error);
-          return;
-        }
-        // Otherwise try the next month
-        console.warn(`Failed to fetch archive for ${year}/${month}:`, error);
-        continue;
-      }
-
-      // Filter for bughouse games after our initial game
-      const candidates = archive
-        .filter((game) => game.rules === "bughouse")
-        .filter((game) => game.end_time > initialEndTime)
-        .sort((a, b) => a.end_time - b.end_time);
-
-      if (candidates.length === 0) {
-        archiveExhausted = true;
-        continue;
-      }
-
-      // Process each candidate with rate limiting
-      for (const candidate of candidates) {
-        if (cancellation?.isCancelled()) {
-          return;
-        }
-
-        // Stop if we've hit too many consecutive non-matches
-        if (consecutiveNonMatches >= CONSECUTIVE_NON_MATCH_THRESHOLD) {
-          archiveExhausted = true;
-          break;
-        }
-
-        // Rate limit: wait before the next request
-        if (gamesChecked > 0) {
-          await delay(API_REQUEST_DELAY_MS, cancellation);
-        }
-
-        gamesChecked++;
-        callbacks.onProgress?.(gamesChecked, gamesFound);
-
-        // Extract game ID from URL
-        const candidateGameId = extractGameIdFromUrl(candidate.url);
-        if (!candidateGameId) {
-          consecutiveNonMatches++;
-          continue;
-        }
-
-        try {
-          // Fetch the full game data
-          const candidateGame = await fetchChessGame(candidateGameId);
-          if (!candidateGame) {
-            consecutiveNonMatches++;
-            continue;
-          }
-
-          // Get the partner game ID
-          const candidatePartnerIdNum = candidateGame.game.partnerGameId;
-          if (!candidatePartnerIdNum) {
-            consecutiveNonMatches++;
-            continue;
-          }
-
-          const candidatePartnerId = candidatePartnerIdNum.toString();
-
-          // Rate limit before fetching partner
-          await delay(API_REQUEST_DELAY_MS, cancellation);
-
-          // Fetch the partner game
-          const candidatePartner = await fetchChessGame(candidatePartnerId);
-          if (!candidatePartner) {
-            consecutiveNonMatches++;
-            continue;
-          }
-
-          // Check if the teams match
-          const candidateTeams = extractTeamComposition(candidateGame, candidatePartner);
-          if (!areTeamsIdentical(referenceTeams, candidateTeams)) {
-            consecutiveNonMatches++;
-            continue;
-          }
-
-          // Match found!
-          consecutiveNonMatches = 0;
-          gamesFound++;
-
-          const matchGame: MatchGame = {
-            gameId: candidateGameId,
-            partnerGameId: candidatePartnerId,
-            original: candidateGame,
-            partner: candidatePartner,
-            endTime: candidateGame.game.endTime ?? candidate.end_time,
-          };
-
-          callbacks.onGameFound(matchGame);
-          callbacks.onProgress?.(gamesChecked, gamesFound);
-        } catch (error) {
-          // Log but continue checking other games
-          console.warn(`Failed to check candidate game ${candidateGameId}:`, error);
-          consecutiveNonMatches++;
-        }
-      }
-    }
+    await searchInDirection(
+      context,
+      initialEndTime,
+      forwardMonths,
+      "after",
+    );
 
     // Discovery complete
-    // Include the initial game in the count (gamesFound + 1)
-    callbacks.onComplete(gamesFound + 1);
+    // Total games = games found + 1 (the initial game)
+    // Initial game index = number of games found before it
+    const totalGames = context.gamesFound + 1;
+    const initialGameIndex = gamesFoundBefore;
+    callbacks.onComplete(totalGames, initialGameIndex);
   } catch (error) {
     if (error instanceof Error && error.message === "Discovery cancelled") {
       // Silently handle cancellation

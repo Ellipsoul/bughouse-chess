@@ -65,7 +65,7 @@ export type MatchDiscoveryStatus =
 export interface MatchState {
   /**
    * Array of discovered match games in chronological order.
-   * The first game is always the initially loaded game.
+   * With bidirectional discovery, the initially loaded game may be at any index.
    */
   games: MatchGame[];
   /**
@@ -160,17 +160,26 @@ export interface MatchDiscoveryParams {
 }
 
 /**
+ * Direction of match game discovery relative to the initially loaded game.
+ */
+export type DiscoveryDirection = "before" | "after";
+
+/**
  * Callbacks for match discovery events.
  */
 export interface MatchDiscoveryCallbacks {
   /**
    * Called when a new match game is discovered.
+   * @param game - The discovered match game.
+   * @param direction - Whether this game is before or after the initial game.
    */
-  onGameFound: (game: MatchGame) => void;
+  onGameFound: (game: MatchGame, direction: DiscoveryDirection) => void;
   /**
    * Called when discovery completes successfully.
+   * @param totalGames - Total number of games in the match (including initial).
+   * @param initialGameIndex - Index of the initially loaded game in the match.
    */
-  onComplete: (totalGames: number) => void;
+  onComplete: (totalGames: number, initialGameIndex: number) => void;
   /**
    * Called when discovery encounters an error.
    */
