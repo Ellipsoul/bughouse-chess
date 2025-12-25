@@ -18,6 +18,13 @@ into a single timeline, and gives you an interactive two-board analysis UI with
 - **Auto-detect the partner board**: if chess.com provides a `partnerGameId`, we
   use it; otherwise the app probes nearby IDs to find the paired bughouse board.
 - **Open games via URL**: `https://bughouse.aronteh.com/?gameId=159878252255`
+- **User scripts**: Install browser extensions to quickly open games from
+  chess.com:
+  - **Bookmarklet**: One-click bookmark to open the current game (see
+    [`user_scripts/bookmarklet.md`](user_scripts/bookmarklet.md))
+  - **TamperMonkey script**: Automatically adds "Ellipviewer" buttons to
+    bughouse games in game history (see
+    [`user_scripts/tampermonkey.md`](user_scripts/tampermonkey.md))
 
 ### Replay a full two-board bughouse match
 
