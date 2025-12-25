@@ -256,6 +256,12 @@ export interface MatchNavigationProps {
    * Whether any action is currently pending (disables buttons).
    */
   isPending?: boolean;
+  /**
+   * Visual density hint used by the top navigation header.
+   * - `default`: existing spacing/typography (tablet/desktop)
+   * - `compact`: reduced padding + slightly smaller icons/text (phone landscape)
+   */
+  density?: "default" | "compact";
 }
 
 /**
@@ -278,7 +284,9 @@ export default function MatchNavigation({
   onNextGame,
   onSelectGame,
   isPending = false,
+  density = "default",
 }: MatchNavigationProps) {
+  const isCompact = density === "compact";
   const isDiscovering = discoveryStatus === "discovering";
   const hasMatch = totalGames > 1;
   const canGoPrevious = currentIndex > 0;
@@ -323,6 +331,27 @@ export default function MatchNavigation({
   const showFindButton = discoveryStatus === "idle" && !hasMatch;
   const showNavigation = hasMatch || isDiscovering;
 
+  const iconClassName = isCompact ? "h-3.5 w-3.5" : "h-4 w-4";
+  const findButtonClassName = [
+    "inline-flex items-center rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+    "disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed",
+    isCompact ? "gap-1 px-2 py-1 text-xs" : "gap-1.5 px-3 py-1.5 text-sm",
+  ].join(" ");
+
+  const navButtonClassName = [
+    "inline-flex items-center justify-center rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+    "disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed",
+    isCompact ? "p-1" : "p-1.5",
+  ].join(" ");
+
+  const gameCounterButtonClassName = [
+    "inline-flex items-center gap-1 font-medium text-gray-200 hover:text-white transition-colors cursor-pointer",
+    "disabled:cursor-not-allowed disabled:opacity-50",
+    isCompact ? "text-xs" : "text-sm",
+  ].join(" ");
+
   const handleSelectGame = (index: number) => {
     setIsDropdownOpen(false);
     onSelectGame?.(index);
@@ -343,9 +372,9 @@ export default function MatchNavigation({
               : "Load a game first to find match games"
           }
           data-tooltip-place="bottom"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed"
+          className={findButtonClassName}
         >
-          <Search className="h-4 w-4" aria-hidden="true" />
+          <Search className={iconClassName} aria-hidden="true" />
           <span className="hidden sm:inline">Find Match Games</span>
           <span className="sm:hidden">Find Match</span>
         </button>
@@ -362,9 +391,9 @@ export default function MatchNavigation({
             data-tooltip-id={APP_TOOLTIP_ID}
             data-tooltip-content="Previous game in match"
             data-tooltip-place="bottom"
-            className="inline-flex items-center justify-center p-1.5 rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed"
+            className={navButtonClassName}
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            <ChevronLeft className={iconClassName} aria-hidden="true" />
           </button>
 
           {/* Game counter or loading indicator */}
@@ -386,11 +415,11 @@ export default function MatchNavigation({
                   aria-label="Select game from match"
                   aria-expanded={isDropdownOpen}
                   aria-haspopup="listbox"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-gray-200 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  className={gameCounterButtonClassName}
                 >
                   <span>{gameCounter}</span>
                   <ChevronDown
-                    className={`h-3.5 w-3.5 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
+                    className={`${iconClassName} transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
                     aria-hidden="true"
                   />
                 </button>
@@ -416,9 +445,9 @@ export default function MatchNavigation({
             data-tooltip-id={APP_TOOLTIP_ID}
             data-tooltip-content="Next game in match"
             data-tooltip-place="bottom"
-            className="inline-flex items-center justify-center p-1.5 rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed"
+            className={navButtonClassName}
           >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            <ChevronRight className={iconClassName} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -433,9 +462,13 @@ export default function MatchNavigation({
           data-tooltip-id={APP_TOOLTIP_ID}
           data-tooltip-content="Failed to find match games. Click to retry."
           data-tooltip-place="bottom"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-red-600/60 bg-red-900/20 text-red-300 hover:bg-red-900/30 hover:border-red-500/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+          className={[
+            "inline-flex items-center rounded border border-red-600/60 bg-red-900/20 text-red-300 hover:bg-red-900/30 hover:border-red-500/60 transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            isCompact ? "gap-1 px-2 py-1 text-xs" : "gap-1.5 px-3 py-1.5 text-sm",
+          ].join(" ")}
         >
-          <Search className="h-4 w-4" aria-hidden="true" />
+          <Search className={iconClassName} aria-hidden="true" />
           <span>Retry</span>
         </button>
       )}

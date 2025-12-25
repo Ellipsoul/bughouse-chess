@@ -47,6 +47,7 @@ import {
   getLiveReplayElapsedDecisecondsAtGlobalPly,
   isPristineLoadedMainline,
 } from "../utils/analysis/liveReplay";
+import { useCompactLandscape } from "../utils/useCompactLandscape";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -98,6 +99,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const analysisContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
   const controlsContainerRef = useRef<HTMLDivElement>(null);
+  const isCompactLandscape = useCompactLandscape();
   const {
     state,
     currentPosition,
@@ -153,16 +155,47 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     setIsBoardsFlipped((prev) => !prev);
   }, []);
 
-  // Responsive board sizing (same approach as the replay UI).
-  const DEFAULT_BOARD_SIZE = 400;
-  const MIN_BOARD_SIZE = 260;
-  const RESERVE_COLUMN_WIDTH_PX = 64; // Tailwind `w-16`
-  const GAP_PX = 16; // Tailwind `gap-4`
-  const NAME_BLOCK = 44; // player bar height (px, derived from styling)
-  const COLUMN_PADDING = 12; // board column vertical padding (px, derived from styling)
-  const BH_DESKTOP_MIN_WIDTH_PX = 1400;
-  const [boardSize, setBoardSize] = useState(DEFAULT_BOARD_SIZE);
+  /**
+   * Responsive board sizing.
+   *
+   * The app is designed primarily for iPad/tablet and larger. For phone landscape, we
+   * intentionally trade density for usability (smaller player bars, tighter gaps, smaller
+   * control buttons) and allow the move list to be reached by scrolling the page shell.
+   */
+  const layout = useMemo(() => {
+    if (isCompactLandscape) {
+      return {
+        defaultBoardSize: 360,
+        minBoardSize: 210,
+        reserveColumnWidthPx: 64, // Tailwind `w-16`
+        gapPx: 8, // Tailwind `gap-2`
+        nameBlockPx: 34,
+        columnPaddingPx: 6,
+        minMoveListHeightPx: 0, // move list can be reached by scrolling in compact mode
+        controlsGapPx: 8, // gap between boards and controls
+        sectionsGapPx: 16, // gap between left column and move list (stacked)
+        controlButtonSizeClass: "h-8 w-8",
+        controlIconSizeClass: "h-4 w-4",
+      };
+    }
 
+    return {
+      defaultBoardSize: 400,
+      minBoardSize: 260,
+      reserveColumnWidthPx: 64, // Tailwind `w-16`
+      gapPx: 16, // Tailwind `gap-4`
+      nameBlockPx: 44,
+      columnPaddingPx: 12,
+      minMoveListHeightPx: 220,
+      controlsGapPx: 16,
+      sectionsGapPx: 24,
+      controlButtonSizeClass: "h-10 w-10",
+      controlIconSizeClass: "h-5 w-5",
+    };
+  }, [isCompactLandscape]);
+
+  const BH_DESKTOP_MIN_WIDTH_PX = 1400;
+  const [boardSize, setBoardSize] = useState(layout.defaultBoardSize);
   useEffect(() => {
     const boardsContainer = boardsContainerRef.current;
     if (!boardsContainer) return;
@@ -170,37 +203,48 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     const computeBoardSize = () => {
       // Width-driven cap (always): reserve | boardA | boardB | reserve => 3 gaps
       const availableWidth =
-        boardsContainer.clientWidth - (RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3);
+        boardsContainer.clientWidth - (layout.reserveColumnWidthPx * 2 + layout.gapPx * 3);
       const widthCandidate = Math.floor(availableWidth / 2);
 
       // Height-driven cap (stacked/tablet only): ensure we leave a reasonable amount of room
       // for the move list so the page doesn't need to scroll.
-      let heightCap = DEFAULT_BOARD_SIZE;
+      let heightCap = layout.defaultBoardSize;
       const isDesktop =
         typeof window !== "undefined" &&
         window.matchMedia(`(min-width: ${BH_DESKTOP_MIN_WIDTH_PX}px)`).matches;
 
       if (!isDesktop) {
-        const containerHeight = analysisContainerRef.current?.clientHeight ?? 0;
+        const containerHeight = (() => {
+          if (typeof window === "undefined") return 0;
+          const el = analysisContainerRef.current;
+          if (!el) return 0;
+
+          // In compact landscape we allow the analysis content to grow taller than the viewport
+          // (so the move list can be reached by scrolling). For board sizing, we still want to
+          // cap to the *visible viewport height* so boards+controls stay in view.
+          if (isCompactLandscape) {
+            const top = el.getBoundingClientRect().top;
+            return Math.max(0, Math.floor(window.innerHeight - top));
+          }
+
+          return el.clientHeight;
+        })();
         const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
 
-        // Gap between boards and controls in the left column (`gap-4`).
-        const GAP_BOARDS_CONTROLS_PX = 16;
-        // Gap between the (stacked) sections: left column then move list (`gap-6`).
-        const GAP_SECTIONS_PX = 24;
-        // Keep enough move list height to be usable even on shorter tablet viewports.
-        const MIN_MOVELIST_HEIGHT_PX = 220;
+        const GAP_BOARDS_CONTROLS_PX = layout.controlsGapPx;
+        const GAP_SECTIONS_PX = layout.sectionsGapPx;
+        const MIN_MOVELIST_HEIGHT_PX = layout.minMoveListHeightPx;
 
         if (containerHeight > 0) {
           const availablePlayAreaHeight =
             containerHeight -
             controlsHeight -
             GAP_BOARDS_CONTROLS_PX -
-            GAP_SECTIONS_PX -
-            MIN_MOVELIST_HEIGHT_PX;
+            // Only reserve move list space in non-compact modes.
+            (MIN_MOVELIST_HEIGHT_PX > 0 ? GAP_SECTIONS_PX + MIN_MOVELIST_HEIGHT_PX : 0);
 
           const maxBoardSizeFromHeight =
-            availablePlayAreaHeight - NAME_BLOCK * 2 - COLUMN_PADDING * 2;
+            availablePlayAreaHeight - layout.nameBlockPx * 2 - layout.columnPaddingPx * 2;
 
           if (Number.isFinite(maxBoardSizeFromHeight)) {
             heightCap = Math.floor(maxBoardSizeFromHeight);
@@ -209,7 +253,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       }
 
       const capped = Math.min(widthCandidate, heightCap);
-      const nextSize = Math.max(MIN_BOARD_SIZE, Math.min(DEFAULT_BOARD_SIZE, capped));
+      const nextSize = Math.max(layout.minBoardSize, Math.min(layout.defaultBoardSize, capped));
       setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
     };
 
@@ -223,7 +267,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       resizeObserver.observe(controlsContainerRef.current);
     }
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [BH_DESKTOP_MIN_WIDTH_PX, isCompactLandscape, layout]);
 
   const processedGame = useMemo(() => {
     if (!gameData) return null;
@@ -573,13 +617,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   ]);
 
   const controlButtonBaseClass =
-    "h-10 w-10 flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 cursor-pointer " +
+    `${layout.controlButtonSizeClass} flex items-center justify-center rounded-md bg-gray-800 text-gray-200 border border-gray-700 cursor-pointer ` +
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
     "transition-colors";
 
-  const playAreaHeight = boardSize + NAME_BLOCK * 2 + COLUMN_PADDING * 2;
+  const playAreaHeight = boardSize + layout.nameBlockPx * 2 + layout.columnPaddingPx * 2;
   const reserveHeight = playAreaHeight;
-  const controlsWidth = boardSize * 2 + RESERVE_COLUMN_WIDTH_PX * 2 + GAP_PX * 3;
+  const controlsWidth =
+    boardSize * 2 + layout.reserveColumnWidthPx * 2 + layout.gapPx * 3;
 
   const canGoBack = state.cursorNodeId !== state.tree.rootId;
   const canGoForward = Boolean(state.tree.nodesById[state.cursorNodeId]?.children.length);
@@ -1016,27 +1061,52 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           ? getClockTintClasses({ diffDeciseconds, team, isFrozen: options.clocksFrozen })
           : null;
       const neutralText = options.clocksFrozen ? "text-white/55" : "text-white/90";
+      const shouldHideRating = isCompactLandscape && boardSize <= 235;
 
       return (
         <div
-          className="flex items-center justify-between w-full px-3 text-base lg:text-xl font-bold text-white tracking-wide"
+          className={[
+            "flex items-center justify-between w-full font-bold text-white tracking-wide",
+            // On very small phone-landscape viewports, prioritize showing player names.
+            isCompactLandscape ? "px-2 text-xs" : "px-3 text-base lg:text-xl",
+          ].join(" ")}
           style={{ width: boardSize }}
         >
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <ChessTitleBadge chessTitle={player.chessTitle} />
-            <span className="truncate min-w-0" title={player.username}>
+        <div className={["flex items-center min-w-0", isCompactLandscape ? "gap-1.5" : "gap-2"].join(" ")}>
+          <div className={["flex items-center min-w-0", isCompactLandscape ? "gap-1.5" : "gap-2"].join(" ")}>
+            {/* On very small screens, titles consume too much horizontal space. */}
+            {!isCompactLandscape ? <ChessTitleBadge chessTitle={player.chessTitle} /> : null}
+            <span
+              className={[
+                "truncate min-w-0",
+                isCompactLandscape ? "text-[11px] leading-tight" : "",
+              ].join(" ")}
+              title={player.username}
+            >
               {player.username}
             </span>
-            {typeof player.rating === "number" && Number.isFinite(player.rating) && (
-              <span className="shrink-0 text-xs lg:text-sm font-semibold text-white/60">
+            {typeof player.rating === "number" &&
+            Number.isFinite(player.rating) &&
+            !shouldHideRating ? (
+              <span
+                className={[
+                  "shrink-0 font-semibold text-white/60",
+                  isCompactLandscape ? "text-[10px]" : "text-xs lg:text-sm",
+                ].join(" ")}
+              >
                 ({Math.round(player.rating)})
               </span>
-            )}
+            ) : null}
           </div>
           {options.isToMove ? (
             <>
-              <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-mariner-300" />
+              <ChevronLeft
+                aria-hidden
+                className={[
+                  "shrink-0 text-mariner-300",
+                  isCompactLandscape ? "h-4 w-4" : "h-5 w-5",
+                ].join(" ")}
+              />
               <span className="sr-only">To move</span>
             </>
           ) : null}
@@ -1062,7 +1132,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       </div>
       );
     },
-    [boardSize, clockSnapshot, formatClock, shouldRenderClocks],
+    [boardSize, clockSnapshot, formatClock, isCompactLandscape, shouldRenderClocks],
   );
 
   const getSideToMove = useCallback((fen: string): "white" | "black" => {
@@ -1345,7 +1415,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   return (
     <div
       ref={analysisContainerRef}
-      className="w-full mx-auto h-full min-h-0 min-w-0 flex overflow-hidden min-[1400px]:h-auto"
+      className={[
+        "w-full mx-auto min-w-0 flex min-[1400px]:h-auto",
+        isCompactLandscape ? "h-auto overflow-visible" : "h-full min-h-0 overflow-hidden",
+      ].join(" ")}
       style={
         {
           /**
@@ -1357,9 +1430,21 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         } as React.CSSProperties
       }
     >
-      <div className="flex flex-1 min-h-0 min-w-0 flex-col min-[1400px]:flex-row justify-center gap-6 items-center min-[1400px]:items-start">
+      <div
+        className={[
+          "flex min-w-0 flex-col min-[1400px]:flex-row justify-center items-center min-[1400px]:items-start",
+          isCompactLandscape ? "gap-3" : "gap-6",
+          // In default modes the analysis shell is viewport-clamped, so the inner layout uses flex-1.
+          isCompactLandscape ? "" : "flex-1 min-h-0",
+        ].join(" ")}
+      >
         {/* Left Column: Boards + Controls */}
-        <div className="flex flex-col items-center gap-4 min-w-0 relative w-full min-[1400px]:w-auto min-[1400px]:grow">
+        <div
+          className={[
+            "flex flex-col items-center min-w-0 relative w-full min-[1400px]:w-auto min-[1400px]:grow",
+            isCompactLandscape ? "gap-2" : "gap-4",
+          ].join(" ")}
+        >
           {state.pendingPromotion && (
             <PromotionPicker
               board={state.pendingPromotion.board}
@@ -1394,7 +1479,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Boards Container with Reserves */}
           <div
             ref={boardsContainerRef}
-            className="flex w-full gap-4 justify-center items-stretch min-w-0"
+            className={[
+              "flex w-full justify-center items-stretch min-w-0",
+              isCompactLandscape ? "gap-2" : "gap-4",
+            ].join(" ")}
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
@@ -1404,6 +1492,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 blackReserves={currentPosition.reserves.A.black}
                 bottomColor={isBoardsFlipped ? "black" : "white"}
                 height={reserveHeight}
+                density={isCompactLandscape ? "compact" : "default"}
                 disabled={isLiveReplayPlaying}
                 onPieceClick={(payload) => handleReservePieceClick("A", payload)}
                 onPieceDragStart={(payload) => handleReservePieceDragStart("A", payload)}
@@ -1417,7 +1506,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             </div>
 
             {/* Board A */}
-            <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
+            <div
+              className={[
+                "flex flex-col items-center justify-between h-full",
+                isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
+              ].join(" ")}
+            >
               {isBoardsFlipped
                 ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
                     isToMove: sideToMoveA === "white",
@@ -1472,7 +1566,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             </div>
 
             {/* Board B */}
-            <div className="flex flex-col items-center justify-between h-full py-2 gap-2">
+            <div
+              className={[
+                "flex flex-col items-center justify-between h-full",
+                isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
+              ].join(" ")}
+            >
               {isBoardsFlipped
                 ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
                     isToMove: sideToMoveB === "black",
@@ -1533,6 +1632,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 blackReserves={currentPosition.reserves.B.black}
                 bottomColor={isBoardsFlipped ? "white" : "black"}
                 height={reserveHeight}
+                density={isCompactLandscape ? "compact" : "default"}
                 disabled={isLiveReplayPlaying}
                 onPieceClick={(payload) => handleReservePieceClick("B", payload)}
                 onPieceDragStart={(payload) => handleReservePieceDragStart("B", payload)}
@@ -1563,15 +1663,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   type="button"
                 >
                   {isLiveReplayPlaying ? (
-                    <Pause aria-hidden className="h-5 w-5" />
+                    <Pause aria-hidden className={layout.controlIconSizeClass} />
                   ) : (
-                    <Play aria-hidden className="h-5 w-5" />
+                    <Play aria-hidden className={layout.controlIconSizeClass} />
                   )}
                 </button>
               </TooltipAnchor>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className={["flex items-center", isCompactLandscape ? "gap-2" : "gap-3"].join(" ")}>
               <TooltipAnchor content="Jump to start (↑)">
                 <button
                   onClick={handleStart}
@@ -1580,7 +1680,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   aria-label="Jump to start"
                   type="button"
                 >
-                  <SkipBack aria-hidden className="h-5 w-5" />
+                  <SkipBack aria-hidden className={layout.controlIconSizeClass} />
                 </button>
               </TooltipAnchor>
               <TooltipAnchor content="Previous move (←)">
@@ -1591,7 +1691,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   aria-label="Previous move"
                   type="button"
                 >
-                  <StepBack aria-hidden className="h-5 w-5" />
+                  <StepBack aria-hidden className={layout.controlIconSizeClass} />
                 </button>
               </TooltipAnchor>
               <TooltipAnchor content="Next move (→)">
@@ -1602,7 +1702,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   aria-label="Next move"
                   type="button"
                 >
-                  <StepForward aria-hidden className="h-5 w-5" />
+                  <StepForward aria-hidden className={layout.controlIconSizeClass} />
                 </button>
               </TooltipAnchor>
               <TooltipAnchor content="Jump to end (↓)">
@@ -1613,7 +1713,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   aria-label="Jump to end"
                   type="button"
                 >
-                  <SkipForward aria-hidden className="h-5 w-5" />
+                  <SkipForward aria-hidden className={layout.controlIconSizeClass} />
                 </button>
               </TooltipAnchor>
             </div>
@@ -1628,7 +1728,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 aria-label="Flip boards"
                 type="button"
               >
-                <RefreshCcw aria-hidden className="h-5 w-5" />
+                <RefreshCcw aria-hidden className={layout.controlIconSizeClass} />
               </button>
             </TooltipAnchor>
           </div>
@@ -1637,10 +1737,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         {/* Right Column: Move list placeholder (MoveTree lands next) */}
         <div
           className={[
-            // Stacked / tablet: full width under the boards, and consume remaining height.
-            "w-full flex-1 min-h-0 min-w-0 overflow-x-hidden",
+            // Stacked / tablet: full width under the boards.
+            "w-full min-w-0 overflow-x-hidden",
+            // Default (viewport-clamped): consume remaining height so the move list is always visible.
+            isCompactLandscape ? "shrink-0" : "flex-1 min-h-0",
             // Desktop: fixed right column, height aligned to board play area.
             "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-(--bh-play-area-height)",
+            // Compact landscape: give the move list a bounded height so it can scroll internally
+            // after the user scrolls down to it.
+            isCompactLandscape ? "h-[280px] max-h-[60vh]" : "",
           ].join(" ")}
         >
           <MoveListWithVariations

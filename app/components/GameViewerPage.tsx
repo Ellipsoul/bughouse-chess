@@ -39,6 +39,7 @@ import {
   createMatchGameFromLoaded,
   DiscoveryCancellation,
 } from "../utils/matchDiscovery";
+import { useCompactLandscape } from "../utils/useCompactLandscape";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -171,6 +172,7 @@ export default function GameViewerPage() {
   const lastAutoLoadedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
+  const isCompactLandscape = useCompactLandscape();
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
   const analytics = useFirebaseAnalytics();
   const [prefetched, setPrefetched] = useState<PrefetchedGameLoad>({ status: "idle" });
@@ -672,8 +674,18 @@ export default function GameViewerPage() {
         />
       ) : null}
       {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
-      <header className="relative w-full bg-gray-800 border-b border-gray-700 py-3 shadow-md">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-8">
+      <header
+        className={[
+          "relative w-full bg-gray-800 border-b border-gray-700 shadow-md",
+          isCompactLandscape ? "py-1" : "py-3",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "mx-auto flex w-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8",
+            isCompactLandscape ? "gap-3" : "gap-6",
+          ].join(" ")}
+        >
           <div className="flex items-center gap-2">
             <Link
               href="/"
@@ -689,12 +701,22 @@ export default function GameViewerPage() {
                 width={40}
                 height={40}
                 priority
-                className="h-10 w-10 rounded"
+                className={[
+                  "rounded object-contain",
+                  isCompactLandscape ? "h-7 w-7" : "h-10 w-10",
+                ].join(" ")}
               />
             </Link>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 max-w-lg">
+          <form
+            onSubmit={handleSubmit}
+            className={[
+              "flex-1 max-w-lg",
+              // In compact landscape, prioritize keeping the right-side controls visible.
+              isCompactLandscape ? "max-w-md" : "max-w-lg",
+            ].join(" ")}
+          >
             <div className="flex flex-col gap-1">
               <div className="flex gap-2">
                 <input
@@ -702,13 +724,22 @@ export default function GameViewerPage() {
                   value={gameId}
                   onChange={(e) => handleGameIdInputChange(e.target.value)}
                   placeholder="Enter chess.com Game ID or URL"
-                  className="flex-1 px-3 py-1.5 text-sm rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50 outline-none transition-all"
+                  className={[
+                    "flex-1 rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 outline-none transition-all",
+                    "focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50",
+                    isCompactLandscape ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
+                  ].join(" ")}
                   disabled={isPending}
                 />
                 <button
                   type="submit"
                   disabled={isPending || !gameId}
-                  className="px-4 py-1.5 text-sm bg-mariner-600 text-white rounded font-medium hover:bg-mariner-400 hover:border-mariner-300 cursor-pointer disabled:bg-gray-700 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                  className={[
+                    "bg-mariner-600 text-white rounded font-medium hover:bg-mariner-400 hover:border-mariner-300 cursor-pointer",
+                    "disabled:bg-gray-700 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed",
+                    "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+                    isCompactLandscape ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm",
+                  ].join(" ")}
                 >
                   {isPending ? "Loading..." : "Load Game"}
                 </button>
@@ -718,7 +749,12 @@ export default function GameViewerPage() {
           </form>
 
           {/* Match Navigation and Game ID section */}
-          <div className="ml-auto mr-12 sm:mr-14 inline-flex items-center gap-3">
+          <div
+            className={[
+              "ml-auto mr-12 sm:mr-14 inline-flex items-center",
+              isCompactLandscape ? "gap-2" : "gap-3",
+            ].join(" ")}
+          >
             <MatchNavigation
               hasGameLoaded={!!loadedGameId}
               discoveryStatus={matchDiscoveryStatus}
@@ -730,6 +766,7 @@ export default function GameViewerPage() {
               onNextGame={handleNextGame}
               onSelectGame={handleSelectGame}
               isPending={isPending}
+              density={isCompactLandscape ? "compact" : "default"}
             />
 
             {loadedGameId && (
@@ -745,10 +782,15 @@ export default function GameViewerPage() {
                   data-tooltip-id={APP_TOOLTIP_ID}
                   data-tooltip-content="Copy share link"
                   data-tooltip-place="bottom"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-900/60 text-gray-100 hover:bg-gray-900/80 hover:border-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                  className={[
+                    "inline-flex items-center rounded border border-gray-600 bg-gray-900/60 text-gray-100",
+                    "hover:bg-gray-900/80 hover:border-gray-500 transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+                    isCompactLandscape ? "gap-1 px-2 py-1 text-xs" : "gap-1.5 px-3 py-1.5 text-sm",
+                  ].join(" ")}
                 >
                   <span className="font-semibold">{loadedGameId}</span>
-                  <Share className="h-4 w-4" aria-hidden="true" />
+                  <Share className={isCompactLandscape ? "h-3.5 w-3.5" : "h-4 w-4"} aria-hidden="true" />
                 </button>
               </>
             )}
@@ -786,8 +828,19 @@ export default function GameViewerPage() {
 
       {/* Main content region: keep the page itself non-scrolling by constraining overflow here.
           The move list(s) inside the analysis UI remain independently scrollable. */}
-      <main className="flex w-full flex-1 overflow-hidden">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 py-4 sm:px-6 lg:px-8">
+      <main
+        className={[
+          "flex w-full flex-1 overflow-x-hidden",
+          // In compact landscape, allow the user to scroll down to the move list.
+          isCompactLandscape ? "overflow-y-auto" : "overflow-hidden",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 sm:px-6 lg:px-8",
+            isCompactLandscape ? "py-2" : "py-4",
+          ].join(" ")}
+        >
           {/*
             Use `key` to force remount when game changes (e.g., navigating between match games).
             This cleanly resets all internal state including live replay timers/RAF loops.

@@ -10,6 +10,12 @@ interface PieceReserveVerticalProps {
   bottomColor: "white" | "black";
   height?: number;
   /**
+   * Visual density hint used for phone-landscape compatibility.
+   * - `default`: current sizing (tablet/desktop)
+   * - `compact`: smaller padding + smaller piece icons to avoid vertical overflow
+   */
+  density?: "default" | "compact";
+  /**
    * When true, disables all interactivity (click + drag).
    *
    * This is used during live replay to ensure the reserves cannot be modified.
@@ -36,6 +42,25 @@ interface PieceReserveVerticalProps {
 }
 
 /**
+ * Computes the reserve-piece icon size (in px) based on the available reserve height.
+ *
+ * This is intentionally a small pure function so we can unit-test the sizing behavior.
+ */
+export function computeReservePiecePx(params: {
+  height: number;
+  density: "default" | "compact";
+}): number {
+  const { height, density } = params;
+  const isCompact = density === "compact";
+
+  const clamp = (min: number, value: number, max: number) => Math.min(max, Math.max(min, value));
+  const slotHeightPx = height / 10;
+
+  // Keep the pieces comfortably inside each slot and prevent reserves from overflowing on short viewports.
+  return clamp(18, Math.floor(slotHeightPx - (isCompact ? 6 : 10)), isCompact ? 30 : 40);
+}
+
+/**
  * Displays captured-piece reserves for one board in a vertical strip.
  * Ordering mirrors over-the-board intuition: the bottom player sees their pawns closest.
  */
@@ -44,6 +69,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   blackReserves,
   bottomColor,
   height = 400,
+  density = "default",
   disabled = false,
   onPieceClick,
   selected = null,
@@ -87,9 +113,15 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
     return `https://chessboardjs.com/img/chesspieces/wikipedia/${code}.png`;
   };
 
+  const isCompact = density === "compact";
+  const piecePx = computeReservePiecePx({ height, density });
+
   return (
     <div
-      className="grid grid-rows-10 bg-gray-800 rounded-lg p-2 w-full overflow-hidden"
+      className={[
+        "grid grid-rows-10 bg-gray-800 rounded-lg w-full overflow-hidden",
+        isCompact ? "p-1" : "p-2",
+      ].join(" ")}
       style={{ height: `${height}px` }}
     >
       {slots.map((slot, index) => (
@@ -151,12 +183,18 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
             alt={`${slot.color} ${slot.piece}`}
             width={80}
             height={80}
-            className="w-8 h-8 md:w-10 md:h-10 object-contain shrink-0"
+            className="object-contain shrink-0"
+            style={{ width: piecePx, height: piecePx }}
             priority
           />
 
           {slot.count > 0 && (
-            <span className="absolute -bottom-1 -right-1 bg-cyan-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold z-10">
+            <span
+              className={[
+                "absolute -bottom-1 -right-1 bg-cyan-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold z-10",
+                isCompact ? "w-3.5 h-3.5 text-[9px]" : "w-4 h-4 text-[10px]",
+              ].join(" ")}
+            >
               {slot.count}
             </span>
           )}
