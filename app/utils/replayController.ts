@@ -10,6 +10,7 @@ import {
 import { validateAndConvertMove } from './moveConverter';
 import { getBughouseCheckSuffix, normalizeSanSuffixForBughouse } from './bughouseCheckmate';
 import { buildBughouseClockTimeline } from "./analysis/buildBughouseClockTimeline";
+import { buildPerBoardMoveDurationsDeciseconds } from "./analysis/buildPerBoardMoveDurationsDeciseconds";
 
 interface BughouseHistoryState {
   fenA: string;
@@ -54,7 +55,7 @@ export class BughouseReplayController {
   private promotedPieces: { A: Set<string>; B: Set<string> };
   private initialTime: number;
   private clockTimeline: BughouseClocksSnapshotByBoard[];
-  private moveDurationsByGlobalIndex: number[];
+  private moveDurationsSincePreviousMoveOnSameBoardByGlobalIndex: number[];
   private players: {
     aWhite: BughousePlayer;
     aBlack: BughousePlayer;
@@ -100,9 +101,10 @@ export class BughouseReplayController {
     };
     this.promotedPieces = { A: new Set(), B: new Set() };
 
-    const { timeline, moveDurationsByGlobalIndex } = buildBughouseClockTimeline(processedData);
+    const { timeline } = buildBughouseClockTimeline(processedData);
     this.clockTimeline = timeline;
-    this.moveDurationsByGlobalIndex = moveDurationsByGlobalIndex;
+    this.moveDurationsSincePreviousMoveOnSameBoardByGlobalIndex =
+      buildPerBoardMoveDurationsDeciseconds(processedData.combinedMoves);
     this.players = processedData.players;
     this.gameState = {
       boardA: {
@@ -543,13 +545,12 @@ export class BughouseReplayController {
   }
 
   /**
-   * Per-move “time spent” values (deciseconds), aligned with `getCombinedMoves()` indices.
+   * Per-move move-list durations (deciseconds), aligned with `getCombinedMoves()` indices.
    *
-   * These are computed from the same global bughouse clock simulation that drives the
-   * board clock display, so the move list and clocks cannot diverge.
+   * Definition: elapsed time since the previous move on the same board as the move being displayed.
    */
   public getMoveDurations(): number[] {
-    return this.moveDurationsByGlobalIndex.slice();
+    return this.moveDurationsSincePreviousMoveOnSameBoardByGlobalIndex.slice();
   }
 
   public getDebugInfo(): string {

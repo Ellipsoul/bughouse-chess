@@ -20,6 +20,7 @@ import type { BughouseMove } from "../types/bughouse";
 import type { BughousePlayer } from "../types/bughouse";
 import type { AnalysisNode } from "../types/analysis";
 import { buildBughouseClockTimeline } from "../utils/analysis/buildBughouseClockTimeline";
+import { buildPerBoardMoveDurationsDeciseconds } from "../utils/analysis/buildPerBoardMoveDurationsDeciseconds";
 import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
 import {
   createInitialPositionSnapshot,
@@ -438,10 +439,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   }, [processedGame]);
 
   const combinedMoveDurationsForMoveTimes = useMemo((): number[] | undefined => {
-    if (!processedGame?.combinedMoves?.length) return undefined;
-    // Reuse the same clock model we already computed for on-board clocks.
-    return clockTimelineResult?.moveDurationsByGlobalIndex;
-  }, [clockTimelineResult, processedGame?.combinedMoves?.length]);
+    if (!combinedMovesForMoveTimes?.length) return undefined;
+    // Important: The move-list subscript is intentionally **per-board**:
+    // it measures elapsed time since the previous move on the *same* board.
+    //
+    // This differs from the global “either-board” delta used by clock simulation/live replay.
+    return buildPerBoardMoveDurationsDeciseconds(combinedMovesForMoveTimes);
+  }, [combinedMovesForMoveTimes]);
 
   const monotonicMoveTimestampsDeciseconds = useMemo(() => {
     if (!processedGame) return null;

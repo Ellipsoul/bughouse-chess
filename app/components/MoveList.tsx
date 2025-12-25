@@ -8,8 +8,8 @@ interface MoveListProps {
   /**
    * Optional per-move durations (deciseconds), aligned with `moves` indices.
    *
-   * When provided, the move list becomes consistent with whatever clock model produced
-   * those durations (e.g., the global “two clocks run” bughouse simulation).
+   * These durations are intended to represent **per-board move times**: the elapsed time since
+   * the previous move on the same board as the move being displayed.
    */
   moveDurations?: number[];
   players: {
@@ -188,7 +188,7 @@ const MoveList: React.FC<MoveListProps> = ({
                             <span className="block leading-4">{move.move}</span>
                             <span
                               className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
-                              title={`Time spent on move: ${formatMoveTime(moveDurations[index])}`}
+                              title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
                             >
                               {formatMoveTime(moveDurations[index])}
                             </span>

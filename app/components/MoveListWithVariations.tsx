@@ -23,8 +23,8 @@ interface MoveListWithVariationsProps {
   /**
    * Optional per-move durations (deciseconds), aligned with `combinedMoves` indices.
    *
-   * When provided, durations are sourced from the same clock model used for on-board
-   * clock display, preventing mismatches between clocks and move times.
+   * These durations are intended to represent **per-board move times**: the elapsed time since
+   * the previous move on the same board as the move being displayed.
    */
   combinedMoveDurations?: number[];
   /**
@@ -877,7 +877,7 @@ export default function MoveListWithVariations({
                               {mainlineMoveDurations !== undefined && (
                                 <span
                                   className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
-                                  title={`Time spent on move: ${formatMoveTime(moveDuration)}`}
+                                  title={`Time since previous move on this board: ${formatMoveTime(moveDuration)}`}
                                 >
                                   {formatMoveTime(moveDuration)}
                                 </span>

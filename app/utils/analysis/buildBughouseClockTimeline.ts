@@ -29,10 +29,14 @@ export interface BughouseClockTimelineResult {
    */
   timeline: BughouseClocksSnapshotByBoard[];
   /**
-   * Per-move “time spent” (deciseconds), aligned with `processedGame.combinedMoves` indices.
+   * Per-move **clock decrement** (deciseconds), aligned with `processedGame.combinedMoves` indices.
    *
    * This is derived from the same clock simulation as `timeline`:
    * it is exactly the amount by which the mover's clock decreased on their board for that move.
+   *
+   * Note: This is a *global* timing notion (it follows the interleaved global timeline where both
+   * boards' clocks run). It is **not** the same as the move-list UI's per-board “move time”
+   * (time since the previous move on the same board), which is derived separately.
    */
   moveDurationsByGlobalIndex: number[];
   meta: BughouseClockTimelineMeta;
