@@ -1082,7 +1082,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       return (
         <div
           className={[
-            "flex items-center justify-between w-full font-bold text-white",
+            "flex items-center justify-between w-full shrink-0 font-bold text-white",
             isNarrowPlayerBar ? "tracking-normal" : "tracking-wide",
             // On very small phone-landscape viewports, prioritize showing player names.
             isCompactLandscape
@@ -1091,7 +1091,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 ? "px-2 text-sm"
                 : "px-3 text-base lg:text-xl",
           ].join(" ")}
-          style={{ width: boardSize }}
+          /**
+           * Important invariant:
+           * Keep player bars a fixed height across *all* states (pre-load, loaded, analysis variations),
+           * otherwise the `justify-between` board columns will vertically offset the boards from each other.
+           */
+          style={{ width: boardSize, height: layout.nameBlockPx }}
         >
         <div
           className={[
@@ -1129,18 +1134,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </span>
             ) : null}
           </div>
-          {options.isToMove ? (
-            <>
-              <ChevronLeft
-                aria-hidden
-                className={[
-                  "shrink-0 text-mariner-300",
-                  isCompactLandscape ? "h-4 w-4" : "h-5 w-5",
-                ].join(" ")}
-              />
-              <span className="sr-only">To move</span>
-            </>
-          ) : null}
+          <ChevronLeft
+            aria-hidden
+            className={[
+              "shrink-0 text-mariner-300 transition-opacity",
+              isCompactLandscape ? "h-4 w-4" : "h-5 w-5",
+              options.isToMove ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+          />
+          {options.isToMove ? <span className="sr-only">To move</span> : null}
         </div>
         {shouldRenderClocks && typeof clockValue === "number" ? (
           <span
@@ -1163,7 +1165,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       </div>
       );
     },
-    [boardSize, clockSnapshot, formatClock, isCompactLandscape, shouldRenderClocks],
+    [boardSize, clockSnapshot, formatClock, isCompactLandscape, layout.nameBlockPx, shouldRenderClocks],
   );
 
   const getSideToMove = useCallback((fen: string): "white" | "black" => {
