@@ -93,8 +93,9 @@ export interface BughouseGameState {
    *
    * Bughouse material points:
    * - pawn: 1
-   * - knight/bishop/rook: 2
-   * - queen: 4
+   * - knight/bishop: 3
+   * - rook: 5
+   * - queen: 9
    *
    * Promoted pieces are treated as pawns for capture value (common bughouse rule).
    */

@@ -3,10 +3,10 @@ import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../../typ
 
 const BUGHOUSE_CAPTURE_VALUE_BY_PIECE: Record<BughousePieceType, number> = {
   p: 1,
-  n: 2,
-  b: 2,
-  r: 2,
-  q: 4,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
 };
 
 /**

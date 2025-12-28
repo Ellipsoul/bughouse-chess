@@ -9,10 +9,10 @@ import {
 describe("captureMaterial", () => {
   it("maps pieces to bughouse capture values", () => {
     expect(getBughouseCaptureValueForPiece("p")).toBe(1);
-    expect(getBughouseCaptureValueForPiece("n")).toBe(2);
-    expect(getBughouseCaptureValueForPiece("b")).toBe(2);
-    expect(getBughouseCaptureValueForPiece("r")).toBe(2);
-    expect(getBughouseCaptureValueForPiece("q")).toBe(4);
+    expect(getBughouseCaptureValueForPiece("n")).toBe(3);
+    expect(getBughouseCaptureValueForPiece("b")).toBe(3);
+    expect(getBughouseCaptureValueForPiece("r")).toBe(5);
+    expect(getBughouseCaptureValueForPiece("q")).toBe(9);
   });
 
   it("applies symmetric deltas for a capture (capturer +, opponent -)", () => {
@@ -24,8 +24,8 @@ describe("captureMaterial", () => {
       capturedPiece: "n",
     });
 
-    expect(next.A.white).toBe(2);
-    expect(next.A.black).toBe(-2);
+    expect(next.A.white).toBe(3);
+    expect(next.A.black).toBe(-3);
     expect(next.B.white).toBe(0);
     expect(next.B.black).toBe(0);
   });
