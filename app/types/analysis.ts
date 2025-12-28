@@ -1,5 +1,5 @@
 import type { Square } from "chess.js";
-import type { PieceReserves } from "./bughouse";
+import type { BughouseCaptureMaterialLedger, PieceReserves } from "./bughouse";
 
 export type BughouseBoardId = "A" | "B";
 
@@ -32,6 +32,15 @@ export interface BughousePositionSnapshot {
     A: string[];
     B: string[];
   };
+  /**
+   * Cumulative capture-material totals per board and per player.
+   *
+   * Important invariants:
+   * - Captures only; drops/placements do not affect this.
+   * - Values are signed from each player's perspective (capturing adds, being captured subtracts).
+   * - Promoted pieces are treated as pawns when captured (common bughouse rule).
+   */
+  captureMaterial: BughouseCaptureMaterialLedger;
 }
 
 export interface AttemptedNormalMove {

@@ -11,6 +11,11 @@ import type {
 } from "../../types/analysis";
 import { validateAndConvertMove } from "../moveConverter";
 import { getBughouseCheckSuffix, isBughouseCheckmate, normalizeSanSuffixForBughouse } from "../bughouseCheckmate";
+import {
+  applyCaptureToLedger,
+  cloneCaptureMaterialLedger,
+  createEmptyCaptureMaterialLedger,
+} from "./captureMaterial";
 
 type ValidationOk = { type: "ok"; move: BughouseHalfMove; next: BughousePositionSnapshot };
 type ValidationError = { type: "error"; message: string };
@@ -50,6 +55,7 @@ export function createInitialPositionSnapshot(): BughousePositionSnapshot {
     fenB: boardB.fen(),
     reserves: createEmptyReserves(),
     promotedSquares: { A: [], B: [] },
+    captureMaterial: createEmptyCaptureMaterialLedger(),
   };
 }
 
@@ -119,6 +125,7 @@ export function validateAndApplyBughouseHalfMove(
 
   const reserves = cloneReserves(position.reserves);
   const promotedSquares = clonePromotedSquares(position.promotedSquares);
+  let captureMaterial = cloneCaptureMaterialLedger(position.captureMaterial);
 
   if (attempted.kind === "drop") {
     if (attempted.side !== sideToMove) {
@@ -186,7 +193,7 @@ export function validateAndApplyBughouseHalfMove(
       drop: { piece, to },
     };
 
-    const next = buildNextSnapshot(position, boardKey, chess.fen(), reserves, promotedSquares);
+    const next = buildNextSnapshot(position, boardKey, chess.fen(), reserves, promotedSquares, captureMaterial);
     return { type: "ok", move: edgeMove, next };
   }
 
@@ -255,6 +262,14 @@ export function validateAndApplyBughouseHalfMove(
     const receivingColor: BughouseSide = sideToMove === "white" ? "black" : "white";
     reserves[otherBoardKey][receivingColor][capturedPiece] =
       (reserves[otherBoardKey][receivingColor][capturedPiece] ?? 0) + 1;
+
+    // Also track capture-material totals for the capturing board.
+    captureMaterial = applyCaptureToLedger({
+      ledger: captureMaterial,
+      board: boardKey,
+      capturerSide: sideToMove,
+      capturedPiece,
+    });
   }
 
   const san = normalizeSanSuffixForBughouse({ san: moveResult.san, board: chess });
@@ -267,7 +282,7 @@ export function validateAndApplyBughouseHalfMove(
     normal: { from: attempted.from, to: attempted.to, promotion: attempted.promotion },
   };
 
-  const next = buildNextSnapshot(position, boardKey, chess.fen(), reserves, promotedSquares);
+  const next = buildNextSnapshot(position, boardKey, chess.fen(), reserves, promotedSquares, captureMaterial);
   return { type: "ok", move: edgeMove, next };
 }
 
@@ -326,6 +341,7 @@ function buildNextSnapshot(
   nextFenForBoard: string,
   reserves: PieceReserves,
   promotedSquares: { A: Set<Square>; B: Set<Square> },
+  captureMaterial: BughousePositionSnapshot["captureMaterial"],
 ): BughousePositionSnapshot {
   return {
     fenA: boardKey === "A" ? nextFenForBoard : previous.fenA,
@@ -335,6 +351,7 @@ function buildNextSnapshot(
       A: Array.from(promotedSquares.A),
       B: Array.from(promotedSquares.B),
     },
+    captureMaterial,
   };
 }
 

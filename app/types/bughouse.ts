@@ -11,6 +11,20 @@ export interface BughouseMove {
 }
 
 /**
+ * Cumulative capture material ledger keyed by board and side.
+ *
+ * Values are signed from each player's perspective:
+ * - positive: this player has captured more material than they've lost
+ * - negative: this player has lost more material than they've captured
+ *
+ * This is *capture-only* accounting (drops/placements do not affect it).
+ */
+export type BughouseCaptureMaterialLedger = {
+  A: { white: number; black: number };
+  B: { white: number; black: number };
+};
+
+/**
  * Snapshot of both clocks (deciseconds) for a single board.
  */
 export interface BoardClocks {
@@ -74,6 +88,17 @@ export interface BughouseGameState {
     A: string[];
     B: string[];
   };
+  /**
+   * Cumulative capture-material totals per board and per player.
+   *
+   * Bughouse material points:
+   * - pawn: 1
+   * - knight/bishop/rook: 2
+   * - queen: 4
+   *
+   * Promoted pieces are treated as pawns for capture value (common bughouse rule).
+   */
+  captureMaterial: BughouseCaptureMaterialLedger;
   players: {
     aWhite: BughousePlayer;
     aBlack: BughousePlayer;

@@ -30,6 +30,11 @@ import { validateAndConvertMove } from './moveConverter';
 import { getBughouseCheckSuffix, normalizeSanSuffixForBughouse } from './bughouseCheckmate';
 import { buildBughouseClockTimeline } from "./analysis/buildBughouseClockTimeline";
 import { buildPerBoardMoveDurationsDeciseconds } from "./analysis/buildPerBoardMoveDurationsDeciseconds";
+import {
+  applyCaptureToLedger,
+  createEmptyCaptureMaterialLedger,
+} from "./analysis/captureMaterial";
+import type { BughousePieceType } from "../types/analysis";
 
 interface BughouseHistoryState {
   fenA: string;
@@ -37,6 +42,7 @@ interface BughouseHistoryState {
   pieceReserves: PieceReserves;
   boardAMoveCount: number;
   boardBMoveCount: number;
+  captureMaterial: BughouseGameState["captureMaterial"];
   promotedSquares: {
     A: string[];
     B: string[];
@@ -71,6 +77,7 @@ export class BughouseReplayController {
   private combinedMoves: BughouseMove[];
   private currentMoveIndex: number = -1;
   private pieceReserves: PieceReserves;
+  private captureMaterial: BughouseGameState["captureMaterial"];
   private promotedPieces: { A: Set<string>; B: Set<string> };
   private initialTime: number;
   private clockTimeline: BughouseClocksSnapshotByBoard[];
@@ -84,6 +91,9 @@ export class BughouseReplayController {
   private gameState: BughouseGameState;
   private history: BughouseHistoryState[] = [];
   private lastMoveHighlightsByBoard: LastMoveHighlightsByBoard = { A: null, B: null };
+  private isBughousePieceType(piece: string): piece is BughousePieceType {
+    return piece === "p" || piece === "n" || piece === "b" || piece === "r" || piece === "q";
+  }
 
   /**
    * Determine whether the last-applied move gives check/checkmate.
@@ -119,6 +129,7 @@ export class BughouseReplayController {
       A: { white: {}, black: {} },
       B: { white: {}, black: {} }
     };
+    this.captureMaterial = createEmptyCaptureMaterialLedger();
     this.promotedPieces = { A: new Set(), B: new Set() };
 
     const { timeline } = buildBughouseClockTimeline(processedData);
@@ -147,6 +158,7 @@ export class BughouseReplayController {
         A: [],
         B: []
       },
+      captureMaterial: this.captureMaterial,
       players: this.players
     };
 
@@ -270,7 +282,8 @@ export class BughouseReplayController {
       promotedSquares: {
         A: Array.from(this.promotedPieces.A),
         B: Array.from(this.promotedPieces.B)
-      }
+      },
+      captureMaterial: this.captureMaterial,
     };
   }
 
@@ -305,6 +318,7 @@ export class BughouseReplayController {
       pieceReserves: JSON.parse(JSON.stringify(this.pieceReserves)),
       boardAMoveCount: this.gameState.boardA.moves.length,
       boardBMoveCount: this.gameState.boardB.moves.length,
+      captureMaterial: JSON.parse(JSON.stringify(this.captureMaterial)),
       promotedSquares: this.clonePromotedPieces(),
       lastMoveHighlightsByBoard: {
         A: this.lastMoveHighlightsByBoard.A ? { ...this.lastMoveHighlightsByBoard.A } : null,
@@ -328,6 +342,7 @@ export class BughouseReplayController {
     this.boardA.load(prevState.fenA);
     this.boardB.load(prevState.fenB);
     this.pieceReserves = prevState.pieceReserves;
+    this.captureMaterial = prevState.captureMaterial;
     this.promotedPieces = {
       A: new Set(prevState.promotedSquares.A),
       B: new Set(prevState.promotedSquares.B)
@@ -424,6 +439,16 @@ export class BughouseReplayController {
               this.pieceReserves[partnerBoard][receivingColor][capturedPiece] = 0;
             }
             this.pieceReserves[partnerBoard][receivingColor][capturedPiece]++;
+
+            // Also track capture-material totals for the capturing board.
+            if (this.isBughousePieceType(capturedPiece)) {
+              this.captureMaterial = applyCaptureToLedger({
+                ledger: this.captureMaterial,
+                board: move.board,
+                capturerSide: move.side,
+                capturedPiece,
+              });
+            }
           }
 
           this.updateGameState(move);

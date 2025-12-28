@@ -34,6 +34,7 @@ import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
 import { ChessTitleBadge } from "./ChessTitleBadge";
 import { TooltipAnchor } from "./TooltipAnchor";
+import { BoardCornerMaterial } from "./BoardCornerMaterial";
 import type { BoardAnnotations } from "../utils/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
@@ -1057,6 +1058,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
          * is currently exploring a non-mainline variation.
          */
         clocksFrozen?: boolean;
+        /**
+         * Optional tiny corner material counter shown in the outer board corners.
+         */
+        cornerMaterial?: { value: number; corner: "top-left" | "top-right" | "bottom-left" | "bottom-right" };
       } = {},
     ) => {
       const diffDeciseconds = clockSnapshot ? getTeamTimeDiffDeciseconds(clockSnapshot) : 0;
@@ -1082,7 +1087,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       return (
         <div
           className={[
-            "flex items-center justify-between w-full shrink-0 font-bold text-white",
+            "relative flex items-center justify-between w-full shrink-0 font-bold text-white",
             isNarrowPlayerBar ? "tracking-normal" : "tracking-wide",
             // On very small phone-landscape viewports, prioritize showing player names.
             isCompactLandscape
@@ -1098,6 +1103,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
            */
           style={{ width: boardSize, height: layout.nameBlockPx }}
         >
+        {options.cornerMaterial ? (
+          <BoardCornerMaterial
+            value={options.cornerMaterial.value}
+            corner={options.cornerMaterial.corner}
+            density={isCompactLandscape || isNarrowPlayerBar ? "compact" : "default"}
+          />
+        ) : null}
         <div
           className={[
             "flex items-center min-w-0",
@@ -1549,10 +1561,18 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
                     isToMove: sideToMoveA === "white",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "white" : "black"],
+                      corner: "top-left",
+                    },
                   })
                 : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
                     isToMove: sideToMoveA === "black",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "white" : "black"],
+                      corner: "top-left",
+                    },
                   })}
               <ChessBoard
                 fen={currentPosition.fenA}
@@ -1591,10 +1611,18 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
                     isToMove: sideToMoveA === "black",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "black" : "white"],
+                      corner: "bottom-left",
+                    },
                   })
                 : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
                     isToMove: sideToMoveA === "white",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "black" : "white"],
+                      corner: "bottom-left",
+                    },
                   })}
             </div>
 
@@ -1609,10 +1637,18 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
                     isToMove: sideToMoveB === "black",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "black" : "white"],
+                      corner: "top-right",
+                    },
                   })
                 : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
                     isToMove: sideToMoveB === "white",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "black" : "white"],
+                      corner: "top-right",
+                    },
                   })}
               <ChessBoard
                 fen={currentPosition.fenB}
@@ -1651,10 +1687,18 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                 ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
                     isToMove: sideToMoveB === "white",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "white" : "black"],
+                      corner: "bottom-right",
+                    },
                   })
                 : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
                     isToMove: sideToMoveB === "black",
                     clocksFrozen: areClocksFrozen,
+                    cornerMaterial: {
+                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "white" : "black"],
+                      corner: "bottom-right",
+                    },
                   })}
             </div>
 

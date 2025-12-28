@@ -8,6 +8,7 @@ import {
   validateAndApplyBughouseHalfMove,
   validateAndApplyMoveFromNotation,
 } from "../../../app/utils/analysis/applyMove";
+import { createEmptyCaptureMaterialLedger } from "../../../app/utils/analysis/captureMaterial";
 import type { BughousePositionSnapshot } from "../../../app/types/analysis";
 
 describe("createInitialPositionSnapshot", () => {
@@ -94,6 +95,7 @@ describe("isBughouseOverByCheckmate", () => {
         fenB: boardB.fen(),
         reserves: createEmptyReserves(),
         promotedSquares: { A: [], B: [] },
+        captureMaterial: createEmptyCaptureMaterialLedger(),
       };
       // The function will check if it's bughouse checkmate (blockable or not)
       const result = isBughouseOverByCheckmate(checkmatePos);
@@ -181,6 +183,7 @@ describe("validateAndApplyBughouseHalfMove - normal moves", () => {
       fenB: new Chess().fen(),
       reserves: createEmptyReserves(),
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(posWithCapture, {
@@ -205,6 +208,7 @@ describe("validateAndApplyBughouseHalfMove - normal moves", () => {
       fenB: new Chess().fen(),
       reserves: createEmptyReserves(),
       promotedSquares: { A: ["f8"], B: [] }, // f8 bishop is promoted (captures as pawn)
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     // Verify that the promoted squares tracking works in general
@@ -225,6 +229,7 @@ describe("validateAndApplyBughouseHalfMove - promotions", () => {
       fenB: new Chess().fen(),
       reserves: createEmptyReserves(),
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -252,6 +257,7 @@ describe("validateAndApplyBughouseHalfMove - promotions", () => {
       fenB: new Chess().fen(),
       reserves: createEmptyReserves(),
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -287,6 +293,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -315,6 +322,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
       fenB: new Chess().fen(),
       reserves: createEmptyReserves(),
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -340,6 +348,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -365,6 +374,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result1 = validateAndApplyBughouseHalfMove(pos, {
@@ -408,6 +418,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     // The logic should check if the drop leaves the king in check
@@ -433,6 +444,7 @@ describe("validateAndApplyBughouseHalfMove - drops", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyBughouseHalfMove(pos, {
@@ -460,6 +472,7 @@ describe("validateAndApplyMoveFromNotation", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyMoveFromNotation(pos, {
@@ -488,6 +501,7 @@ describe("validateAndApplyMoveFromNotation", () => {
         B: { white: {}, black: {} },
       },
       promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
     };
 
     const result = validateAndApplyMoveFromNotation(posWithCheck, {
