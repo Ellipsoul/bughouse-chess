@@ -11,8 +11,8 @@ describe("captureMaterial", () => {
     expect(getBughouseCaptureValueForPiece("p")).toBe(1);
     expect(getBughouseCaptureValueForPiece("n")).toBe(3);
     expect(getBughouseCaptureValueForPiece("b")).toBe(3);
-    expect(getBughouseCaptureValueForPiece("r")).toBe(5);
-    expect(getBughouseCaptureValueForPiece("q")).toBe(9);
+    expect(getBughouseCaptureValueForPiece("r")).toBe(4);
+    expect(getBughouseCaptureValueForPiece("q")).toBe(7);
   });
 
   it("applies symmetric deltas for a capture (capturer +, opponent -)", () => {

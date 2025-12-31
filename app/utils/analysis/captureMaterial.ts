@@ -5,8 +5,8 @@ const BUGHOUSE_CAPTURE_VALUE_BY_PIECE: Record<BughousePieceType, number> = {
   p: 1,
   n: 3,
   b: 3,
-  r: 5,
-  q: 9,
+  r: 4,
+  q: 7,
 };
 
 /**
@@ -26,8 +26,9 @@ export function createEmptyCaptureMaterialLedger(): BughouseCaptureMaterialLedge
  *
  * Bughouse scoring (as used by this UI feature):
  * - pawn: 1
- * - knight/bishop/rook: 2
- * - queen: 4
+ * - knight/bishop: 3
+ * - rook: 5
+ * - queen: 7
  */
 export function getBughouseCaptureValueForPiece(piece: BughousePieceType): number {
   return BUGHOUSE_CAPTURE_VALUE_BY_PIECE[piece] ?? 0;
