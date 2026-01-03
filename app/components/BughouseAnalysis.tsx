@@ -58,6 +58,22 @@ interface BughouseAnalysisProps {
   } | null;
   isLoading?: boolean;
   /**
+   * Optional externally-controlled board orientation.
+   *
+   * When provided, `BughouseAnalysis` becomes controlled for orientation (flip state):
+   * - `boardsFlipped=false` means the (A White + B Black) partner pair is at the bottom.
+   * - `boardsFlipped=true` means the (A Black + B White) partner pair is at the bottom.
+   *
+   * This is used by match replay to keep a stable “viewer perspective” across multiple games.
+   */
+  boardsFlipped?: boolean;
+  /**
+   * Called when the user requests an orientation change (flip button or `f` hotkey).
+   *
+   * When `boardsFlipped` is provided, the parent is responsible for updating it.
+   */
+  onBoardsFlippedChange?: (next: boolean) => void;
+  /**
    * Pre-formatted “games analysed” label (e.g. `Games Analysed: 1,234`).
    * Owned by the page shell so we don't duplicate metric fetches.
    */
@@ -94,6 +110,8 @@ const PLACEHOLDER_PLAYERS: {
 const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   gameData,
   isLoading,
+  boardsFlipped,
+  onBoardsFlippedChange,
   gamesLoadedLabel,
   showGamesLoadedInline,
   onAnalysisDirtyChange,
@@ -122,7 +140,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     cancelPendingPromotion,
   } = useAnalysisState();
 
-  const [isBoardsFlipped, setIsBoardsFlipped] = useState(false);
+  const [localBoardsFlipped, setLocalBoardsFlipped] = useState(false);
+  const isBoardsFlipped = boardsFlipped ?? localBoardsFlipped;
 
   /**
    * Persist user board drawings (circles/arrows) per *board position* (FEN) per board.
@@ -154,8 +173,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   );
 
   const toggleBoardsFlipped = useCallback(() => {
-    setIsBoardsFlipped((prev) => !prev);
-  }, []);
+    const next = !isBoardsFlipped;
+    if (boardsFlipped !== undefined) {
+      onBoardsFlippedChange?.(next);
+      return;
+    }
+    setLocalBoardsFlipped(next);
+  }, [boardsFlipped, isBoardsFlipped, onBoardsFlippedChange]);
 
   /**
    * Responsive board sizing.

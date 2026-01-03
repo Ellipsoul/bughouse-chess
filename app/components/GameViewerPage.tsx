@@ -44,6 +44,12 @@ import {
   DiscoveryCancellation,
 } from "../utils/matchDiscovery";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
+import type { PairKey } from "../utils/matchBoardOrientation";
+import {
+  computeBaseFlip,
+  computeEffectiveFlip,
+  getBottomPairKeyForGame,
+} from "../utils/matchBoardOrientation";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -200,6 +206,28 @@ export default function GameViewerPage() {
   const [selectedPairForDisplay, setSelectedPairForDisplay] = useState<PartnerPair | null>(null);
 
   /**
+   * Match-scoped board orientation state.
+   *
+   * We keep this state in the page shell (not inside `BughouseAnalysis`) because the analysis
+   * component is intentionally remounted when switching games. This lets us preserve the user's
+   * viewing perspective across games in the same match/series.
+   *
+   * - `baselineBottomPairKey`: the partner pair we want to keep on the bottom by default
+   *   (either the selected partner pair, or the initially-viewed bottom team in full-match mode).
+   * - `userFlipPreference`: whether the user wants to invert the baseline (i.e., watch from the
+   *   opposite perspective). This is independent from per-game color swaps.
+   */
+  const [baselineBottomPairKey, setBaselineBottomPairKey] = useState<PairKey | null>(null);
+  const [userFlipPreference, setUserFlipPreference] = useState(false);
+  /**
+   * Before a match is discovered, we still allow the user to flip the currently loaded game.
+   * Once a match is discovered, the effective flip becomes `baseFlip XOR userFlipPreference`.
+   *
+   * We reset this on any fresh game load (not on in-match navigation).
+   */
+  const [standaloneBoardsFlipped, setStandaloneBoardsFlipped] = useState(false);
+
+  /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
    * Keep this in sync with deployment.
    */
@@ -312,6 +340,10 @@ export default function GameViewerPage() {
             setMatchGames([]);
             setMatchCurrentIndex(0);
             setMatchDiscoveryStatus("idle");
+            setSelectedPairForDisplay(null);
+            setBaselineBottomPairKey(null);
+            setUserFlipPreference(false);
+            setStandaloneBoardsFlipped(false);
           })
           .catch((err: unknown) => {
             // `toast.promise` already displays the error; avoid rendering an inline banner
@@ -429,6 +461,29 @@ export default function GameViewerPage() {
       // Track the selected pair for display purposes
       setSelectedPairForDisplay(selection.selectedPair ?? null);
 
+      /**
+       * Establish the baseline bottom pair for the entire match/series.
+       *
+       * - partnerPair mode: baseline is explicitly the selected pair
+       * - fullMatch mode: baseline is whichever partner pair is currently on the bottom
+       *   (respecting the user's current pre-match orientation)
+       */
+      const baseline: PairKey | null = (() => {
+        if (selection.mode === "partnerPair" && selection.selectedPair) {
+          // `selectedPair.usernames` is already normalized (lowercase + sorted) by `extractPartnerPairs`.
+          return selection.selectedPair.usernames as PairKey;
+        }
+
+        const bottom = getBottomPairKeyForGame({
+          gameData: { original: gameData.original, partner: gameData.partner },
+          effectiveFlip: standaloneBoardsFlipped,
+        });
+        return bottom;
+      })();
+      setBaselineBottomPairKey(baseline);
+      // Baseline is chosen to match the current bottom pair, so start with “no inversion”.
+      setUserFlipPreference(false);
+
       // Set initial state
       setMatchGames([initialMatchGame]);
       setMatchCurrentIndex(0);
@@ -486,7 +541,7 @@ export default function GameViewerPage() {
         cancellation,
       );
     },
-    [gameData],
+    [gameData, standaloneBoardsFlipped],
   );
 
   /**
@@ -545,6 +600,41 @@ export default function GameViewerPage() {
       partnerId: targetGame.partnerGameId,
     });
   }, [matchGames]);
+
+  /**
+   * Compute the board orientation for the currently displayed game.
+   *
+   * - When a match baseline is established: `effectiveFlip = baseFlip XOR userFlipPreference`
+   * - Otherwise: use the standalone flip preference.
+   */
+  const effectiveBoardsFlipped = (() => {
+    if (!gameData) return standaloneBoardsFlipped;
+    if (!baselineBottomPairKey) return standaloneBoardsFlipped;
+
+    const baseFlip = computeBaseFlip({
+      baselineBottomPairKey,
+      gameData: { original: gameData.original, partner: gameData.partner },
+    });
+    return computeEffectiveFlip({ baseFlip, userFlipPreference });
+  })();
+
+  const handleBoardsFlippedChange = useCallback(
+    (nextEffectiveFlip: boolean) => {
+      if (!gameData || !baselineBottomPairKey) {
+        setStandaloneBoardsFlipped(nextEffectiveFlip);
+        return;
+      }
+
+      const baseFlip = computeBaseFlip({
+        baselineBottomPairKey,
+        gameData: { original: gameData.original, partner: gameData.partner },
+      });
+
+      // effective = baseFlip XOR userFlipPreference  =>  userFlipPreference = baseFlip XOR effective
+      setUserFlipPreference(baseFlip !== nextEffectiveFlip);
+    },
+    [baselineBottomPairKey, gameData],
+  );
 
   // Cleanup discovery on unmount
   useEffect(() => {
@@ -895,6 +985,8 @@ export default function GameViewerPage() {
             key={loadedGameId ?? "no-game"}
             gameData={gameData}
             isLoading={isPending}
+            boardsFlipped={effectiveBoardsFlipped}
+            onBoardsFlippedChange={handleBoardsFlippedChange}
             onAnalysisDirtyChange={setAnalysisIsDirty}
             gamesLoadedLabel={gamesLoadedLabel}
             showGamesLoadedInline={!isDesktopLayout}
