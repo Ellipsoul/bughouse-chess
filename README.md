@@ -160,6 +160,29 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"
 Security recommendation: you can keep Firestore rules fully locked down (deny
 all). The server uses Firebase Admin SDK and bypasses rules.
 
+#### Firebase Authentication (optional, for user sign-in)
+
+Relay supports **Google sign-in** via Firebase Authentication. When enabled,
+users can sign in to unlock future authenticated features.
+
+**Setup steps:**
+
+1. In Firebase Console, go to **Authentication → Sign-in method → Google** and
+   enable it.
+2. Set a **support email** for the Google provider.
+3. Go to **Authentication → Settings → Authorized domains** and add:
+   - `localhost` (for local development)
+   - Your production domain (e.g. `bughouse.aronteh.com`)
+4. Ensure your web app is registered (Project settings → General → Your apps →
+   Web) and your `.env.local` contains the `NEXT_PUBLIC_FIREBASE_*` values
+   listed above.
+
+**No additional environment variables are needed** — Firebase Auth uses the same
+client-side config (`NEXT_PUBLIC_FIREBASE_*`) already required for Analytics.
+
+The authentication UI is accessible via the **Profile** button in the left
+sidebar. Users can sign in with Google popup and sign out from the profile page.
+
 ### Run locally
 
 ```bash

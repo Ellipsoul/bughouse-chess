@@ -67,13 +67,32 @@ export function AuthProvider({ children, adapter }: AuthProviderProps) {
   useEffect(() => {
     if (!resolvedAdapter) return;
 
-    const unsub = resolvedAdapter.onAuthStateChanged((nextUser) => {
-      setUser(nextUser);
-      setStatus(nextUser ? "signed_in" : "signed_out");
-      setErrorMessage(undefined);
-    });
+    let unsub: (() => void) | undefined;
+    let didError = false;
 
-    return () => unsub();
+    try {
+      unsub = resolvedAdapter.onAuthStateChanged((nextUser) => {
+        setUser(nextUser);
+        setStatus(nextUser ? "signed_in" : "signed_out");
+        setErrorMessage(undefined);
+      });
+    } catch (err) {
+      // Handle adapters that throw during subscription (e.g. missing configuration).
+      // We defer the setState to avoid synchronous updates within an effect body.
+      didError = true;
+      const message = err instanceof Error ? err.message : "Auth subscription failed";
+      console.error("AuthProvider: failed to subscribe to auth state", err);
+
+      // Use queueMicrotask to defer state updates (avoids eslint react-hooks/set-state-in-effect)
+      queueMicrotask(() => {
+        setStatus("unavailable");
+        setErrorMessage(message);
+      });
+    }
+
+    return () => {
+      if (!didError) unsub?.();
+    };
   }, [resolvedAdapter]);
 
   const signInWithGoogle = useCallback(async () => {

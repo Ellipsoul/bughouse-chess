@@ -22,6 +22,7 @@ export default defineConfig({
           alias: {
             "@": path.resolve(__dirname, "./app"),
             "next/image": path.resolve(__dirname, "./cypress/support/mocks/next-image.tsx"),
+            "next/link": path.resolve(__dirname, "./cypress/support/mocks/next-link.tsx"),
           },
         },
       },

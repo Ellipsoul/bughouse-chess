@@ -1,6 +1,5 @@
 "use client";
 
-import type { Unsubscribe } from "firebase/auth";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -10,23 +9,10 @@ import {
   type User,
 } from "firebase/auth";
 import { getFirebaseApp } from "../utils/firebaseClient";
-import type { AuthUser } from "./types";
+import type { AuthAdapter, AuthUser } from "./types";
 
-/**
- * A thin adapter around Firebase Auth that is easy to mock in tests.
- *
- * Why an adapter?
- * - `signInWithPopup()` cannot run in unit tests (and is brittle in component tests).
- * - It keeps Firebase-specific concerns out of UI components.
- */
-export interface AuthAdapter {
-  /** Subscribe to auth state changes. Returns an unsubscribe function. */
-  onAuthStateChanged: (cb: (user: AuthUser | null) => void) => Unsubscribe;
-  /** Start a Google sign-in flow using a popup. Resolves with the signed-in user. */
-  signInWithGooglePopup: () => Promise<AuthUser>;
-  /** Sign the current user out. */
-  signOut: () => Promise<void>;
-}
+// Re-export for backwards compatibility
+export type { AuthAdapter } from "./types";
 
 function toAuthUser(user: User): AuthUser {
   return {

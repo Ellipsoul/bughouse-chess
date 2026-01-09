@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
         hostname: "chessboardjs.com",
         pathname: "/img/chesspieces/wikipedia/*",
       },
+      // Google profile avatars (Firebase Auth)
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
     ],
   },
 };
