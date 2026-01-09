@@ -684,10 +684,15 @@ export default function GameViewerPage() {
   })();
 
   /**
-   * Whether the share button should be enabled.
-   * Requires: fully authenticated AND game loaded.
+   * Whether match discovery is currently in progress.
    */
-  const canShare = isFullyAuthenticated && !!loadedGameId;
+  const isDiscovering = matchDiscoveryStatus === "discovering";
+
+  /**
+   * Whether the share button should be enabled.
+   * Requires: fully authenticated AND game loaded AND not currently discovering match games.
+   */
+  const canShare = isFullyAuthenticated && !!loadedGameId && !isDiscovering;
 
   /**
    * Message explaining why sharing is disabled.
@@ -695,6 +700,9 @@ export default function GameViewerPage() {
   const shareDisabledReason: string | undefined = (() => {
     if (!loadedGameId) {
       return "Load a game to share";
+    }
+    if (isDiscovering) {
+      return "Wait for match discovery to complete";
     }
     const authMessage = getFullAuthRequirementMessage(fullAuthStatus);
     return authMessage ?? undefined;
