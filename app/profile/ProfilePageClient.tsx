@@ -50,19 +50,22 @@ export default function ProfilePageClient() {
 
   return (
     <div className="h-full w-full bg-gray-900 flex flex-col overflow-hidden">
-      {/* Simple back link */}
-      <header className="shrink-0 px-4 py-3 border-b border-gray-700 bg-gray-800">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to viewer
-        </Link>
+      {/* Fixed header to match main page - ensures header renders above sidebar */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-800 border-b border-gray-700 shadow-md py-3">
+        {/* min-h-10 (40px) matches the main page header content height (logo is h-10) */}
+        <div className="mx-auto flex w-full max-w-[1600px] items-center min-h-10 px-4 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to viewer
+          </Link>
+        </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+      {/* Main content - pt-16 accounts for fixed header height (py-3 + content ~40px = ~64px) */}
+      <main className="flex-1 flex items-center justify-center p-6 pt-16 overflow-y-auto">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           {status === "loading" && <LoadingState />}
           {status === "unavailable" && <UnavailableState />}
