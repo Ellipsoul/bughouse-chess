@@ -15,6 +15,13 @@ describe("PieceReserveVertical sizing", () => {
       expect(px).toBeGreaterThanOrEqual(18);
     });
 
+    it("clamps by width to avoid horizontal overflow on narrow reserve columns", () => {
+      const width = 40;
+      const px = computeReservePiecePx({ height: 400, density: "default", width });
+      expect(px).toBeLessThanOrEqual(width);
+      expect(px).toBeGreaterThanOrEqual(18);
+    });
+
     it("clamps to a minimum size for extremely small heights", () => {
       const px = computeReservePiecePx({ height: 120, density: "compact" });
       expect(px).toBe(18);

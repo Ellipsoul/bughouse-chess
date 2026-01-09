@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 type ReservePiece = "p" | "n" | "b" | "r" | "q";
@@ -49,15 +51,32 @@ interface PieceReserveVerticalProps {
 export function computeReservePiecePx(params: {
   height: number;
   density: "default" | "compact";
+  /**
+   * Optional reserve container width (in px).
+   *
+   * When provided, we also clamp piece size by width. This prevents horizontal overflow on
+   * narrow reserve columns (common on small devices), since height-based sizing alone can
+   * produce icons wider than the column.
+   */
+  width?: number;
 }): number {
-  const { height, density } = params;
+  const { height, density, width } = params;
   const isCompact = density === "compact";
 
   const clamp = (min: number, value: number, max: number) => Math.min(max, Math.max(min, value));
   const slotHeightPx = height / 10;
 
   // Keep the pieces comfortably inside each slot and prevent reserves from overflowing on short viewports.
-  return clamp(18, Math.floor(slotHeightPx - (isCompact ? 6 : 10)), isCompact ? 30 : 40);
+  const heightDrivenPx = Math.floor(slotHeightPx - (isCompact ? 6 : 10));
+
+  // Reserve uses `px-0.5` (compact) or `px-1` (default), so subtract a small fixed budget for
+  // horizontal padding and leave a couple extra pixels for safety.
+  const widthDrivenPx =
+    typeof width === "number" && Number.isFinite(width)
+      ? Math.floor(width - (isCompact ? 6 : 10))
+      : Number.POSITIVE_INFINITY;
+
+  return clamp(18, Math.min(heightDrivenPx, widthDrivenPx), isCompact ? 30 : 40);
 }
 
 /**
@@ -76,6 +95,9 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   onPieceDragStart,
   onPieceDragEnd,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidthPx, setContainerWidthPx] = useState<number | null>(null);
+
   const pieceOrder: ReservePiece[] = ["p", "n", "b", "r", "q"];
   const isWhiteBottom = bottomColor === "white";
 
@@ -114,13 +136,30 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
   };
 
   const isCompact = density === "compact";
-  const piecePx = computeReservePiecePx({ height, density });
+  const piecePx = computeReservePiecePx({ height, density, width: containerWidthPx ?? undefined });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const next = Math.floor(el.clientWidth);
+      setContainerWidthPx((prev) => (prev === next ? prev : next));
+    };
+
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       className={[
         "grid grid-rows-10 bg-gray-800 rounded-lg w-full overflow-hidden",
-        isCompact ? "p-1" : "p-2",
+        // Keep vertical breathing room, but reduce horizontal padding so reserves can shrink on narrow screens.
+        isCompact ? "py-1 px-0.5" : "py-2 px-1",
       ].join(" ")}
       style={{ height: `${height}px` }}
     >

@@ -28,7 +28,7 @@ export default function Sidebar() {
       className={[
         "h-full shrink-0",
         // Mobile-first: make the sidebar much narrower on small devices.
-        "w-8 sm:w-14 md:w-16",
+        "w-8 md:w-10 lg:w-16",
         "bg-mariner-950/55 border-r border-mariner-900/40",
         "flex flex-col items-center py-3",
       ].join(" ")}

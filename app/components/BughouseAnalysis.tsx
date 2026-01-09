@@ -1555,7 +1555,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
-            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
+            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
               <PieceReserveVertical
                 whiteReserves={currentPosition.reserves.A.white}
                 blackReserves={currentPosition.reserves.A.black}
@@ -1727,7 +1727,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             </div>
 
             {/* Right Reserves (Board B) */}
-            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
+            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
               <PieceReserveVertical
                 whiteReserves={currentPosition.reserves.B.white}
                 blackReserves={currentPosition.reserves.B.black}
@@ -1750,11 +1750,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Board Controls */}
           <div
             ref={controlsContainerRef}
-            className="relative flex items-center justify-center"
-            style={{ width: controlsWidth }}
+            className="flex items-center justify-between w-full max-w-full px-1"
+            style={{ maxWidth: controlsWidth }}
           >
-            {/* Live replay controls: bottom-left of the board controls area. */}
-            <div className="absolute left-1 bottom-0 inline-flex items-center gap-2">
+            {/* Live replay controls: left side */}
+            <div className="shrink-0 inline-flex items-center gap-1 sm:gap-2">
               <TooltipAnchor content={liveReplayPlayButtonTooltip}>
                 <button
                   onClick={isLiveReplayPlaying ? handleLiveReplayPause : handleLiveReplayPlay}
@@ -1772,7 +1772,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
-            <div className={["flex items-center", isCompactLandscape ? "gap-2" : "gap-3"].join(" ")}>
+            {/* Center navigation controls */}
+            <div className={["flex items-center", isCompactLandscape ? "gap-1 sm:gap-2" : "gap-2 sm:gap-3"].join(" ")}>
               <TooltipAnchor content="Jump to start (↑)">
                 <button
                   onClick={handleStart}
@@ -1819,19 +1820,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
-            <TooltipAnchor
-              content="Flip boards (f)"
-              className="absolute right-1 bottom-0 inline-flex"
-            >
-              <button
-                onClick={toggleBoardsFlipped}
-                className={controlButtonBaseClass}
-                aria-label="Flip boards"
-                type="button"
-              >
-                <RefreshCcw aria-hidden className={layout.controlIconSizeClass} />
-              </button>
-            </TooltipAnchor>
+            {/* Right side: flip boards */}
+            <div className="shrink-0 inline-flex items-center">
+              <TooltipAnchor content="Flip boards (f)">
+                <button
+                  onClick={toggleBoardsFlipped}
+                  className={controlButtonBaseClass}
+                  aria-label="Flip boards"
+                  type="button"
+                >
+                  <RefreshCcw aria-hidden className={layout.controlIconSizeClass} />
+                </button>
+              </TooltipAnchor>
+            </div>
           </div>
         </div>
 

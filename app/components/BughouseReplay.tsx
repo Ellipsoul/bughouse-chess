@@ -388,7 +388,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             style={{ height: playAreaHeight }}
           >
             {/* Left Reserves (Board A) */}
-            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
+            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
               <PieceReserveVertical
                 whiteReserves={pieceReserves.A.white}
                 blackReserves={pieceReserves.A.black}
@@ -472,7 +472,7 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
             </div>
 
             {/* Right Reserves (Board B) */}
-            <div className="flex flex-col justify-start shrink-0 w-16 h-full">
+            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
               <PieceReserveVertical
                 whiteReserves={pieceReserves.B.white}
                 blackReserves={pieceReserves.B.black}
@@ -485,10 +485,14 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
           {/* Board Controls (centered under boards) */}
           <div
             ref={controlsContainerRef}
-            className="relative flex items-center justify-center"
-            style={{ width: controlsWidth }}
+            className="flex items-center justify-between w-full max-w-full px-1"
+            style={{ maxWidth: controlsWidth }}
           >
-            <div className="flex items-center gap-3">
+            {/* Left spacer to balance flex layout (no play/pause in replay mode) */}
+            <div className="shrink-0 w-10" />
+
+            {/* Center navigation controls */}
+            <div className="flex items-center gap-2 sm:gap-3">
               <TooltipAnchor content="Jump to start (↑)">
                 <button
                   onClick={handleStart}
@@ -535,19 +539,19 @@ const BughouseReplay: React.FC<BughouseReplayProps> = ({ gameData }) => {
               </TooltipAnchor>
             </div>
 
-            <TooltipAnchor
-              content="Flip boards (f)"
-              className="absolute right-1 bottom-0 inline-flex"
-            >
-              <button
-                onClick={toggleBoardsFlipped}
-                className={controlButtonBaseClass}
-                aria-label="Flip boards"
-                type="button"
-              >
-                <RefreshCcw aria-hidden className="h-5 w-5" />
-              </button>
-            </TooltipAnchor>
+            {/* Right side: flip boards */}
+            <div className="shrink-0 inline-flex items-center">
+              <TooltipAnchor content="Flip boards (f)">
+                <button
+                  onClick={toggleBoardsFlipped}
+                  className={controlButtonBaseClass}
+                  aria-label="Flip boards"
+                  type="button"
+                >
+                  <RefreshCcw aria-hidden className="h-5 w-5" />
+                </button>
+              </TooltipAnchor>
+            </div>
           </div>
         </div>
 
