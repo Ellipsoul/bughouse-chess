@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, LogOut, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/useAuth";
+import { useCompactLandscape } from "../utils/useCompactLandscape";
 
 /**
  * Client-side profile page UI.
@@ -21,6 +22,7 @@ export default function ProfilePageClient() {
   const { status, user, signInWithGoogle, signOut } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const isCompactLandscape = useCompactLandscape();
 
   const handleSignIn = useCallback(async () => {
     setIsSigningIn(true);
@@ -50,8 +52,14 @@ export default function ProfilePageClient() {
 
   return (
     <div className="h-full w-full bg-gray-900 flex flex-col overflow-hidden">
-      {/* Fixed header to match main page - ensures header renders above sidebar */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-800 border-b border-gray-700 shadow-md py-3">
+      {/* Fixed header to match main page - ensures header renders above sidebar.
+          Uses same responsive padding as GameViewerPage (py-1 in compact landscape, py-3 otherwise). */}
+      <header
+        className={[
+          "fixed top-0 left-0 right-0 z-50 bg-gray-800 border-b border-gray-700 shadow-md",
+          isCompactLandscape ? "py-0" : "py-3",
+        ].join(" ")}
+      >
         {/* min-h-10 (40px) matches the main page header content height (logo is h-10) */}
         <div className="mx-auto flex w-full max-w-[1600px] items-center min-h-10 px-4 sm:px-6 lg:px-8">
           <Link
@@ -64,9 +72,20 @@ export default function ProfilePageClient() {
         </div>
       </header>
 
-      {/* Main content - pt-16 accounts for fixed header height (py-3 + content ~40px = ~64px) */}
-      <main className="flex-1 flex items-center justify-center p-6 pt-16 overflow-y-auto">
-        <div className="w-full max-w-sm flex flex-col items-center text-center">
+      {/* Main content area.
+          Header height calculation:
+          - Normal: py-3 (24px) + min-h-10 (40px) + border (1px) = ~65px
+          - Compact landscape: py-1 (8px) + min-h-10 (40px) + border (1px) = ~49px
+          Add extra buffer to ensure content never hides under the navbar.
+          On mobile: align content to top for two-column grid layout
+          On desktop: center content vertically for single-column layout */}
+      <main
+        className={[
+          "flex-1 flex items-start md:items-center justify-center px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto",
+          isCompactLandscape ? "pt-16" : "pt-[76px]",
+        ].join(" ")}
+      >
+        <div className="w-full max-w-sm md:flex md:flex-col md:items-center md:text-center">
           {status === "loading" && <LoadingState />}
           {status === "unavailable" && <UnavailableState />}
           {status === "signed_out" && (
@@ -164,55 +183,119 @@ function SignedInState({
 
   return (
     <>
-      {/* Avatar */}
-      <div className="h-28 w-28 rounded-full border-2 border-mariner-600/60 overflow-hidden flex items-center justify-center mb-6 bg-gray-800">
-        {user.photoURL ? (
-          <Image
-            src={user.photoURL}
-            alt={`Profile avatar for ${displayName}`}
-            width={112}
-            height={112}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <UserRound className="h-14 w-14 text-gray-300" aria-hidden="true" />
-        )}
+      {/* Mobile: Two-column grid layout (< md breakpoint)
+          - Left: Avatar + name (fixed, non-scrollable)
+          - Right: User details + actions (scrollable)
+          Desktop: Single-column centered layout (>= md breakpoint) */}
+      <div className="pt-8 w-full md:hidden">
+        <div className="grid grid-cols-[auto_1fr] sm:gap-16 items-start">
+          {/* Left column: Avatar + Name (fixed) */}
+          <div className="flex flex-col items-center text-center sticky top-0">
+            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-mariner-600/60 overflow-hidden flex items-center justify-center bg-gray-800">
+              {user.photoURL ? (
+                <Image
+                  src={user.photoURL}
+                  alt={`Profile avatar for ${displayName}`}
+                  width={96}
+                  height={96}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <UserRound className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300" aria-hidden="true" />
+              )}
+            </div>
+            <h1 className="text-base sm:text-lg font-semibold text-gray-100 mt-3 max-w-[120px] wrap-break-word">
+              {displayName}
+            </h1>
+          </div>
+
+          {/* Right column: User details + actions (scrollable) */}
+          <div className="flex flex-col min-h-0 overflow-y-auto">
+            <dl className="text-left space-y-3 mb-6">
+              {user.email && (
+                <div>
+                  <dt className="text-xs text-gray-500 uppercase tracking-wide">Email</dt>
+                  <dd className="text-sm text-gray-200 break-all">{user.email}</dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-xs text-gray-500 uppercase tracking-wide">User ID</dt>
+                <dd className="text-sm text-gray-200 font-mono break-all">{user.uid}</dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              onClick={onSignOut}
+              disabled={isSigningOut}
+              className={[
+                "w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg",
+                "border border-gray-600 bg-gray-800/60",
+                "text-gray-100 font-medium text-sm",
+                "hover:bg-gray-700/80 hover:border-gray-500 transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              ].join(" ")}
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              {isSigningOut ? "Signing out..." : "Sign Out"}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Display name */}
-      <h1 className="text-xl font-semibold text-gray-100 mb-4">{displayName}</h1>
-
-      {/* User details */}
-      <dl className="w-full max-w-xs text-left space-y-3 mb-8">
-        {user.email && (
-          <div>
-            <dt className="text-xs text-gray-500 uppercase tracking-wide">Email</dt>
-            <dd className="text-sm text-gray-200 break-all">{user.email}</dd>
-          </div>
-        )}
-        <div>
-          <dt className="text-xs text-gray-500 uppercase tracking-wide">User ID</dt>
-          <dd className="text-sm text-gray-200 font-mono break-all">{user.uid}</dd>
+      {/* Desktop: Single-column centered layout (>= md breakpoint) */}
+      <div className="hidden md:flex md:flex-col md:items-center md:text-center">
+        {/* Avatar */}
+        <div className="h-28 w-28 rounded-full border-2 border-mariner-600/60 overflow-hidden flex items-center justify-center mb-6 bg-gray-800">
+          {user.photoURL ? (
+            <Image
+              src={user.photoURL}
+              alt={`Profile avatar for ${displayName}`}
+              width={112}
+              height={112}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <UserRound className="h-14 w-14 text-gray-300" aria-hidden="true" />
+          )}
         </div>
-      </dl>
 
-      {/* Sign out button */}
-      <button
-        type="button"
-        onClick={onSignOut}
-        disabled={isSigningOut}
-        className={[
-          "w-full max-w-xs inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg",
-          "border border-gray-600 bg-gray-800/60",
-          "text-gray-100 font-medium text-sm",
-          "hover:bg-gray-700/80 hover:border-gray-500 transition-colors",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
-          "disabled:opacity-50 disabled:cursor-not-allowed",
-        ].join(" ")}
-      >
-        <LogOut className="h-4 w-4" aria-hidden="true" />
-        {isSigningOut ? "Signing out..." : "Sign Out"}
-      </button>
+        {/* Display name */}
+        <h1 className="text-xl font-semibold text-gray-100 mb-4">{displayName}</h1>
+
+        {/* User details */}
+        <dl className="w-full max-w-xs text-left space-y-3 mb-8">
+          {user.email && (
+            <div>
+              <dt className="text-xs text-gray-500 uppercase tracking-wide">Email</dt>
+              <dd className="text-sm text-gray-200 break-all">{user.email}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-xs text-gray-500 uppercase tracking-wide">User ID</dt>
+            <dd className="text-sm text-gray-200 font-mono break-all">{user.uid}</dd>
+          </div>
+        </dl>
+
+        {/* Sign out button */}
+        <button
+          type="button"
+          onClick={onSignOut}
+          disabled={isSigningOut}
+          className={[
+            "w-full max-w-xs inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg",
+            "border border-gray-600 bg-gray-800/60",
+            "text-gray-100 font-medium text-sm",
+            "hover:bg-gray-700/80 hover:border-gray-500 transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+          ].join(" ")}
+        >
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          {isSigningOut ? "Signing out..." : "Sign Out"}
+        </button>
+      </div>
     </>
   );
 }
