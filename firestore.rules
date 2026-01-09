@@ -137,34 +137,33 @@ service cloud.firestore {
      * Shared games collection.
      *
      * Document ID: UUID
-     * Document fields:
+     * Document fields (schema v2):
      *   - id: string (same as document ID)
+     *   - schemaVersion: number (2 for current schema)
      *   - type: 'game' | 'match' | 'partnerGames'
      *   - sharerUserId: string (Firebase Auth UID)
      *   - sharerUsername: string
      *   - description: string (max 100 chars)
      *   - sharedAt: timestamp
      *   - gameDate: timestamp
-     *   - gameData: object (game/match data)
      *   - metadata: object (players, result, gameCount)
+     *
+     * Game data is stored in subcollection: games/{index}
      */
     match /sharedGames/{sharedId} {
       // Anyone can read shared games (public browsing, no auth required)
       allow read: if true;
 
       // Only fully authenticated users can share games
-      // Validation ensures:
-      // 1. User is fully authenticated (has reserved a username)
-      // 2. The sharerUserId matches the authenticated user
-      // 3. Required fields are present
-      // 4. Type and description are valid
+      // Schema v2: gameData field is no longer required (stored in subcollection)
       allow create: if isFullyAuthenticated()
                     && request.resource.data.sharerUserId == request.auth.uid
                     && request.resource.data.keys().hasAll([
-                         'id', 'type', 'sharerUserId', 'sharerUsername',
-                         'description', 'sharedAt', 'gameDate', 'gameData', 'metadata'
+                         'id', 'schemaVersion', 'type', 'sharerUserId', 'sharerUsername',
+                         'description', 'sharedAt', 'gameDate', 'metadata'
                        ])
                     && request.resource.data.id == sharedId
+                    && request.resource.data.schemaVersion == 2
                     && isValidSharedGameType(request.resource.data.type)
                     && isValidDescription(request.resource.data.description)
                     && request.resource.data.sharerUserId is string
@@ -174,8 +173,39 @@ service cloud.firestore {
       allow delete: if isAuthenticated()
                     && resource.data.sharerUserId == request.auth.uid;
 
-      // Never allow updates (shared games are immutable)
+      // Allow update only for migration (adding schemaVersion)
+      // Once migrated, updates are not allowed
       allow update: if false;
+
+      /**
+       * Games subcollection (schema v2).
+       *
+       * Document ID: index (0, 1, 2, ...)
+       * Document fields:
+       *   - index: number (same as document ID)
+       *   - type: 'single' | 'match'
+       *   - data: object (SingleGameData or MatchGameData)
+       *
+       * This subcollection stores the actual game data to avoid the 1MB document limit.
+       */
+      match /games/{gameIndex} {
+        // Anyone can read game data (public)
+        allow read: if true;
+
+        // Only the sharer can create game data
+        // We check the parent document's sharerUserId
+        allow create: if isFullyAuthenticated()
+                      && get(/databases/$(database)/documents/sharedGames/$(sharedId)).data.sharerUserId == request.auth.uid
+                      && request.resource.data.keys().hasAll(['index', 'type', 'data'])
+                      && request.resource.data.index is number;
+
+        // Only the sharer can delete game data
+        allow delete: if isAuthenticated()
+                      && get(/databases/$(database)/documents/sharedGames/$(sharedId)).data.sharerUserId == request.auth.uid;
+
+        // Never allow updates (game data is immutable)
+        allow update: if false;
+      }
     }
 
     // Deny access to all other collections by default

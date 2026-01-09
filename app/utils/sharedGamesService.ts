@@ -21,17 +21,23 @@ import type {
   SharedGameDocument,
   SharedGame,
   SharedGameData,
+  SharedGameDataLegacy,
   SharedGameMetadata,
+  SharedGameSummary,
+  SharedGameSubDocument,
   SingleGameData,
   GetSharedGamesOptions,
   SharedGamesPage,
   ShareResult,
   DeleteSharedGameResult,
+  MatchGameData,
 } from "../types/sharedGame";
 import {
-  toSharedGame as convertToSharedGame,
+  toSharedGameSummary,
   toMatchGameData as convertToMatchGameData,
   SHARED_GAMES_DEFAULT_PAGE_SIZE as DEFAULT_PAGE_SIZE,
+  SHARED_GAMES_SCHEMA_VERSION,
+  SHARED_GAMES_SUBCOLLECTION,
 } from "../types/sharedGame";
 
 /* -------------------------------------------------------------------------- */
@@ -209,12 +215,71 @@ function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata {
   };
 }
 
+/**
+ * Fetches game data from the subcollection.
+ * Handles both schema v1 (inline gameData) and v2 (subcollection).
+ *
+ * @param sharedId - The shared game ID
+ * @param docData - The main document data
+ * @returns SharedGameData object
+ */
+async function fetchGameData(
+  sharedId: string,
+  docData: SharedGameDocument,
+): Promise<SharedGameData> {
+  // Schema v1: game data is in the main document
+  if (docData.schemaVersion === 1 || !docData.schemaVersion) {
+    if (!docData.gameData) {
+      throw new Error("Legacy document missing gameData");
+    }
+    // Convert legacy format to current format
+    const legacyData = docData.gameData as SharedGameDataLegacy;
+    return legacyData;
+  }
+
+  // Schema v2: game data is in subcollection
+  const db = getFirestoreDb();
+  const gamesRef = collection(db, SHARED_GAMES_COLLECTION, sharedId, SHARED_GAMES_SUBCOLLECTION);
+  const q = query(gamesRef, orderBy("index", "asc"));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    throw new Error("No game data found in subcollection");
+  }
+
+  const subDocs = snapshot.docs.map((d) => d.data() as SharedGameSubDocument);
+
+  // Single game
+  if (docData.type === "game") {
+    const singleDoc = subDocs[0];
+    if (!singleDoc || singleDoc.type !== "single") {
+      throw new Error("Invalid single game data");
+    }
+    return {
+      type: "game",
+      game: singleDoc.data,
+    };
+  }
+
+  // Match or partner games
+  const matchGames: MatchGameData[] = subDocs
+    .filter((d): d is SharedGameSubDocument & { type: "match" } => d.type === "match")
+    .sort((a, b) => a.index - b.index)
+    .map((d) => d.data);
+
+  return {
+    type: docData.type,
+    games: matchGames,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Firestore Operations                                                       */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Shares a single bughouse game.
+ * Uses schema v2: metadata in main document, game data in subcollection.
  *
  * @param userId - Firebase Auth UID of the sharer
  * @param username - Username of the sharer
@@ -232,37 +297,43 @@ export async function shareGame(
     const db = getFirestoreDb();
     const sharedId = uuidv4();
 
-    const sharedGameData: SharedGameData = {
-      type: "game",
-      game: gameData,
-    };
-
     const metadata = buildSingleGameMetadata(gameData.original, gameData.partner);
     const gameDate = extractGameDate(gameData.original);
 
-    const sharedGameDoc: Omit<SharedGameDocument, "sharedAt"> & { sharedAt: ReturnType<typeof serverTimestamp> } = {
+    // Main document (without game data)
+    const sharedGameDoc = {
       id: sharedId,
-      type: "game",
+      schemaVersion: SHARED_GAMES_SCHEMA_VERSION,
+      type: "game" as const,
       sharerUserId: userId,
       sharerUsername: username,
       description: description.slice(0, 100),
       sharedAt: serverTimestamp(),
       gameDate,
-      gameData: sharedGameData,
       metadata,
     };
 
+    // User reference document
     const userSharedGameRef = {
       sharedId,
       sharedAt: serverTimestamp(),
     };
 
+    // Game data subcollection document
+    const gameSubDoc: SharedGameSubDocument = {
+      index: 0,
+      type: "single",
+      data: gameData,
+    };
+
     // Use a batch write to ensure atomicity
     const batch = writeBatch(db);
 
+    // Main document
     const sharedGameDocRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
     batch.set(sharedGameDocRef, sharedGameDoc);
 
+    // User reference
     const userSharedGameDocRef = doc(
       db,
       USERS_COLLECTION,
@@ -271,6 +342,16 @@ export async function shareGame(
       sharedId,
     );
     batch.set(userSharedGameDocRef, userSharedGameRef);
+
+    // Game data in subcollection
+    const gameDocRef = doc(
+      db,
+      SHARED_GAMES_COLLECTION,
+      sharedId,
+      SHARED_GAMES_SUBCOLLECTION,
+      "0",
+    );
+    batch.set(gameDocRef, gameSubDoc);
 
     await batch.commit();
 
@@ -284,6 +365,7 @@ export async function shareGame(
 
 /**
  * Shares a match (multiple games with the same players).
+ * Uses schema v2: metadata in main document, each game in subcollection.
  *
  * @param userId - Firebase Auth UID of the sharer
  * @param username - Username of the sharer
@@ -307,38 +389,42 @@ export async function shareMatch(
     const db = getFirestoreDb();
     const sharedId = uuidv4();
 
-    const sharedGameData: SharedGameData = {
-      type,
-      games: convertToMatchGameData(matchGames),
-    };
-
     const metadata = buildMatchMetadata(matchGames);
     // Use the first game's date as the match date
     const gameDate = extractGameDate(matchGames[0]!.original);
 
-    const sharedGameDoc: Omit<SharedGameDocument, "sharedAt"> & { sharedAt: ReturnType<typeof serverTimestamp> } = {
+    // Main document (without game data)
+    const sharedGameDoc = {
       id: sharedId,
+      schemaVersion: SHARED_GAMES_SCHEMA_VERSION,
       type,
       sharerUserId: userId,
       sharerUsername: username,
       description: description.slice(0, 100),
       sharedAt: serverTimestamp(),
       gameDate,
-      gameData: sharedGameData,
       metadata,
     };
 
+    // User reference document
     const userSharedGameRef = {
       sharedId,
       sharedAt: serverTimestamp(),
     };
 
+    // Convert match games to storage format
+    const matchGameDataArray = convertToMatchGameData(matchGames);
+
     // Use a batch write to ensure atomicity
+    // Note: Firestore batches are limited to 500 operations
+    // For very large matches, we may need multiple batches
     const batch = writeBatch(db);
 
+    // Main document
     const sharedGameDocRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
     batch.set(sharedGameDocRef, sharedGameDoc);
 
+    // User reference
     const userSharedGameDocRef = doc(
       db,
       USERS_COLLECTION,
@@ -347,6 +433,24 @@ export async function shareMatch(
       sharedId,
     );
     batch.set(userSharedGameDocRef, userSharedGameRef);
+
+    // Each game in subcollection
+    for (let i = 0; i < matchGameDataArray.length; i++) {
+      const gameSubDoc: SharedGameSubDocument = {
+        index: i,
+        type: "match",
+        data: matchGameDataArray[i]!,
+      };
+
+      const gameDocRef = doc(
+        db,
+        SHARED_GAMES_COLLECTION,
+        sharedId,
+        SHARED_GAMES_SUBCOLLECTION,
+        String(i),
+      );
+      batch.set(gameDocRef, gameSubDoc);
+    }
 
     await batch.commit();
 
@@ -359,11 +463,12 @@ export async function shareMatch(
 }
 
 /**
- * Fetches a paginated list of shared games.
+ * Fetches a paginated list of shared games (summaries only).
  * Games are sorted by sharedAt timestamp (newest first).
+ * Does not fetch game data - use getSharedGame for full data.
  *
  * @param options - Pagination options
- * @returns SharedGamesPage with games and pagination info
+ * @returns SharedGamesPage with game summaries and pagination info
  */
 export async function getSharedGames(
   options: GetSharedGamesOptions = {},
@@ -398,9 +503,9 @@ export async function getSharedGames(
     const hasMore = docs.length > pageSize;
     const gameDocs = hasMore ? docs.slice(0, pageSize) : docs;
 
-    const games: SharedGame[] = gameDocs.map((docSnap) => {
+    const games: SharedGameSummary[] = gameDocs.map((docSnap) => {
       const data = docSnap.data() as SharedGameDocument;
-      return convertToSharedGame(data);
+      return toSharedGameSummary(data);
     });
 
     // Get the cursor for the next page
@@ -419,7 +524,8 @@ export async function getSharedGames(
 }
 
 /**
- * Fetches a single shared game by ID.
+ * Fetches a single shared game by ID, including full game data.
+ * Handles both schema v1 (legacy) and v2 (current).
  *
  * @param sharedId - The shared game UUID
  * @returns SharedGame if found, null otherwise
@@ -435,7 +541,21 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
     }
 
     const data = docSnap.data() as SharedGameDocument;
-    return convertToSharedGame(data);
+
+    // Fetch game data (handles both schema versions)
+    const gameData = await fetchGameData(sharedId, data);
+
+    return {
+      id: data.id,
+      type: data.type,
+      sharerUserId: data.sharerUserId,
+      sharerUsername: data.sharerUsername,
+      description: data.description,
+      sharedAt: data.sharedAt.toDate(),
+      gameDate: data.gameDate.toDate(),
+      gameData,
+      metadata: data.metadata,
+    };
   } catch (err) {
     console.error("[sharedGamesService] getSharedGame failed:", err);
     throw new Error("Failed to fetch shared game");
@@ -443,7 +563,7 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
 }
 
 /**
- * Deletes a shared game.
+ * Deletes a shared game, including all game data in subcollection.
  * Only the original sharer can delete their shared game.
  *
  * @param userId - Firebase Auth UID of the user attempting to delete
@@ -470,11 +590,22 @@ export async function deleteSharedGame(
       return { success: false, error: "You can only delete your own shared games" };
     }
 
-    // Use a batch write to delete from both collections
+    // Fetch all documents in the games subcollection
+    const gamesRef = collection(db, SHARED_GAMES_COLLECTION, sharedId, SHARED_GAMES_SUBCOLLECTION);
+    const gamesSnapshot = await getDocs(gamesRef);
+
+    // Use a batch write to delete everything atomically
     const batch = writeBatch(db);
 
+    // Delete all game documents in subcollection
+    for (const gameDoc of gamesSnapshot.docs) {
+      batch.delete(gameDoc.ref);
+    }
+
+    // Delete the main document
     batch.delete(sharedGameRef);
 
+    // Delete the user reference
     const userSharedGameRef = doc(
       db,
       USERS_COLLECTION,
@@ -495,12 +626,12 @@ export async function deleteSharedGame(
 }
 
 /**
- * Fetches shared games for a specific user.
+ * Fetches shared games for a specific user (summaries only).
  *
  * @param userId - Firebase Auth UID of the user
- * @returns Array of SharedGame objects
+ * @returns Array of SharedGameSummary objects
  */
-export async function getUserSharedGames(userId: string): Promise<SharedGame[]> {
+export async function getUserSharedGames(userId: string): Promise<SharedGameSummary[]> {
   try {
     const db = getFirestoreDb();
 
@@ -518,14 +649,16 @@ export async function getUserSharedGames(userId: string): Promise<SharedGame[]> 
       return [];
     }
 
-    // Fetch the full shared game documents
-    const sharedIds = snapshot.docs.map((doc) => doc.id);
-    const games: SharedGame[] = [];
+    // Fetch the shared game summaries (not full data)
+    const sharedIds = snapshot.docs.map((d) => d.id);
+    const games: SharedGameSummary[] = [];
 
     for (const sharedId of sharedIds) {
-      const game = await getSharedGame(sharedId);
-      if (game) {
-        games.push(game);
+      const docRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as SharedGameDocument;
+        games.push(toSharedGameSummary(data));
       }
     }
 

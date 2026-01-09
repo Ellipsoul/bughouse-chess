@@ -3,6 +3,19 @@ import type { ChessGame } from "../actions";
 import type { MatchGame } from "./match";
 
 /* -------------------------------------------------------------------------- */
+/* Schema Version                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Current schema version for shared games.
+ *
+ * Version history:
+ * - 1: All game data stored in the main document (deprecated)
+ * - 2: Game data stored in subcollection `games/{index}` to avoid 1MB limit
+ */
+export const SHARED_GAMES_SCHEMA_VERSION = 2;
+
+/* -------------------------------------------------------------------------- */
 /* Shared Game Types                                                          */
 /* -------------------------------------------------------------------------- */
 
@@ -112,11 +125,63 @@ export interface MatchGameData {
   endTime: number;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Subcollection Types (Schema v2)                                            */
+/* -------------------------------------------------------------------------- */
+
 /**
- * The complete game data payload stored in Firestore.
- * Discriminated union based on content type.
+ * Document structure for `sharedGames/{sharedId}/games/{index}`.
+ * Stores individual game data in a subcollection to avoid the 1MB document limit.
+ *
+ * For type="game": index is always "0", data is SingleGameData
+ * For type="match"|"partnerGames": index is "0", "1", "2", ..., data is MatchGameData
  */
-export type SharedGameData =
+export type SharedGameSubDocument =
+  | {
+      /**
+       * Index of this game in the match (0-based).
+       */
+      index: number;
+
+      /**
+       * For single games (type="game").
+       */
+      type: "single";
+
+      /**
+       * Single game data.
+       */
+      data: SingleGameData;
+    }
+  | {
+      /**
+       * Index of this game in the match (0-based).
+       */
+      index: number;
+
+      /**
+       * For match games (type="match" or "partnerGames").
+       */
+      type: "match";
+
+      /**
+       * Match game data.
+       */
+      data: MatchGameData;
+    };
+
+/* -------------------------------------------------------------------------- */
+/* Legacy Types (Schema v1 - deprecated)                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The complete game data payload stored in Firestore (Schema v1).
+ * Discriminated union based on content type.
+ *
+ * @deprecated Schema v1 stored all game data in the main document.
+ * Use schema v2 with subcollection instead.
+ */
+export type SharedGameDataLegacy =
   | {
       type: "game";
       game: SingleGameData;
@@ -126,9 +191,15 @@ export type SharedGameData =
       games: MatchGameData[];
     };
 
+/* -------------------------------------------------------------------------- */
+/* Main Document Types                                                        */
+/* -------------------------------------------------------------------------- */
+
 /**
  * Document structure for the `sharedGames/{sharedId}` collection.
- * This is the main collection that stores all shared games publicly.
+ * This is the main collection that stores shared game metadata publicly.
+ *
+ * Game data is stored in the `games` subcollection (schema v2).
  */
 export interface SharedGameDocument {
   /**
@@ -136,6 +207,13 @@ export interface SharedGameDocument {
    * Same as the document ID.
    */
   id: string;
+
+  /**
+   * Schema version for migration compatibility.
+   * - 1: Legacy schema with gameData in main document
+   * - 2: Current schema with games in subcollection
+   */
+  schemaVersion: number;
 
   /**
    * Type of content being shared.
@@ -169,14 +247,15 @@ export interface SharedGameDocument {
   gameDate: Timestamp;
 
   /**
-   * The actual game data (pristine, as loaded from Chess.com).
-   */
-  gameData: SharedGameData;
-
-  /**
    * Denormalized metadata for efficient card display.
    */
   metadata: SharedGameMetadata;
+
+  /**
+   * Legacy field for schema v1 documents.
+   * @deprecated Use subcollection `games/{index}` instead.
+   */
+  gameData?: SharedGameDataLegacy;
 }
 
 /**
@@ -202,6 +281,20 @@ export interface UserSharedGameReference {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The complete game data as used in the client UI.
+ * Discriminated union based on content type.
+ */
+export type SharedGameData =
+  | {
+      type: "game";
+      game: SingleGameData;
+    }
+  | {
+      type: "match" | "partnerGames";
+      games: MatchGameData[];
+    };
+
+/**
  * Shared game data as used in the client UI.
  * Timestamps are converted to JavaScript Date objects.
  */
@@ -214,6 +307,21 @@ export interface SharedGame {
   sharedAt: Date;
   gameDate: Date;
   gameData: SharedGameData;
+  metadata: SharedGameMetadata;
+}
+
+/**
+ * Shared game metadata without game data (for listing).
+ * Used when displaying cards where full game data isn't needed.
+ */
+export interface SharedGameSummary {
+  id: string;
+  type: SharedContentType;
+  sharerUserId: string;
+  sharerUsername: string;
+  description: string;
+  sharedAt: Date;
+  gameDate: Date;
   metadata: SharedGameMetadata;
 }
 
@@ -238,9 +346,9 @@ export interface GetSharedGamesOptions {
  */
 export interface SharedGamesPage {
   /**
-   * The shared games for this page.
+   * The shared games for this page (summaries only, no game data).
    */
-  games: SharedGame[];
+  games: SharedGameSummary[];
 
   /**
    * Whether there are more games after this page.
@@ -273,12 +381,13 @@ export type DeleteSharedGameResult =
 /* -------------------------------------------------------------------------- */
 
 /**
- * Converts a Firestore SharedGameDocument to a client-side SharedGame.
+ * Converts a Firestore SharedGameDocument to a client-side SharedGameSummary.
+ * Does not include game data (use fetchSharedGameData for that).
  *
  * @param doc - The Firestore document data
- * @returns The client-side SharedGame object
+ * @returns The client-side SharedGameSummary object
  */
-export function toSharedGame(doc: SharedGameDocument): SharedGame {
+export function toSharedGameSummary(doc: SharedGameDocument): SharedGameSummary {
   return {
     id: doc.id,
     type: doc.type,
@@ -287,7 +396,6 @@ export function toSharedGame(doc: SharedGameDocument): SharedGame {
     description: doc.description,
     sharedAt: doc.sharedAt.toDate(),
     gameDate: doc.gameDate.toDate(),
-    gameData: doc.gameData,
     metadata: doc.metadata,
   };
 }
@@ -333,3 +441,8 @@ export const SHARED_GAME_DESCRIPTION_MAX_LENGTH = 100;
  * Default page size for shared games pagination.
  */
 export const SHARED_GAMES_DEFAULT_PAGE_SIZE = 12;
+
+/**
+ * Name of the games subcollection under shared games.
+ */
+export const SHARED_GAMES_SUBCOLLECTION = "games";

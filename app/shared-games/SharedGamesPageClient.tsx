@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
 import { getSharedGames } from "../utils/sharedGamesService";
-import type { SharedGame, SharedGamesPage as SharedGamesPageData } from "../types/sharedGame";
+import type { SharedGameSummary, SharedGamesPage as SharedGamesPageData } from "../types/sharedGame";
 import { SHARED_GAMES_DEFAULT_PAGE_SIZE } from "../types/sharedGame";
 import SharedGameCard from "../components/SharedGameCard";
 
@@ -157,7 +157,7 @@ export default function SharedGamesPageClient() {
   const isCompactLandscape = useCompactLandscape();
 
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
-  const [games, setGames] = useState<SharedGame[]>([]);
+  const [games, setGames] = useState<SharedGameSummary[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [cursors, setCursors] = useState<(Date | null)[]>([null]); // Index 0 = page 1 cursor (null for first page)

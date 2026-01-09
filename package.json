@@ -1,6 +1,6 @@
 {
   "name": "bughouse-chess",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -20,6 +20,7 @@
     "cy:component:run": "npm run test:component",
     "emulator:start": "firebase emulators:start --only firestore --project demo-bughouse",
     "fixtures:record": "tsx scripts/recordChessComFixtures.ts",
+    "migration:shared-games-v2": "tsx scripts/migrateSharedGamesSchema.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -60,6 +61,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.16",
     "cypress": "^15.8.1",
+    "dotenv": "^17.2.3",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.10",
     "eslint-plugin-react": "^7.37.5",

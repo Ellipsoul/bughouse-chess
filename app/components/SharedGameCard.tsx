@@ -4,7 +4,7 @@ import React, { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
-import type { SharedGame } from "../types/sharedGame";
+import type { SharedGameSummary } from "../types/sharedGame";
 import { deleteSharedGame } from "../utils/sharedGamesService";
 import { ChessTitleBadge } from "./ChessTitleBadge";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
@@ -15,9 +15,10 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 export interface SharedGameCardProps {
   /**
-   * The shared game data to display.
+   * The shared game summary to display.
+   * Card only needs metadata, not full game data.
    */
-  game: SharedGame;
+  game: SharedGameSummary;
 
   /**
    * The current user's ID (for determining if delete button should show).
@@ -67,7 +68,7 @@ function formatDate(date: Date): string {
 /**
  * Returns the label for the content type.
  */
-function getContentTypeLabel(type: SharedGame["type"]): string {
+function getContentTypeLabel(type: SharedGameSummary["type"]): string {
   switch (type) {
     case "match":
       return "Match";
@@ -82,7 +83,7 @@ function getContentTypeLabel(type: SharedGame["type"]): string {
 /**
  * Returns CSS classes for the content type badge.
  */
-function getContentTypeBadgeClasses(type: SharedGame["type"]): string {
+function getContentTypeBadgeClasses(type: SharedGameSummary["type"]): string {
   switch (type) {
     case "match":
       return "bg-amber-600/20 text-amber-400 border-amber-600/30";

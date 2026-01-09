@@ -1,8 +1,8 @@
 import SharedGameCard from "../../app/components/SharedGameCard";
-import type { SharedGame, SharedGameMetadata, SharedGameData } from "../../app/types/sharedGame";
+import type { SharedGameSummary, SharedGameMetadata } from "../../app/types/sharedGame";
 
 /**
- * Creates mock metadata for a SharedGame.
+ * Creates mock metadata for a SharedGameSummary.
  */
 function createMockMetadata(overrides?: Partial<SharedGameMetadata>): SharedGameMetadata {
   return {
@@ -21,23 +21,10 @@ function createMockMetadata(overrides?: Partial<SharedGameMetadata>): SharedGame
 }
 
 /**
- * Creates mock game data for a SharedGame.
+ * Creates a mock SharedGameSummary for testing.
+ * Card only needs summary data, not full game data.
  */
-function createMockGameData(): SharedGameData {
-  return {
-    type: "game",
-    game: {
-      original: {} as never, // Full game data not needed for card tests
-      partner: null,
-      partnerId: null,
-    },
-  };
-}
-
-/**
- * Creates a mock SharedGame for testing.
- */
-function createMockSharedGame(overrides?: Partial<SharedGame>): SharedGame {
+function createMockSharedGameSummary(overrides?: Partial<SharedGameSummary>): SharedGameSummary {
   return {
     id: "test-shared-id",
     type: "game",
@@ -46,7 +33,6 @@ function createMockSharedGame(overrides?: Partial<SharedGame>): SharedGame {
     description: "",
     sharedAt: new Date("2024-01-15T10:00:00Z"),
     gameDate: new Date("2024-01-14T20:00:00Z"),
-    gameData: createMockGameData(),
     metadata: createMockMetadata(),
     ...overrides,
   };
@@ -62,7 +48,7 @@ function createMockSharedGame(overrides?: Partial<SharedGame>): SharedGame {
 describe("SharedGameCard", () => {
   describe("Rendering", () => {
     it("renders card with game information", () => {
-      const game = createMockSharedGame();
+      const game = createMockSharedGameSummary();
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -75,7 +61,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays chess titles when present", () => {
-      const game = createMockSharedGame();
+      const game = createMockSharedGameSummary();
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -85,7 +71,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays sharer username", () => {
-      const game = createMockSharedGame({ sharerUsername: "ChessKing123" });
+      const game = createMockSharedGameSummary({ sharerUsername: "ChessKing123" });
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -94,7 +80,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays description when present", () => {
-      const game = createMockSharedGame({ description: "Amazing checkmate!" });
+      const game = createMockSharedGameSummary({ description: "Amazing checkmate!" });
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -102,7 +88,7 @@ describe("SharedGameCard", () => {
     });
 
     it("does not display description when empty", () => {
-      const game = createMockSharedGame({ description: "" });
+      const game = createMockSharedGameSummary({ description: "" });
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -110,7 +96,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays correct badge for match type", () => {
-      const game = createMockSharedGame({ type: "match" });
+      const game = createMockSharedGameSummary({ type: "match" });
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -118,7 +104,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays correct badge for partner games type", () => {
-      const game = createMockSharedGame({ type: "partnerGames" });
+      const game = createMockSharedGameSummary({ type: "partnerGames" });
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -126,7 +112,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays game count for matches", () => {
-      const game = createMockSharedGame({
+      const game = createMockSharedGameSummary({
         type: "match",
         metadata: createMockMetadata({ gameCount: 10 }),
       });
@@ -137,7 +123,7 @@ describe("SharedGameCard", () => {
     });
 
     it("displays formatted date", () => {
-      const game = createMockSharedGame({
+      const game = createMockSharedGameSummary({
         gameDate: new Date("2024-03-25T15:00:00Z"),
       });
 
@@ -149,7 +135,7 @@ describe("SharedGameCard", () => {
 
   describe("Delete Button Visibility", () => {
     it("does not show delete button when currentUserId is not provided", () => {
-      const game = createMockSharedGame();
+      const game = createMockSharedGameSummary();
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -157,7 +143,7 @@ describe("SharedGameCard", () => {
     });
 
     it("does not show delete button when not owner", () => {
-      const game = createMockSharedGame({ sharerUserId: "other-user" });
+      const game = createMockSharedGameSummary({ sharerUserId: "other-user" });
 
       cy.mount(<SharedGameCard game={game} currentUserId="current-user" />);
 
@@ -165,7 +151,7 @@ describe("SharedGameCard", () => {
     });
 
     it("shows delete button when owner (on hover)", () => {
-      const game = createMockSharedGame({ sharerUserId: "current-user" });
+      const game = createMockSharedGameSummary({ sharerUserId: "current-user" });
 
       cy.mount(<SharedGameCard game={game} currentUserId="current-user" />);
 
@@ -177,7 +163,7 @@ describe("SharedGameCard", () => {
     });
 
     it("opens confirmation modal when delete button clicked", () => {
-      const game = createMockSharedGame({ sharerUserId: "current-user" });
+      const game = createMockSharedGameSummary({ sharerUserId: "current-user" });
 
       cy.mount(<SharedGameCard game={game} currentUserId="current-user" />);
 
@@ -188,7 +174,7 @@ describe("SharedGameCard", () => {
     });
 
     it("closes modal when cancel is clicked", () => {
-      const game = createMockSharedGame({ sharerUserId: "current-user" });
+      const game = createMockSharedGameSummary({ sharerUserId: "current-user" });
 
       cy.mount(<SharedGameCard game={game} currentUserId="current-user" />);
 
@@ -202,7 +188,7 @@ describe("SharedGameCard", () => {
 
   describe("Accessibility", () => {
     it("has correct aria-label", () => {
-      const game = createMockSharedGame();
+      const game = createMockSharedGameSummary();
 
       cy.mount(<SharedGameCard game={game} />);
 
@@ -212,7 +198,7 @@ describe("SharedGameCard", () => {
     });
 
     it("is keyboard accessible", () => {
-      const game = createMockSharedGame();
+      const game = createMockSharedGameSummary();
 
       cy.mount(<SharedGameCard game={game} />);
 
