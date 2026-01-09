@@ -7,6 +7,7 @@ import {
   Pause,
   Play,
   RefreshCcw,
+  Save,
   SkipBack,
   SkipForward,
   StepBack,
@@ -64,7 +65,7 @@ interface BughouseAnalysisProps {
    * - `boardsFlipped=false` means the (A White + B Black) partner pair is at the bottom.
    * - `boardsFlipped=true` means the (A Black + B White) partner pair is at the bottom.
    *
-   * This is used by match replay to keep a stable “viewer perspective” across multiple games.
+   * This is used by match replay to keep a stable "viewer perspective" across multiple games.
    */
   boardsFlipped?: boolean;
   /**
@@ -74,7 +75,7 @@ interface BughouseAnalysisProps {
    */
   onBoardsFlippedChange?: (next: boolean) => void;
   /**
-   * Pre-formatted “games analysed” label (e.g. `Games Analysed: 1,234`).
+   * Pre-formatted "games analysed" label (e.g. `Games Analysed: 1,234`).
    * Owned by the page shell so we don't duplicate metric fetches.
    */
   gamesLoadedLabel?: string;
@@ -88,6 +89,20 @@ interface BughouseAnalysisProps {
    * Used to warn before overwriting analysis by loading another game.
    */
   onAnalysisDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Called when the user clicks the share button.
+   * The parent component handles the sharing logic and modal.
+   */
+  onShareClick?: () => void;
+  /**
+   * Whether the share button should be enabled.
+   * Typically true when a game is loaded AND user is fully authenticated.
+   */
+  canShare?: boolean;
+  /**
+   * Tooltip message explaining why sharing is disabled (when canShare is false).
+   */
+  shareDisabledReason?: string;
 }
 
 const PLACEHOLDER_PLAYERS: {
@@ -115,6 +130,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   gamesLoadedLabel,
   showGamesLoadedInline,
   onAnalysisDirtyChange,
+  onShareClick,
+  canShare,
+  shareDisabledReason,
 }) => {
   const analysisContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
@@ -1820,8 +1838,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
-            {/* Right side: flip boards */}
-            <div className="shrink-0 inline-flex items-center">
+            {/* Right side: share + flip boards */}
+            <div className="shrink-0 inline-flex items-center gap-1">
+              <TooltipAnchor content={shareDisabledReason ?? "Share game"}>
+                <button
+                  onClick={onShareClick}
+                  disabled={!canShare}
+                  className={controlButtonBaseClass}
+                  aria-label="Share game"
+                  type="button"
+                >
+                  <Save aria-hidden className={layout.controlIconSizeClass} />
+                </button>
+              </TooltipAnchor>
               <TooltipAnchor content="Flip boards (f)">
                 <button
                   onClick={toggleBoardsFlipped}

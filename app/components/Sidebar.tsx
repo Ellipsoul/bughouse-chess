@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import React from "react";
-import { Github, UserRound } from "lucide-react";
+import { BookMarked, Github, UserRound } from "lucide-react";
 import { TooltipAnchor } from "./TooltipAnchor";
 import { useAuth } from "../auth/useAuth";
 
@@ -78,6 +78,22 @@ export default function Sidebar() {
       aria-label="App sidebar"
     >
       <div className="mt-auto flex flex-col items-center gap-2 pb-1">
+        <TooltipAnchor content="Browse shared games">
+          <Link
+            href="/shared-games"
+            aria-label="Browse shared games"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <BookMarked className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
+
         <TooltipAnchor content="View source code on GitHub">
           <a
             href={GITHUB_REPO_URL}

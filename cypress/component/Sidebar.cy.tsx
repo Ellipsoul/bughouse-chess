@@ -23,6 +23,20 @@ function createFakeAdapter(user: AuthUser | null): AuthAdapter {
 }
 
 describe("Sidebar", () => {
+  it("renders shared games link with correct href", () => {
+    const adapter = createFakeAdapter(null);
+
+    cy.mount(
+      <AuthProvider adapter={adapter}>
+        <Sidebar />
+      </AuthProvider>,
+    );
+
+    cy.get('a[aria-label="Browse shared games"]')
+      .should("exist")
+      .and("have.attr", "href", "/shared-games");
+  });
+
   it("renders GitHub link with correct href", () => {
     const adapter = createFakeAdapter(null);
 

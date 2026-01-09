@@ -1,6 +1,6 @@
 {
   "name": "bughouse-chess",
-  "version": "1.3.9",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,10 +12,8 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:unit:coverage": "vitest run --coverage",
-    "test:component": "cypress run --component",
-    "test:component:open": "cypress open --component",
-    "test:component:emulator": "bash scripts/cypress-with-emulator.sh",
-    "test:component:emulator:open": "bash scripts/cypress-with-emulator.sh open",
+    "test:component": "bash scripts/cypress-with-emulator.sh",
+    "test:component:open": "bash scripts/cypress-with-emulator.sh open",
     "test:watch": "npm run test:unit:watch",
     "test:coverage": "npm run test:unit:coverage",
     "cy:component": "npm run test:component:open",
@@ -36,7 +34,8 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
-    "react-tooltip": "^5.30.0"
+    "react-tooltip": "^5.30.0",
+    "uuid": "^13.0.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -57,6 +56,7 @@
     "@types/prop-types": "^15.7.15",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.16",
     "cypress": "^15.8.1",

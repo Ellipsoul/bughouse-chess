@@ -50,6 +50,11 @@ import {
   computeEffectiveFlip,
   getBottomPairKeyForGame,
 } from "../utils/matchBoardOrientation";
+import { useFullAuth, getFullAuthRequirementMessage } from "../utils/useFullAuth";
+import ShareGameModal from "./ShareGameModal";
+import type { SharedContentType, SingleGameData } from "../types/sharedGame";
+import { fromMatchGameData } from "../types/sharedGame";
+import { getSharedGame } from "../utils/sharedGamesService";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -154,13 +159,14 @@ function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: stri
 export default function GameViewerPage() {
   const searchParams = useSearchParams();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
+  const sharedId = searchParams.get("sharedId");
   const autoLoadGameId = queryGameId?.trim();
   /**
    * Randomly select a sample game ID from available fixtures to provide variety
    * for users visiting without a specific game ID.
    */
   const defaultSampleGameId = getRandomSampleGameId();
-  const shouldSeedWithSample = !autoLoadGameId;
+  const shouldSeedWithSample = !autoLoadGameId && !sharedId;
 
   /**
    * Seed the input with a sample game only when no path/query ID preloads data.
@@ -180,6 +186,7 @@ export default function GameViewerPage() {
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
+  const lastAutoLoadedSharedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
   const isCompactLandscape = useCompactLandscape();
@@ -226,6 +233,19 @@ export default function GameViewerPage() {
    * We reset this on any fresh game load (not on in-match navigation).
    */
   const [standaloneBoardsFlipped, setStandaloneBoardsFlipped] = useState(false);
+
+  // Full auth state for sharing functionality
+  const { status: fullAuthStatus, user, username, isFullyAuthenticated } = useFullAuth();
+
+  // Share modal state
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  /**
+   * Pristine game data for sharing.
+   * This is set when a game is first loaded and never modified,
+   * ensuring we share the original mainline regardless of user analysis.
+   */
+  const [pristineGameData, setPristineGameData] = useState<SingleGameData | null>(null);
 
   /**
    * The canonical public base URL we want users to share (rather than a localhost/dev URL).
@@ -332,6 +352,12 @@ export default function GameViewerPage() {
             if (clearInput) {
               setPrefetched({ status: "idle" });
             }
+            // Store pristine game data for potential sharing
+            setPristineGameData({
+              original: data.original,
+              partner: data.partner,
+              partnerId: data.partnerId,
+            });
             // Reset match state when loading a new game
             if (discoveryCancellationRef.current) {
               discoveryCancellationRef.current.cancel();
@@ -645,6 +671,51 @@ export default function GameViewerPage() {
     };
   }, []);
 
+  /**
+   * Determines the content type for sharing based on current state.
+   * - If match discovery is complete and we have multiple games: "match" or "partnerGames"
+   * - If a single game is loaded: "game"
+   */
+  const shareContentType: SharedContentType = (() => {
+    if (matchDiscoveryStatus === "complete" && matchGames.length > 1) {
+      return selectedPairForDisplay ? "partnerGames" : "match";
+    }
+    return "game";
+  })();
+
+  /**
+   * Whether the share button should be enabled.
+   * Requires: fully authenticated AND game loaded.
+   */
+  const canShare = isFullyAuthenticated && !!loadedGameId;
+
+  /**
+   * Message explaining why sharing is disabled.
+   */
+  const shareDisabledReason: string | undefined = (() => {
+    if (!loadedGameId) {
+      return "Load a game to share";
+    }
+    const authMessage = getFullAuthRequirementMessage(fullAuthStatus);
+    return authMessage ?? undefined;
+  })();
+
+  /**
+   * Opens the share modal.
+   */
+  const handleShareClick = useCallback(() => {
+    if (!canShare) return;
+    setIsShareModalOpen(true);
+  }, [canShare]);
+
+  /**
+   * Handles successful share.
+   */
+  const handleShareSuccess = useCallback((sharedId: string) => {
+    console.debug("[GameViewerPage] Game shared successfully:", sharedId);
+    // Modal will close itself
+  }, []);
+
   const schedulePrefetchForRawInput = useCallback((rawInput: string) => {
       if (typeof window === "undefined") return;
 
@@ -771,6 +842,101 @@ export default function GameViewerPage() {
       window.clearTimeout(timeoutId);
     };
   }, [autoLoadGameId, loadGame]);
+
+  /**
+   * Effect to load shared games from Firestore.
+   * When a sharedId is present in the URL, we load the game data from our database
+   * instead of fetching from Chess.com.
+   */
+  useEffect(() => {
+    if (!sharedId) {
+      return;
+    }
+
+    if (lastAutoLoadedSharedIdRef.current === sharedId) {
+      return;
+    }
+
+    lastAutoLoadedSharedIdRef.current = sharedId;
+
+    startTransition(() => {
+      const loadSharedGamePromise = (async () => {
+        const sharedGame = await getSharedGame(sharedId);
+        if (!sharedGame) {
+          throw new Error("Shared game not found");
+        }
+
+        return sharedGame;
+      })();
+
+      toast.promise(loadSharedGamePromise, {
+        loading: "Loading shared game...",
+        success: "Shared game loaded!",
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : "Failed to load shared game";
+          return message;
+        },
+      });
+
+      loadSharedGamePromise
+        .then((sharedGame) => {
+          const { gameData: storedData, type } = sharedGame;
+
+          if (storedData.type === "game") {
+            // Single game
+            const { game } = storedData;
+            setGameData({
+              original: game.original,
+              partner: game.partner,
+              partnerId: game.partnerId,
+            });
+            setPristineGameData(game);
+            setMatchGames([]);
+            setMatchCurrentIndex(0);
+            setMatchDiscoveryStatus("idle");
+          } else {
+            // Match or partner games
+            const matchGameData = fromMatchGameData(storedData.games);
+            if (matchGameData.length === 0) {
+              throw new Error("No games in shared match");
+            }
+
+            // Set the first game as the current game
+            const firstGame = matchGameData[0]!;
+            setGameData({
+              original: firstGame.original,
+              partner: firstGame.partner,
+              partnerId: firstGame.partnerGameId,
+            });
+            setPristineGameData({
+              original: firstGame.original,
+              partner: firstGame.partner,
+              partnerId: firstGame.partnerGameId,
+            });
+
+            // Set up match state
+            setMatchGames(matchGameData);
+            setMatchCurrentIndex(0);
+            setMatchDiscoveryStatus("complete");
+            setSelectedPairForDisplay(type === "partnerGames" ? extractPartnerPairs(firstGame.original, firstGame.partner)?.[0] ?? null : null);
+          }
+
+          // Reset other state
+          setGameId("");
+          setPrefetched({ status: "idle" });
+          if (discoveryCancellationRef.current) {
+            discoveryCancellationRef.current.cancel();
+            discoveryCancellationRef.current = null;
+          }
+          setBaselineBottomPairKey(null);
+          setUserFlipPreference(false);
+          setStandaloneBoardsFlipped(false);
+        })
+        .catch((err: unknown) => {
+          console.error("[GameViewerPage] Failed to load shared game:", err);
+        });
+    });
+  }, [sharedId, startTransition]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -965,9 +1131,26 @@ export default function GameViewerPage() {
             onAnalysisDirtyChange={setAnalysisIsDirty}
             gamesLoadedLabel={gamesLoadedLabel}
             showGamesLoadedInline={!isDesktopLayout}
+            onShareClick={handleShareClick}
+            canShare={canShare}
+            shareDisabledReason={shareDisabledReason}
           />
         </div>
       </main>
+
+      {/* Share Game Modal */}
+      {isFullyAuthenticated && user && username && (
+        <ShareGameModal
+          open={isShareModalOpen}
+          userId={user.uid}
+          username={username}
+          singleGameData={shareContentType === "game" ? pristineGameData : null}
+          matchGames={shareContentType !== "game" ? matchGames : undefined}
+          contentType={shareContentType}
+          onClose={() => setIsShareModalOpen(false)}
+          onSuccess={handleShareSuccess}
+        />
+      )}
     </div>
   );
 }

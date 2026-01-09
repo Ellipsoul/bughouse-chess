@@ -9,6 +9,7 @@ rules_version = '2';
  * - Usernames are permanent and cannot be changed or deleted
  * - Users can only create their own user document
  * - All writes require authentication
+ * - Shared games are publicly readable but only writable by fully-authenticated users
  *
  * Note: The emulator does not enforce these rules by default.
  * To test with rules, start emulator with: firebase emulators:start --only firestore
@@ -34,6 +35,23 @@ service cloud.firestore {
       return username.size() >= 3
              && username.size() <= 20
              && username.matches('^[a-z0-9_]+$');
+    }
+
+    // Helper function to check if user has reserved a username (fully authenticated)
+    // This requires the user document to exist with a username field
+    function isFullyAuthenticated() {
+      return isAuthenticated()
+             && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Helper function to validate shared game description length
+    function isValidDescription(description) {
+      return description is string && description.size() <= 100;
+    }
+
+    // Helper function to validate shared game type
+    function isValidSharedGameType(type) {
+      return type == 'game' || type == 'match' || type == 'partnerGames';
     }
 
     /**
@@ -88,6 +106,76 @@ service cloud.firestore {
 
       // Never allow updates or deletes (username is permanent)
       allow update, delete: if false;
+
+      /**
+       * User's shared games subcollection.
+       *
+       * Document ID: shared game UUID (matches document in sharedGames collection)
+       * Document fields:
+       *   - sharedId: string (reference to sharedGames document)
+       *   - sharedAt: timestamp
+       */
+      match /sharedGames/{sharedId} {
+        // Users can only read their own shared games references
+        allow read: if isOwner(userId);
+
+        // Users can create references to their own shared games
+        allow create: if isOwner(userId)
+                      && request.resource.data.keys().hasAll(['sharedId', 'sharedAt'])
+                      && request.resource.data.sharedId is string
+                      && request.resource.data.sharedId == sharedId;
+
+        // Users can delete their own shared game references
+        allow delete: if isOwner(userId);
+
+        // Never allow updates (references are immutable)
+        allow update: if false;
+      }
+    }
+
+    /**
+     * Shared games collection.
+     *
+     * Document ID: UUID
+     * Document fields:
+     *   - id: string (same as document ID)
+     *   - type: 'game' | 'match' | 'partnerGames'
+     *   - sharerUserId: string (Firebase Auth UID)
+     *   - sharerUsername: string
+     *   - description: string (max 100 chars)
+     *   - sharedAt: timestamp
+     *   - gameDate: timestamp
+     *   - gameData: object (game/match data)
+     *   - metadata: object (players, result, gameCount)
+     */
+    match /sharedGames/{sharedId} {
+      // Anyone can read shared games (public browsing, no auth required)
+      allow read: if true;
+
+      // Only fully authenticated users can share games
+      // Validation ensures:
+      // 1. User is fully authenticated (has reserved a username)
+      // 2. The sharerUserId matches the authenticated user
+      // 3. Required fields are present
+      // 4. Type and description are valid
+      allow create: if isFullyAuthenticated()
+                    && request.resource.data.sharerUserId == request.auth.uid
+                    && request.resource.data.keys().hasAll([
+                         'id', 'type', 'sharerUserId', 'sharerUsername',
+                         'description', 'sharedAt', 'gameDate', 'gameData', 'metadata'
+                       ])
+                    && request.resource.data.id == sharedId
+                    && isValidSharedGameType(request.resource.data.type)
+                    && isValidDescription(request.resource.data.description)
+                    && request.resource.data.sharerUserId is string
+                    && request.resource.data.sharerUsername is string;
+
+      // Only the original sharer can delete their shared game
+      allow delete: if isAuthenticated()
+                    && resource.data.sharerUserId == request.auth.uid;
+
+      // Never allow updates (shared games are immutable)
+      allow update: if false;
     }
 
     // Deny access to all other collections by default
