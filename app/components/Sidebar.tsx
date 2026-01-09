@@ -72,7 +72,7 @@ export default function Sidebar() {
         "h-full shrink-0",
         // Mobile-first: make the sidebar much narrower on small devices.
         "w-8 md:w-10 lg:w-16",
-        "bg-mariner-950/55 border-r border-mariner-900/40",
+        "bg-slate-800 border-r border-slate-900",
         "flex flex-col items-center py-3",
       ].join(" ")}
       aria-label="App sidebar"
