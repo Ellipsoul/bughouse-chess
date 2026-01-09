@@ -1,6 +1,7 @@
 import ProfilePageClient from "../../app/profile/ProfilePageClient";
 import { AuthProvider } from "../../app/auth/AuthProvider";
 import type { AuthAdapter, AuthUser } from "../../app/auth/types";
+import * as usernameService from "../../app/utils/usernameService";
 
 /**
  * Creates a fake AuthAdapter with configurable behavior.
@@ -243,6 +244,137 @@ describe("ProfilePageClient", () => {
 
       cy.contains("Authentication Unavailable").should("be.visible");
       cy.contains("Firebase authentication is not configured").should("be.visible");
+    });
+  });
+
+  describe("Username Feature", () => {
+    const signedInUser: AuthUser = {
+      uid: "user-abc-123",
+      email: "testuser@example.com",
+      photoURL: null,
+      displayName: "Test User",
+    };
+
+    // Store stubs for direct access in tests
+    let getUsernameForUserStub: sinon.SinonStub;
+    let isUsernameAvailableStub: sinon.SinonStub;
+    let reserveUsernameStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      getUsernameForUserStub = cy.stub(usernameService, "getUsernameForUser").as("getUsernameForUser");
+      isUsernameAvailableStub = cy.stub(usernameService, "isUsernameAvailable").as("isUsernameAvailable");
+      reserveUsernameStub = cy.stub(usernameService, "reserveUsername").as("reserveUsername");
+    });
+
+    it("shows loading state while fetching username", () => {
+      // Return a promise that doesn't resolve
+      getUsernameForUserStub.returns(new Promise(() => {}));
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      cy.contains("Username").should("be.visible");
+      cy.contains("Loading...").should("be.visible");
+    });
+
+    it("shows 'None' with Set button when user has no username", () => {
+      getUsernameForUserStub.resolves(null);
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      cy.contains("Username").should("be.visible");
+      cy.contains("None").should("be.visible");
+      cy.contains("button", "Set").should("be.visible");
+    });
+
+    it("shows username when user has one", () => {
+      getUsernameForUserStub.resolves("existinguser");
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      cy.contains("Username").should("be.visible");
+      cy.contains("existinguser").should("be.visible");
+      cy.contains("button", "Set").should("not.exist");
+    });
+
+    it("opens username reservation modal when Set button is clicked", () => {
+      getUsernameForUserStub.resolves(null);
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      cy.contains("button", "Set").click();
+
+      cy.contains("h2", "Choose Your Username").should("be.visible");
+    });
+
+    it("updates username display after successful reservation", () => {
+      getUsernameForUserStub.resolves(null);
+      isUsernameAvailableStub.resolves(true);
+      reserveUsernameStub.resolves({ success: true });
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      // Open modal
+      cy.contains("button", "Set").click();
+
+      // Type username and wait for debounce
+      cy.get('input[id="username-input"]').type("newusername");
+      cy.wait(1200);
+
+      // Submit
+      cy.contains("button", "Reserve Username").click();
+
+      // Modal should close and username should be displayed
+      cy.contains("h2", "Choose Your Username").should("not.exist");
+      cy.contains("newusername").should("be.visible");
+      cy.contains("button", "Set").should("not.exist");
+    });
+
+    it("does not show Set button on desktop when user has username", () => {
+      getUsernameForUserStub.resolves("myusername");
+
+      const adapter = createFakeAdapter({ user: signedInUser });
+
+      // Set viewport to desktop
+      cy.viewport(1024, 768);
+
+      cy.mount(
+        <AuthProvider adapter={adapter}>
+          <ProfilePageClient />
+        </AuthProvider>,
+      );
+
+      cy.contains("myusername").should("be.visible");
+      cy.get("button").contains("Set").should("not.exist");
     });
   });
 });

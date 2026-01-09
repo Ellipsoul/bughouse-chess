@@ -1,0 +1,98 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules for Bughouse Chess.
+ *
+ * These rules define access control for the database.
+ *
+ * Key design decisions:
+ * - Usernames are permanent and cannot be changed or deleted
+ * - Users can only create their own user document
+ * - All writes require authentication
+ *
+ * Note: The emulator does not enforce these rules by default.
+ * To test with rules, start emulator with: firebase emulators:start --only firestore
+ *
+ * @see https://firebase.google.com/docs/firestore/security/get-started
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the user owns this resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper function to validate username format
+    // Username must be 3-20 characters, lowercase, alphanumeric + underscores
+    function isValidUsername(username) {
+      return username.size() >= 3
+             && username.size() <= 20
+             && username.matches('^[a-z0-9_]+$');
+    }
+
+    /**
+     * Usernames collection.
+     *
+     * Document ID: normalized username (lowercase)
+     * Document fields:
+     *   - userId: string (Firebase Auth UID of the owner)
+     *   - createdAt: timestamp (server timestamp)
+     */
+    match /usernames/{username} {
+      // Authenticated users can check if a username exists (for availability checking)
+      allow read: if isAuthenticated();
+
+      // Only allow creation with strict validation:
+      // 1. User is authenticated
+      // 2. The userId field matches the authenticated user
+      // 3. The username format is valid
+      // 4. Required fields are present with correct types
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && isValidUsername(username)
+                    && request.resource.data.keys().hasAll(['userId', 'createdAt'])
+                    && request.resource.data.userId is string
+                    && request.resource.data.createdAt == request.time;
+
+      // Never allow updates or deletes (usernames are permanent)
+      allow update, delete: if false;
+    }
+
+    /**
+     * Users collection.
+     *
+     * Document ID: Firebase Auth UID
+     * Document fields:
+     *   - username: string (the user's chosen username, lowercase)
+     *   - createdAt: timestamp (server timestamp)
+     */
+    match /users/{userId} {
+      // Users can only read their own document
+      allow read: if isOwner(userId);
+
+      // Only allow creation with strict validation:
+      // 1. User owns this document (userId matches their auth UID)
+      // 2. Required fields are present with correct types
+      // 3. Username format is valid
+      allow create: if isOwner(userId)
+                    && request.resource.data.keys().hasAll(['username', 'createdAt'])
+                    && request.resource.data.username is string
+                    && isValidUsername(request.resource.data.username)
+                    && request.resource.data.createdAt == request.time;
+
+      // Never allow updates or deletes (username is permanent)
+      allow update, delete: if false;
+    }
+
+    // Deny access to all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

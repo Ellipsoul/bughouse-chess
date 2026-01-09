@@ -23,6 +23,7 @@ function ProfileAvatar({ src, alt }: { src: string; alt: string }) {
     <>
       {/* Default (< 768px): 20px avatar in 24px container */}
       <Image
+        loading="eager"
         src={src}
         alt={alt}
         width={20}
@@ -31,6 +32,7 @@ function ProfileAvatar({ src, alt }: { src: string; alt: string }) {
       />
       {/* md (768px - 1023px): 28px avatar in 32px container */}
       <Image
+        loading="eager"
         src={src}
         alt={alt}
         width={28}
@@ -39,6 +41,7 @@ function ProfileAvatar({ src, alt }: { src: string; alt: string }) {
       />
       {/* lg (1024px+): 40px avatar in 44px container */}
       <Image
+        loading="eager"
         src={src}
         alt={alt}
         width={40}

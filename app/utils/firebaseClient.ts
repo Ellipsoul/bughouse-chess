@@ -2,6 +2,11 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+import {
+  getFirestore as firestoreGetFirestore,
+  connectFirestoreEmulator,
+  type Firestore,
+} from "firebase/firestore";
 
 /**
  * Firebase client configuration.
@@ -86,4 +91,48 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
 
   const app = getFirebaseApp();
   return getAnalytics(app);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Firestore                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Tracks whether the Firestore emulator has been connected to avoid duplicate connections. */
+let firestoreEmulatorConnected = false;
+
+/** Cached Firestore instance (singleton). */
+let cachedFirestore: Firestore | null = null;
+
+/**
+ * Gets or initializes Firestore instance (singleton pattern).
+ *
+ * Automatically connects to the Firestore emulator if the
+ * `NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST` environment variable is set.
+ *
+ * @example
+ * ```ts
+ * const db = getFirestoreDb();
+ * const docRef = doc(db, "users", userId);
+ * ```
+ */
+export function getFirestoreDb(): Firestore {
+  if (cachedFirestore) {
+    return cachedFirestore;
+  }
+
+  const app = getFirebaseApp();
+  const db = firestoreGetFirestore(app);
+
+  // Connect to emulator if configured (only once)
+  const emulatorHost = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST;
+  if (emulatorHost && !firestoreEmulatorConnected) {
+    const [host, portStr] = emulatorHost.split(":");
+    const port = parseInt(portStr ?? "8080", 10);
+    connectFirestoreEmulator(db, host ?? "127.0.0.1", port);
+    firestoreEmulatorConnected = true;
+    console.info(`[Firebase] Connected to Firestore emulator at ${host}:${port}`);
+  }
+
+  cachedFirestore = db;
+  return db;
 }

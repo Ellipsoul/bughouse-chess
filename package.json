@@ -1,6 +1,6 @@
 {
   "name": "bughouse-chess",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,10 +14,13 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:component": "cypress run --component",
     "test:component:open": "cypress open --component",
+    "test:component:emulator": "bash scripts/cypress-with-emulator.sh",
+    "test:component:emulator:open": "bash scripts/cypress-with-emulator.sh open",
     "test:watch": "npm run test:unit:watch",
     "test:coverage": "npm run test:unit:coverage",
     "cy:component": "npm run test:component:open",
     "cy:component:run": "npm run test:component",
+    "emulator:start": "firebase emulators:start --only firestore --project demo-bughouse",
     "fixtures:record": "tsx scripts/recordChessComFixtures.ts",
     "prepare": "husky"
   },

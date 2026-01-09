@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, LogOut, UserRound } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, Pencil, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
+import { UsernameReservationModal } from "../components/UsernameReservationModal";
+import { getUsernameForUser } from "../utils/usernameService";
 
 /**
  * Client-side profile page UI.
@@ -22,7 +24,31 @@ export default function ProfilePageClient() {
   const { status, user, signInWithGoogle, signOut } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoadingUsername, setIsLoadingUsername] = useState(false);
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const isCompactLandscape = useCompactLandscape();
+
+  // Fetch username when user signs in
+  useEffect(() => {
+    if (status === "signed_in" && user) {
+      setIsLoadingUsername(true);
+      getUsernameForUser(user.uid)
+        .then((fetchedUsername) => {
+          setUsername(fetchedUsername);
+        })
+        .catch((err) => {
+          console.log("[ProfilePageClient] No username found", err);
+          // Don't show error toast - username is optional
+        })
+        .finally(() => {
+          setIsLoadingUsername(false);
+        });
+    } else {
+      // Reset username when signed out
+      setUsername(null);
+    }
+  }, [status, user]);
 
   const handleSignIn = useCallback(async () => {
     setIsSigningIn(true);
@@ -96,10 +122,26 @@ export default function ProfilePageClient() {
               user={user}
               onSignOut={handleSignOut}
               isSigningOut={isSigningOut}
+              username={username}
+              isLoadingUsername={isLoadingUsername}
+              onSetUsername={() => setIsUsernameModalOpen(true)}
             />
           )}
         </div>
       </main>
+
+      {/* Username reservation modal */}
+      {user && (
+        <UsernameReservationModal
+          isOpen={isUsernameModalOpen}
+          onClose={() => setIsUsernameModalOpen(false)}
+          userId={user.uid}
+          onSuccess={(newUsername) => {
+            setUsername(newUsername);
+            toast.success(`Username set to "${newUsername}"`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -174,10 +216,16 @@ function SignedInState({
   user,
   onSignOut,
   isSigningOut,
+  username,
+  isLoadingUsername,
+  onSetUsername,
 }: {
   user: { uid: string; email: string | null; photoURL: string | null; displayName: string | null };
   onSignOut: () => void;
   isSigningOut: boolean;
+  username: string | null;
+  isLoadingUsername: boolean;
+  onSetUsername: () => void;
 }) {
   const displayName = user.displayName || user.email || "User";
 
@@ -212,6 +260,37 @@ function SignedInState({
           {/* Right column: User details + actions (scrollable) */}
           <div className="flex flex-col min-h-0 overflow-y-auto">
             <dl className="text-left space-y-3 mb-6">
+              {/* Username field */}
+              <div>
+                <dt className="text-xs text-gray-500 uppercase tracking-wide">Username</dt>
+                <dd className="text-sm text-gray-200 flex items-center gap-2">
+                  {isLoadingUsername ? (
+                    <span className="inline-flex items-center gap-1.5 text-gray-400">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : username ? (
+                    <span className="font-mono">{username}</span>
+                  ) : (
+                    <>
+                      <span className="text-gray-400 italic">None</span>
+                      <button
+                        type="button"
+                        onClick={onSetUsername}
+                        className={[
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs",
+                          "bg-mariner-600/80 hover:bg-mariner-500 text-white",
+                          "transition-colors",
+                        ].join(" ")}
+                      >
+                        <Pencil className="h-3 w-3" aria-hidden="true" />
+                        Set
+                      </button>
+                    </>
+                  )}
+                </dd>
+              </div>
+
               {user.email && (
                 <div>
                   <dt className="text-xs text-gray-500 uppercase tracking-wide">Email</dt>
@@ -266,6 +345,37 @@ function SignedInState({
 
         {/* User details */}
         <dl className="w-full max-w-xs text-left space-y-3 mb-8">
+          {/* Username field */}
+          <div>
+            <dt className="text-xs text-gray-500 uppercase tracking-wide">Username</dt>
+            <dd className="text-sm text-gray-200 flex items-center gap-2">
+              {isLoadingUsername ? (
+                <span className="inline-flex items-center gap-1.5 text-gray-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading...
+                </span>
+              ) : username ? (
+                <span className="font-mono">{username}</span>
+              ) : (
+                <>
+                  <span className="text-gray-400 italic">None</span>
+                  <button
+                    type="button"
+                    onClick={onSetUsername}
+                    className={[
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs",
+                      "bg-mariner-600/80 hover:bg-mariner-500 text-white",
+                      "transition-colors",
+                    ].join(" ")}
+                  >
+                    <Pencil className="h-3 w-3" aria-hidden="true" />
+                    Set
+                  </button>
+                </>
+              )}
+            </dd>
+          </div>
+
           {user.email && (
             <div>
               <dt className="text-xs text-gray-500 uppercase tracking-wide">Email</dt>

@@ -68,10 +68,10 @@ export default function Providers({
         place="top"
         offset={10}
         delayShow={150}
+        border={"1px solid #374151"}
         style={{
           background: "#111827",
           color: "#f3f4f6",
-          border: "1px solid #374151",
           borderRadius: 8,
           padding: "6px 8px",
           fontSize: 12,
