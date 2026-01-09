@@ -99,14 +99,14 @@ function sanitizeChessComGameIdInput(input: string): string {
 
 /**
  * Validates that a game ID matches the expected Chess.com format.
- * Chess.com game IDs are 11 or 12-digit numeric values.
+ * Chess.com game IDs are 10, 11, or 12-digit numeric values.
  *
  * @param gameId - The game ID string to validate
  * @returns `true` if the game ID is valid, `false` otherwise
  */
 function isValidChessComGameId(gameId: string): boolean {
-  // Chess.com game IDs must be 11 or 12 digits
-  return /^\d{11,12}$/.test(gameId);
+  // Chess.com game IDs must be 10, 11, or 12 digits
+  return /^\d{10,12}$/.test(gameId);
 }
 
 /**
@@ -398,7 +398,7 @@ export default function GameViewerPage() {
       }
 
       if (!isValidChessComGameId(trimmedId)) {
-        toast.error("Invalid game ID. Chess.com game IDs must be 11 or 12 digits.");
+        toast.error("Invalid game ID. Chess.com game IDs must be 10, 11, or 12 digits.");
         return;
       }
 
@@ -744,7 +744,7 @@ export default function GameViewerPage() {
         setPrefetched({
           status: "invalid",
           sanitizedId,
-          message: "Invalid game ID. Chess.com game IDs must be 11 or 12 digits.",
+          message: "Invalid game ID. Chess.com game IDs must be 10, 11, or 12 digits.",
         });
         return;
       }
