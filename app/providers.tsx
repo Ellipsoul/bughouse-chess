@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { Tooltip } from "react-tooltip";
 import { APP_TOOLTIP_ID } from "./utils/tooltips";
 import { getFirebaseAnalytics } from "./utils/firebaseClient";
+import { AuthProvider } from "./auth/AuthProvider";
 
 /**
  * Top-level client providers. Currently hosts the toast system so all pages
@@ -79,7 +80,7 @@ export default function Providers({
           zIndex: 60,
         }}
       />
-      {children}
+      <AuthProvider>{children}</AuthProvider>
     </>
   );
 }
