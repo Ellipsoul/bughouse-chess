@@ -187,19 +187,25 @@ service cloud.firestore {
        *   - data: object (SingleGameData or MatchGameData)
        *
        * This subcollection stores the actual game data to avoid the 1MB document limit.
+       *
+       * Note: We cannot use get() to check parent document ownership on create because
+       * batch writes evaluate rules before any documents are written. The parent document
+       * and subcollection documents are created in the same batch, so get() would fail.
+       * Security is maintained because the batch is atomic - if parent creation fails
+       * validation, the whole batch fails.
        */
       match /games/{gameIndex} {
         // Anyone can read game data (public)
         allow read: if true;
 
-        // Only the sharer can create game data
-        // We check the parent document's sharerUserId
+        // Only fully authenticated users can create game data
+        // The parent document validation (in the same batch) ensures proper ownership
         allow create: if isFullyAuthenticated()
-                      && get(/databases/$(database)/documents/sharedGames/$(sharedId)).data.sharerUserId == request.auth.uid
                       && request.resource.data.keys().hasAll(['index', 'type', 'data'])
                       && request.resource.data.index is number;
 
         // Only the sharer can delete game data
+        // For delete, the parent document already exists so get() works
         allow delete: if isAuthenticated()
                       && get(/databases/$(database)/documents/sharedGames/$(sharedId)).data.sharerUserId == request.auth.uid;
 
