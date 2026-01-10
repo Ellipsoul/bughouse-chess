@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -157,6 +157,7 @@ function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: stri
  * Top-level viewer page: loads bughouse games from chess.com and renders the replay UI.
  */
 export default function GameViewerPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
   const sharedId = searchParams.get("sharedId");
@@ -370,6 +371,13 @@ export default function GameViewerPage() {
             setBaselineBottomPairKey(null);
             setUserFlipPreference(false);
             setStandaloneBoardsFlipped(false);
+            // Remove sharedId from URL when loading a new game (enables sharing)
+            if (sharedId) {
+              const newSearchParams = new URLSearchParams(searchParams.toString());
+              newSearchParams.delete("sharedId");
+              const newUrl = `${window.location.pathname}${newSearchParams.toString() ? `?${newSearchParams.toString()}` : ""}`;
+              router.replace(newUrl, { scroll: false });
+            }
           })
           .catch((err: unknown) => {
             // `toast.promise` already displays the error; avoid rendering an inline banner
@@ -378,7 +386,7 @@ export default function GameViewerPage() {
           });
       });
     },
-    [prefetched, startTransition],
+    [prefetched, startTransition, router, sharedId, searchParams],
   );
 
   /**
@@ -690,9 +698,10 @@ export default function GameViewerPage() {
 
   /**
    * Whether the share button should be enabled.
-   * Requires: fully authenticated AND game loaded AND not currently discovering match games.
+   * Requires: fully authenticated AND game loaded AND not currently discovering match games
+   * AND not loaded from a shared game (to prevent re-sharing).
    */
-  const canShare = isFullyAuthenticated && !!loadedGameId && !isDiscovering;
+  const canShare = isFullyAuthenticated && !!loadedGameId && !isDiscovering && !sharedId;
 
   /**
    * Message explaining why sharing is disabled.
@@ -700,6 +709,9 @@ export default function GameViewerPage() {
   const shareDisabledReason: string | undefined = (() => {
     if (!loadedGameId) {
       return "Load a game to share";
+    }
+    if (sharedId) {
+      return "Cannot re-share a game from the shared games list";
     }
     if (isDiscovering) {
       return "Wait for match discovery to complete";
