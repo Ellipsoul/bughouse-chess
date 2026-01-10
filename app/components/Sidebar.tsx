@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, Github, UserRound } from "lucide-react";
+import { BookMarked, ChessKnight, UserRound } from "lucide-react";
 import { TooltipAnchor } from "./TooltipAnchor";
 import { useAuth } from "../auth/useAuth";
 
@@ -78,6 +78,51 @@ export default function Sidebar() {
       aria-label="App sidebar"
     >
       <div className="mt-auto flex flex-col items-center gap-2 pb-1">
+        <TooltipAnchor content="Browse shared games">
+          <Link
+            href="/shared-games"
+            aria-label="Browse shared games"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <BookMarked className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
+
+        <div className="w-5 md:w-7 lg:w-10 h-px bg-gray-700/70" aria-hidden="true" />
+
+        <TooltipAnchor content="View source code on GitHub">
+          <Link
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="View source code on GitHub"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <svg
+              role="img"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 fill-current"
+              aria-hidden="true"
+            >
+              <title>GitHub</title>
+              <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+            </svg>
+          </Link>
+        </TooltipAnchor>
+
         <TooltipAnchor content="Play bughouse on Chess.com">
           <Link
             href={CHESS_COM_BUGHOUSE_URL}
@@ -95,42 +140,6 @@ export default function Sidebar() {
             <ChessKnight className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
           </Link>
         </TooltipAnchor>
-
-        <TooltipAnchor content="Browse shared games">
-          <Link
-            href="/shared-games"
-            aria-label="Browse shared games"
-            className={[
-              "inline-flex items-center justify-center rounded-md",
-              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
-              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
-              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
-            ].join(" ")}
-          >
-            <BookMarked className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
-          </Link>
-        </TooltipAnchor>
-
-        <TooltipAnchor content="View source code on GitHub">
-          <a
-            href={GITHUB_REPO_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label="View source code on GitHub"
-            className={[
-              "inline-flex items-center justify-center rounded-md",
-              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
-              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
-              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
-            ].join(" ")}
-          >
-            <Github className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
-          </a>
-        </TooltipAnchor>
-
-        <div className="w-5 md:w-7 lg:w-10 h-px bg-gray-700/70" aria-hidden="true" />
 
         <TooltipAnchor content="Profile">
           <Link
