@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "./firebaseClient";
 import type { ChessGame } from "../actions";
 import type { MatchGame } from "../types/match";
+import { computeMatchScore } from "../components/MatchNavigation";
 import type {
   SharedGameDocument,
   SharedGame,
@@ -159,8 +160,9 @@ function buildSingleGameMetadata(
  *
  * @param matchGames - Array of match games
  * @returns SharedGameMetadata object
+ * @internal Exported for testing purposes
  */
-function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata {
+export function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata {
   if (matchGames.length === 0) {
     throw new Error("Cannot build metadata for empty match");
   }
@@ -186,24 +188,18 @@ function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata {
     ? firstGame.partner.players.top.chessTitle
     : firstGame.partner.players.bottom.chessTitle;
 
-  // Count wins for each team
-  // Team 1: aWhite + bBlack, Team 2: aBlack + bWhite
-  let team1Wins = 0;
-  let team2Wins = 0;
+  // Use the correct match score calculation that handles team color swaps
+  // This reuses the same logic from MatchNavigation component
+  const matchScore = computeMatchScore(matchGames);
 
-  for (const game of matchGames) {
-    const winner = game.original.game.colorOfWinner;
-    if (winner === "white") {
-      team1Wins++;
-    } else if (winner === "black") {
-      team2Wins++;
-    }
-    // Draws don't count for either team
-  }
+  // Format result string (include draws if any)
+  const result = matchScore.draws > 0
+    ? `${matchScore.team1Wins} - ${matchScore.team2Wins} (${matchScore.draws} draw${matchScore.draws !== 1 ? "s" : ""})`
+    : `${matchScore.team1Wins} - ${matchScore.team2Wins}`;
 
   return {
     gameCount: matchGames.length,
-    result: `${team1Wins} - ${team2Wins}`,
+    result,
     team1: {
       player1: createPlayerForMetadata(aWhite, aWhiteTitle),
       player2: createPlayerForMetadata(bBlack, bBlackTitle),

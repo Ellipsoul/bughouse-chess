@@ -9,6 +9,7 @@ import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../types/sharedGame";
 import { shareGame, shareMatch } from "../utils/sharedGamesService";
 import { ChessTitleBadge } from "./ChessTitleBadge";
+import { computeMatchScore } from "./MatchNavigation";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -132,21 +133,17 @@ function getSingleGameResult(original: ChessGame): string {
 
 /**
  * Computes the result string for a match (multiple games).
+ * Uses the same correct logic from MatchNavigation that handles team color swaps.
  */
 function getMatchResult(matchGames: MatchGame[]): string {
-  let team1Wins = 0;
-  let team2Wins = 0;
+  const matchScore = computeMatchScore(matchGames);
 
-  for (const game of matchGames) {
-    const winner = game.original.game.colorOfWinner;
-    if (winner === "white") {
-      team1Wins++;
-    } else if (winner === "black") {
-      team2Wins++;
-    }
+  // Format result string (include draws if any)
+  if (matchScore.draws > 0) {
+    return `${matchScore.team1Wins} - ${matchScore.team2Wins} (${matchScore.draws} draw${matchScore.draws !== 1 ? "s" : ""})`;
   }
 
-  return `${team1Wins} - ${team2Wins}`;
+  return `${matchScore.team1Wins} - ${matchScore.team2Wins}`;
 }
 
 /* -------------------------------------------------------------------------- */

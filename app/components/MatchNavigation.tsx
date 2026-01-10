@@ -41,7 +41,7 @@ export function establishReferenceTeams(firstGame: MatchGame): ReferenceTeams {
 /**
  * Checks if the current game's white player on board A is from the reference Team1.
  */
-function isTeam1PlayingWhite(game: MatchGame, refTeams: ReferenceTeams): boolean {
+export function isTeam1PlayingWhite(game: MatchGame, refTeams: ReferenceTeams): boolean {
   const currentWhite = game.original.game.pgnHeaders.White.toLowerCase();
   return refTeams.team1.has(currentWhite);
 }
