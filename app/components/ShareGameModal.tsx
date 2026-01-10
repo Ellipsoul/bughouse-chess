@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Filter } from "bad-words";
-import type { ChessGame } from "../actions";
+import { revalidateSharedGamesPage, type ChessGame } from "../actions";
 import type { MatchGame } from "../types/match";
 import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../types/sharedGame";
@@ -266,6 +266,15 @@ export default function ShareGameModal({
 
       if (result.success) {
         toast.success("Game shared successfully!");
+
+        // Revalidate the shared games page cache so the new game appears immediately
+        try {
+          await revalidateSharedGamesPage();
+        } catch (revalidateErr) {
+          // Log error but don't fail the share operation
+          console.error("[ShareGameModal] Failed to revalidate cache:", revalidateErr);
+        }
+
         onSuccess?.(result.sharedId);
         onClose();
       } else {

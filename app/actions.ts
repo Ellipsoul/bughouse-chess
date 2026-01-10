@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import type { PublicGameRecord, PublicGamesResponse } from "./types/match";
 
 /**
@@ -250,4 +251,13 @@ export async function fetchPlayerMonthlyGames(
     console.error("Error fetching player monthly games:", error);
     throw new Error("Failed to fetch player games from Chess.com");
   }
+}
+
+/**
+ * Revalidates the shared games page cache.
+ * This should be called after a user successfully shares a game or match
+ * to ensure the newly shared content appears immediately.
+ */
+export async function revalidateSharedGamesPage(): Promise<void> {
+  revalidatePath("/shared-games");
 }
