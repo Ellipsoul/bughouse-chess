@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { Filter } from "bad-words";
 import type { ChessGame } from "../actions";
 import type { MatchGame } from "../types/match";
 import type { SharedContentType, SingleGameData } from "../types/sharedGame";
@@ -166,14 +167,22 @@ export default function ShareGameModal({
 }: ShareGameModalProps) {
   const [description, setDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  /**
+   * Initialize the profanity filter.
+   * Using useMemo to avoid recreating the filter instance on every render.
+   */
+  const profanityFilter = useMemo(() => new Filter(), []);
 
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
       setDescription("");
       setIsSharing(false);
+      setDescriptionError(null);
       // Focus the textarea after a short delay to ensure the modal is rendered
       setTimeout(() => {
         textareaRef.current?.focus();
@@ -194,13 +203,52 @@ export default function ShareGameModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, isSharing, onClose]);
 
+  /**
+   * Validates the description for offensive content.
+   * @param text - The text to validate
+   * @returns Error message if offensive content is detected, null otherwise
+   */
+  const validateDescription = useCallback((text: string): string | null => {
+    if (!text.trim()) {
+      return null;
+    }
+
+    if (profanityFilter.isProfane(text)) {
+      return "Your description contains inappropriate language. Please remove any offensive words.";
+    }
+
+    return null;
+  }, [profanityFilter]);
+
+  /**
+   * Handles changes to the description textarea.
+   * Validates the input for offensive content and updates the description state.
+   */
+  const handleDescriptionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value.slice(0, SHARED_GAME_DESCRIPTION_MAX_LENGTH);
+    setDescription(newValue);
+
+    // Validate for offensive content
+    const error = validateDescription(newValue);
+    setDescriptionError(error);
+  }, [validateDescription]);
+
   const handleCancel = useCallback(() => {
     if (isSharing) return;
     setDescription("");
+    setDescriptionError(null);
     onClose();
   }, [isSharing, onClose]);
 
   const handleShare = useCallback(async () => {
+    // Validate description before sharing
+    const validationError = validateDescription(description);
+    if (validationError) {
+      setDescriptionError(validationError);
+      toast.error(validationError);
+      return;
+    }
+
     setIsSharing(true);
 
     try {
@@ -230,7 +278,7 @@ export default function ShareGameModal({
     } finally {
       setIsSharing(false);
     }
-  }, [contentType, singleGameData, matchGames, userId, username, description, onSuccess, onClose]);
+  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, onSuccess, onClose]);
 
   if (!open) return null;
 
@@ -347,14 +395,33 @@ export default function ShareGameModal({
               ref={textareaRef}
               id="share-description"
               value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, SHARED_GAME_DESCRIPTION_MAX_LENGTH))}
+              onChange={handleDescriptionChange}
               placeholder="Add a note about this game..."
               rows={2}
-              className="w-full resize-none rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 outline-none transition-colors focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50"
+              className={`w-full resize-none rounded-md border bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 outline-none transition-colors ${
+                descriptionError
+                  ? "border-red-500 focus:border-red-400 focus:ring-1 focus:ring-red-500/50"
+                  : "border-gray-600 focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50"
+              }`}
               disabled={isSharing}
+              aria-invalid={descriptionError !== null}
+              aria-describedby={descriptionError ? "share-description-error" : undefined}
             />
-            <div className="mt-1 text-right text-xs text-gray-400">
-              {charactersRemaining} characters remaining
+            <div className="mt-1 flex items-center justify-between">
+              {descriptionError ? (
+                <span
+                  id="share-description-error"
+                  className="text-xs text-red-400"
+                  role="alert"
+                >
+                  {descriptionError}
+                </span>
+              ) : (
+                <span />
+              )}
+              <span className="text-right text-xs text-gray-400">
+                {charactersRemaining} characters remaining
+              </span>
             </div>
           </div>
 
@@ -378,7 +445,7 @@ export default function ShareGameModal({
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-mariner-600 px-3 py-2 text-sm font-semibold text-white hover:bg-mariner-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => void handleShare()}
-              disabled={isSharing}
+              disabled={isSharing || descriptionError !== null}
             >
               {isSharing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {isSharing ? "Sharing..." : "Share"}
