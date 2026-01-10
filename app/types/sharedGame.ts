@@ -9,9 +9,7 @@ import type { MatchGame } from "./match";
 /**
  * Current schema version for shared games.
  *
- * Version history:
- * - 1: All game data stored in the main document (deprecated)
- * - 2: Game data stored in subcollection `games/{index}` to avoid 1MB limit
+ * Game data is stored in subcollection `games/{index}` to avoid 1MB document limit.
  */
 export const SHARED_GAMES_SCHEMA_VERSION = 2;
 
@@ -171,27 +169,6 @@ export type SharedGameSubDocument =
     };
 
 /* -------------------------------------------------------------------------- */
-/* Legacy Types (Schema v1 - deprecated)                                      */
-/* -------------------------------------------------------------------------- */
-
-/**
- * The complete game data payload stored in Firestore (Schema v1).
- * Discriminated union based on content type.
- *
- * @deprecated Schema v1 stored all game data in the main document.
- * Use schema v2 with subcollection instead.
- */
-export type SharedGameDataLegacy =
-  | {
-      type: "game";
-      game: SingleGameData;
-    }
-  | {
-      type: "match" | "partnerGames";
-      games: MatchGameData[];
-    };
-
-/* -------------------------------------------------------------------------- */
 /* Main Document Types                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -199,7 +176,7 @@ export type SharedGameDataLegacy =
  * Document structure for the `sharedGames/{sharedId}` collection.
  * This is the main collection that stores shared game metadata publicly.
  *
- * Game data is stored in the `games` subcollection (schema v2).
+ * Game data is stored in the `games` subcollection.
  */
 export interface SharedGameDocument {
   /**
@@ -209,9 +186,8 @@ export interface SharedGameDocument {
   id: string;
 
   /**
-   * Schema version for migration compatibility.
-   * - 1: Legacy schema with gameData in main document
-   * - 2: Current schema with games in subcollection
+   * Schema version.
+   * Currently always 2 (games stored in subcollection).
    */
   schemaVersion: number;
 
@@ -250,12 +226,6 @@ export interface SharedGameDocument {
    * Denormalized metadata for efficient card display.
    */
   metadata: SharedGameMetadata;
-
-  /**
-   * Legacy field for schema v1 documents.
-   * @deprecated Use subcollection `games/{index}` instead.
-   */
-  gameData?: SharedGameDataLegacy;
 }
 
 /**

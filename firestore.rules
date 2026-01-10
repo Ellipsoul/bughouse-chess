@@ -137,9 +137,9 @@ service cloud.firestore {
      * Shared games collection.
      *
      * Document ID: UUID
-     * Document fields (schema v2):
+     * Document fields:
      *   - id: string (same as document ID)
-     *   - schemaVersion: number (2 for current schema)
+     *   - schemaVersion: number (always 2)
      *   - type: 'game' | 'match' | 'partnerGames'
      *   - sharerUserId: string (Firebase Auth UID)
      *   - sharerUsername: string
@@ -155,7 +155,7 @@ service cloud.firestore {
       allow read: if true;
 
       // Only fully authenticated users can share games
-      // Schema v2: gameData field is no longer required (stored in subcollection)
+      // Game data is stored in subcollection, not in main document
       allow create: if isFullyAuthenticated()
                     && request.resource.data.sharerUserId == request.auth.uid
                     && request.resource.data.keys().hasAll([
@@ -173,12 +173,11 @@ service cloud.firestore {
       allow delete: if isAuthenticated()
                     && resource.data.sharerUserId == request.auth.uid;
 
-      // Allow update only for migration (adding schemaVersion)
-      // Once migrated, updates are not allowed
+      // Updates are not allowed (shared games are immutable)
       allow update: if false;
 
       /**
-       * Games subcollection (schema v2).
+       * Games subcollection.
        *
        * Document ID: index (0, 1, 2, ...)
        * Document fields:
