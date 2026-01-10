@@ -256,11 +256,17 @@ export default function SharedGameCard({
           Shared by: <span className="text-gray-200">{game.sharerUsername}</span>
         </div>
 
-        {/* Description (if present) */}
+        {/* Description (if present) - non-clickable to allow URL clicks */}
         {game.description && (
-          <p className="mt-2 text-sm text-gray-400 italic line-clamp-2">
-            {game.description}
-          </p>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="mt-2 cursor-text"
+          >
+            <p className="text-sm text-gray-400 italic line-clamp-2">
+              {game.description}
+            </p>
+          </div>
         )}
 
         {/* Date */}
