@@ -1,22 +1,12 @@
-import { Suspense } from "react";
 import SharedGamesPageClient from "./SharedGamesPageClient";
+import { getAllSharedGames } from "../utils/sharedGamesService.server";
 
 /**
  * Shared games browsing page.
- * Displays all shared games from users across the platform.
+ * Fetches all shared games on the server with caching and passes them to the client component.
  */
-export default function SharedGamesPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="h-full w-full bg-gray-900 flex items-center justify-center">
-          <div className="text-gray-300" role="status" aria-live="polite">
-            Loading shared games...
-          </div>
-        </div>
-      }
-    >
-      <SharedGamesPageClient />
-    </Suspense>
-  );
+export default async function SharedGamesPage() {
+  const games = await getAllSharedGames();
+
+  return <SharedGamesPageClient games={games} />;
 }

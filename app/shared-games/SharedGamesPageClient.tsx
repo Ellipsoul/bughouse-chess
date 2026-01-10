@@ -1,45 +1,50 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Funnel } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
-import { getSharedGames } from "../utils/sharedGamesService";
-import type { SharedGameSummary, SharedGamesPage as SharedGamesPageData } from "../types/sharedGame";
-import { SHARED_GAMES_DEFAULT_PAGE_SIZE } from "../types/sharedGame";
+import type { SharedGameSummary } from "../types/sharedGame";
+import { filterSharedGames } from "../utils/sharedGamesFilter";
 import SharedGameCard from "../components/SharedGameCard";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type LoadingState = "idle" | "loading" | "error";
+export interface SharedGamesPageClientProps {
+  /**
+   * All shared games to display and filter.
+   */
+  games: SharedGameSummary[];
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helper Components                                                          */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Loading skeleton for the shared games grid.
+ * Empty state when no games match the filters.
  */
-function LoadingSkeleton() {
+function EmptyState() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-48 rounded-xl border border-gray-700/50 bg-gray-800/40 animate-pulse"
-        />
-      ))}
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-4 text-6xl">🔍</div>
+      <h2 className="mb-2 text-xl font-semibold text-gray-100">
+        No games match your filters
+      </h2>
+      <p className="max-w-md text-gray-400">
+        Try adjusting your filter criteria to see more results.
+      </p>
     </div>
   );
 }
 
 /**
- * Empty state when no games are shared.
+ * Empty state when no games are shared at all.
  */
-function EmptyState() {
+function NoGamesState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="mb-4 text-6xl">🏆</div>
@@ -60,183 +65,61 @@ function EmptyState() {
   );
 }
 
-/**
- * Error state when loading fails.
- */
-function ErrorState({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="mb-4 text-6xl">😵</div>
-      <h2 className="mb-2 text-xl font-semibold text-gray-100">
-        Failed to load shared games
-      </h2>
-      <p className="mb-6 max-w-md text-gray-400">
-        Something went wrong while loading the shared games. Please try again.
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="inline-flex items-center gap-2 rounded-md bg-mariner-600 px-4 py-2 text-sm font-medium text-white hover:bg-mariner-500 transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  );
-}
-
-/**
- * Pagination controls.
- */
-function PaginationControls({
-  currentPage,
-  hasMore,
-  isLoading,
-  onPrevious,
-  onNext,
-}: {
-  currentPage: number;
-  hasMore: boolean;
-  isLoading: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
-}) {
-  const canGoPrevious = currentPage > 1;
-  const canGoNext = hasMore;
-
-  return (
-    <div className="flex items-center justify-center gap-4 py-6">
-      <button
-        type="button"
-        onClick={onPrevious}
-        disabled={!canGoPrevious || isLoading}
-        className={[
-          "inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-          canGoPrevious && !isLoading
-            ? "border-gray-600 bg-gray-800 text-gray-100 hover:bg-gray-700"
-            : "border-gray-700 bg-gray-800/50 text-gray-500 cursor-not-allowed",
-        ].join(" ")}
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Previous
-      </button>
-
-      <span className="text-sm text-gray-400">
-        Page {currentPage}
-      </span>
-
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={!canGoNext || isLoading}
-        className={[
-          "inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-          canGoNext && !isLoading
-            ? "border-gray-600 bg-gray-800 text-gray-100 hover:bg-gray-700"
-            : "border-gray-700 bg-gray-800/50 text-gray-500 cursor-not-allowed",
-        ].join(" ")}
-        aria-label="Next page"
-      >
-        Next
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </button>
-    </div>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Client-side shared games browsing page.
- * Displays a paginated grid of shared games from all users.
+ * Displays a filterable grid of shared games from all users.
  */
-export default function SharedGamesPageClient() {
+export default function SharedGamesPageClient({
+  games: allGames,
+}: SharedGamesPageClientProps) {
   const { user } = useAuth();
   const isCompactLandscape = useCompactLandscape();
 
-  const [loadingState, setLoadingState] = useState<LoadingState>("idle");
-  const [games, setGames] = useState<SharedGameSummary[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [cursors, setCursors] = useState<(Date | null)[]>([null]); // Index 0 = page 1 cursor (null for first page)
+  // Track deleted game IDs to remove them from display immediately
+  const [deletedGameIds, setDeletedGameIds] = useState<Set<string>>(new Set());
+
+  // Filter state
+  const [filterPlayer1, setFilterPlayer1] = useState("");
+  const [filterPlayer2, setFilterPlayer2] = useState("");
+  const [filterPlayer3, setFilterPlayer3] = useState("");
+  const [filterPlayer4, setFilterPlayer4] = useState("");
+  const [filterSharer, setFilterSharer] = useState("");
+
+  // Filter out deleted games from the games list
+  const availableGames = useMemo(() => {
+    return allGames.filter((game) => !deletedGameIds.has(game.id));
+  }, [allGames, deletedGameIds]);
 
   /**
-   * Loads shared games for a specific page.
+   * Filters games based on the current filter inputs.
+   * Uses the shared games filter utility which handles interchangeable positions.
    */
-  const loadPage = useCallback(async (page: number, cursor: Date | null) => {
-    setLoadingState("loading");
-
-    try {
-      const result: SharedGamesPageData = await getSharedGames({
-        pageSize: SHARED_GAMES_DEFAULT_PAGE_SIZE,
-        startAfter: cursor ?? undefined,
-      });
-
-      setGames(result.games);
-      setHasMore(result.hasMore);
-      setCurrentPage(page);
-
-      // Store cursor for next page if it exists
-      if (result.nextCursor && page === cursors.length) {
-        setCursors((prev) => [...prev, result.nextCursor]);
-      }
-
-      setLoadingState("idle");
-    } catch (err) {
-      console.error("[SharedGamesPageClient] Failed to load games:", err);
-      setLoadingState("error");
-    }
-  }, [cursors.length]);
+  const filteredGames = useMemo(() => {
+    return filterSharedGames(availableGames, {
+      player1: filterPlayer1,
+      player2: filterPlayer2,
+      player3: filterPlayer3,
+      player4: filterPlayer4,
+      sharer: filterSharer,
+    });
+  }, [availableGames, filterPlayer1, filterPlayer2, filterPlayer3, filterPlayer4, filterSharer]);
 
   /**
-   * Initial load on mount.
-   * Shared games are publicly readable, so we don't need to wait for auth.
-   */
-  useEffect(() => {
-    void loadPage(1, null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * Handles going to the previous page.
-   */
-  const handlePrevious = useCallback(() => {
-    if (currentPage <= 1) return;
-    const prevPage = currentPage - 1;
-    const prevCursor = cursors[prevPage - 1] ?? null;
-    void loadPage(prevPage, prevCursor);
-  }, [currentPage, cursors, loadPage]);
-
-  /**
-   * Handles going to the next page.
-   */
-  const handleNext = useCallback(() => {
-    if (!hasMore) return;
-    const nextPage = currentPage + 1;
-    const nextCursor = cursors[currentPage] ?? null;
-    void loadPage(nextPage, nextCursor);
-  }, [currentPage, hasMore, cursors, loadPage]);
-
-  /**
-   * Handles retry after error.
-   */
-  const handleRetry = useCallback(() => {
-    const cursor = cursors[currentPage - 1] ?? null;
-    void loadPage(currentPage, cursor);
-  }, [currentPage, cursors, loadPage]);
-
-  /**
-   * Handles game deletion - removes from local state.
+   * Handles game deletion - removes from local display immediately.
+   * The deletion will be reflected on next page load due to cache revalidation.
    */
   const handleGameDeleted = useCallback((deletedId: string) => {
-    setGames((prev) => prev.filter((g) => g.id !== deletedId));
+    setDeletedGameIds((prev) => new Set(prev).add(deletedId));
   }, []);
 
-  const isLoading = loadingState === "loading";
-  const isError = loadingState === "error";
-  const isEmpty = !isLoading && !isError && games.length === 0;
+  const isEmpty = availableGames.length === 0;
+  const hasFilteredResults = filteredGames.length > 0;
+  const hasActiveFilters =
+    filterPlayer1 || filterPlayer2 || filterPlayer3 || filterPlayer4 || filterSharer;
 
   return (
     <div className="h-full w-full bg-gray-900 flex flex-col overflow-hidden">
@@ -266,39 +149,107 @@ export default function SharedGamesPageClient() {
         ].join(" ")}
       >
         <div className="mx-auto max-w-[1400px]">
-          {/* Page title */}
-          <div className="mb-6 pt-4">
-            <h1 className="text-2xl font-bold text-gray-100">Shared Games</h1>
-            <p className="mt-1 text-gray-400">
-              Browse games and matches shared by the community
-            </p>
+          {/* Page title and filters in same row */}
+          <div className="mb-6 pt-4 flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="mb-4 sm:mb-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-100">
+                Shared Games
+              </h1>
+              <p className="mt-1 text-gray-400 hidden sm:block">
+                Browse games and matches shared by the community
+              </p>
+            </div>
+
+            {/* Compact filter section */}
+            <div className="shrink-0 rounded-md border border-gray-700/50 bg-gray-800/60 p-2 sm:p-2.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Funnel className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                <h2 className="text-xs font-medium text-gray-300">Filter</h2>
+              </div>
+
+              <div className="space-y-1.5">
+                {/* Sharer filter */}
+                <div>
+                  <input
+                    id="filter-sharer"
+                    type="text"
+                    value={filterSharer}
+                    onChange={(e) => setFilterSharer(e.target.value)}
+                    placeholder="Sharer"
+                    className="w-full rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                  />
+                </div>
+
+                {/* Player filters in compact grid */}
+                <div className="space-y-1">
+                  {/* Team 1 */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      id="filter-player1"
+                      type="text"
+                      value={filterPlayer1}
+                      onChange={(e) => setFilterPlayer1(e.target.value)}
+                      placeholder="P1"
+                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                    />
+                    <input
+                      id="filter-player2"
+                      type="text"
+                      value={filterPlayer2}
+                      onChange={(e) => setFilterPlayer2(e.target.value)}
+                      placeholder="P2"
+                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                    />
+                  </div>
+
+                  {/* VS separator */}
+                  <div className="flex items-center justify-center text-[10px] text-gray-500">
+                    vs
+                  </div>
+
+                  {/* Team 2 */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      id="filter-player3"
+                      type="text"
+                      value={filterPlayer3}
+                      onChange={(e) => setFilterPlayer3(e.target.value)}
+                      placeholder="P3"
+                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                    />
+                    <input
+                      id="filter-player4"
+                      type="text"
+                      value={filterPlayer4}
+                      onChange={(e) => setFilterPlayer4(e.target.value)}
+                      placeholder="P4"
+                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Content */}
-          {isLoading && games.length === 0 && <LoadingSkeleton />}
+          {isEmpty && <NoGamesState />}
 
-          {isError && <ErrorState onRetry={handleRetry} />}
+          {!isEmpty && !hasFilteredResults && hasActiveFilters && (
+            <EmptyState />
+          )}
 
-          {isEmpty && <EmptyState />}
-
-          {!isError && games.length > 0 && (
+          {hasFilteredResults && (
             <>
-              {/* Loading overlay for page transitions */}
-              {isLoading && (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-mariner-400" />
+              {/* Results count */}
+              {hasActiveFilters && (
+                <div className="mb-4 text-sm text-gray-400">
+                  Showing {filteredGames.length} of {availableGames.length} games
                 </div>
               )}
 
               {/* Games grid */}
-              <div
-                className={[
-                  "grid gap-4",
-                  "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-                  isLoading ? "opacity-50 pointer-events-none" : "",
-                ].join(" ")}
-              >
-                {games.map((game) => (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredGames.map((game) => (
                   <SharedGameCard
                     key={game.id}
                     game={game}
@@ -307,15 +258,6 @@ export default function SharedGamesPageClient() {
                   />
                 ))}
               </div>
-
-              {/* Pagination */}
-              <PaginationControls
-                currentPage={currentPage}
-                hasMore={hasMore}
-                isLoading={isLoading}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-              />
             </>
           )}
         </div>

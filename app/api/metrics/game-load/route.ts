@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import admin from "firebase-admin";
 import { getAdminFirestore } from "../../../utils/firebaseAdmin";
 
-export const runtime = "nodejs";
-
 const METRICS_DOC_PATH = "metrics/global";
 
 type MetricsResponse = {

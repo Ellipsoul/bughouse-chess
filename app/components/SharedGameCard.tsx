@@ -56,9 +56,18 @@ function PlayerName({
 
 /**
  * Returns a formatted date string for display.
+ * Handles Date objects and converts other types safely.
  */
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
+  // Ensure we have a valid Date object
+  const dateObj = date instanceof Date ? date : new Date(date);
+
+  // Check if the date is valid
+  if (isNaN(dateObj.getTime())) {
+    return "Invalid date";
+  }
+
+  return dateObj.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",

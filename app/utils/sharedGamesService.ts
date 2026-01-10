@@ -22,7 +22,6 @@ import type {
   SharedGameDocument,
   SharedGame,
   SharedGameData,
-  SharedGameDataLegacy,
   SharedGameMetadata,
   SharedGameSummary,
   SharedGameSubDocument,
@@ -213,7 +212,6 @@ export function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata 
 
 /**
  * Fetches game data from the subcollection.
- * Handles both schema v1 (inline gameData) and v2 (subcollection).
  *
  * @param sharedId - The shared game ID
  * @param docData - The main document data
@@ -223,17 +221,6 @@ async function fetchGameData(
   sharedId: string,
   docData: SharedGameDocument,
 ): Promise<SharedGameData> {
-  // Schema v1: game data is in the main document
-  if (docData.schemaVersion === 1 || !docData.schemaVersion) {
-    if (!docData.gameData) {
-      throw new Error("Legacy document missing gameData");
-    }
-    // Convert legacy format to current format
-    const legacyData = docData.gameData as SharedGameDataLegacy;
-    return legacyData;
-  }
-
-  // Schema v2: game data is in subcollection
   const db = getFirestoreDb();
   const gamesRef = collection(db, SHARED_GAMES_COLLECTION, sharedId, SHARED_GAMES_SUBCOLLECTION);
   const q = query(gamesRef, orderBy("index", "asc"));
@@ -275,7 +262,7 @@ async function fetchGameData(
 
 /**
  * Shares a single bughouse game.
- * Uses schema v2: metadata in main document, game data in subcollection.
+ * Stores metadata in main document and game data in subcollection.
  *
  * @param userId - Firebase Auth UID of the sharer
  * @param username - Username of the sharer
@@ -361,7 +348,7 @@ export async function shareGame(
 
 /**
  * Shares a match (multiple games with the same players).
- * Uses schema v2: metadata in main document, each game in subcollection.
+ * Stores metadata in main document and each game in subcollection.
  *
  * @param userId - Firebase Auth UID of the sharer
  * @param username - Username of the sharer
@@ -521,7 +508,6 @@ export async function getSharedGames(
 
 /**
  * Fetches a single shared game by ID, including full game data.
- * Handles both schema v1 (legacy) and v2 (current).
  *
  * @param sharedId - The shared game UUID
  * @returns SharedGame if found, null otherwise
@@ -538,7 +524,7 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
 
     const data = docSnap.data() as SharedGameDocument;
 
-    // Fetch game data (handles both schema versions)
+    // Fetch game data from subcollection
     const gameData = await fetchGameData(sharedId, data);
 
     return {
