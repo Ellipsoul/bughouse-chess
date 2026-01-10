@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, UserRound } from "lucide-react";
+import { BookMarked, ChessKnight, Coffee, UserRound } from "lucide-react";
 import { TooltipAnchor } from "./TooltipAnchor";
 import { useAuth } from "../auth/useAuth";
 
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";
+const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/aronteh";
 
 /**
  * Responsive profile avatar that renders different sized images based on screen size.
@@ -95,6 +96,24 @@ export default function Sidebar() {
         </TooltipAnchor>
 
         <div className="w-5 md:w-7 lg:w-10 h-px bg-gray-700/70" aria-hidden="true" />
+
+        <TooltipAnchor content="Donate to support the project!">
+          <Link
+            href={BUY_ME_A_COFFEE_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Donate to support the project"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <Coffee className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
 
         <TooltipAnchor content="View source code on GitHub">
           <Link
