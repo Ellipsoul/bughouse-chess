@@ -189,7 +189,7 @@ export default function SharedGamesPageClient({
                       type="text"
                       value={filterPlayer1}
                       onChange={(e) => setFilterPlayer1(e.target.value)}
-                      placeholder="P1"
+                      placeholder="Player 1"
                       className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                     <input
@@ -197,7 +197,7 @@ export default function SharedGamesPageClient({
                       type="text"
                       value={filterPlayer2}
                       onChange={(e) => setFilterPlayer2(e.target.value)}
-                      placeholder="P2"
+                      placeholder="Player 2"
                       className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                   </div>
@@ -214,7 +214,7 @@ export default function SharedGamesPageClient({
                       type="text"
                       value={filterPlayer3}
                       onChange={(e) => setFilterPlayer3(e.target.value)}
-                      placeholder="P3"
+                      placeholder="Player 3"
                       className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                     <input
@@ -222,7 +222,7 @@ export default function SharedGamesPageClient({
                       type="text"
                       value={filterPlayer4}
                       onChange={(e) => setFilterPlayer4(e.target.value)}
-                      placeholder="P4"
+                      placeholder="Player 4"
                       className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                   </div>

@@ -233,7 +233,7 @@ describe("filterSharedGames", () => {
   });
 
   describe("Multiple player filters", () => {
-    it("matches two players from same filter group (P1/P2) on the same team", () => {
+    it("matches two players from same filter group (Player 1/Player 2) on the same team", () => {
       const games = [
         createMockGame({
           id: "1",
@@ -263,12 +263,12 @@ describe("filterSharedGames", () => {
         player2: "xshyne",
       });
 
-      // P1/P2 filters: must be on the same team (either team1 or team2)
+      // Player 1/Player 2 filters: must be on the same team (either team1 or team2)
       expect(result.length).toBe(2);
       expect(result.map((g) => g.id)).toEqual(["1", "2"]);
     });
 
-    it("matches two players from same filter group (P3/P4) on the same team", () => {
+    it("matches two players from same filter group (Player 3/Player 4) on the same team", () => {
       const games = [
         createMockGame({
           id: "1",
@@ -298,12 +298,12 @@ describe("filterSharedGames", () => {
         player4: "xshyne",
       });
 
-      // P3/P4 filters: must be on the same team (either team1 or team2)
+      // Player 3/Player 4 filters: must be on the same team (either team1 or team2)
       expect(result.length).toBe(2);
       expect(result.map((g) => g.id)).toEqual(["1", "2"]);
     });
 
-    it("requires opposite teams when filters are from both groups (P1/P2 AND P3/P4)", () => {
+    it("requires opposite teams when filters are from both groups (Player 1/Player 2 AND Player 3/Player 4)", () => {
       const games = [
         createMockGame({
           id: "1",
@@ -333,7 +333,7 @@ describe("filterSharedGames", () => {
         player3: "xshyne",
       });
 
-      // P1 (Team A) and P3 (Team B): must be on opposite teams
+      // Player 1 (Team A) and Player 3 (Team B): must be on opposite teams
       expect(result.length).toBe(2);
       expect(result.map((g) => g.id)).toEqual(["1", "2"]);
     });
@@ -431,7 +431,7 @@ describe("filterSharedGames", () => {
         player3: "larso", // Team B
       });
 
-      // Team A (P1/P2) must be on same team, Team B (P3) must be on opposite team
+      // Team A (Player 1/Player 2) must be on same team, Team B (Player 3) must be on opposite team
       // Game 1: Team A on team1, Team B on team2 - valid
       // Game 3: Team A on team1, Team B on team2 - valid
       expect(result.length).toBe(2);
@@ -477,7 +477,7 @@ describe("filterSharedGames", () => {
         player4: "player4", // Team B
       });
 
-      // Team A (P1/P2) and Team B (P3/P4): must be on opposite teams
+      // Team A (Player 1/Player 2) and Team B (Player 3/Player 4): must be on opposite teams
       // Games 1, 2, 3 have both teams properly matched
       expect(result.length).toBe(3);
       expect(result.map((g) => g.id)).toEqual(["1", "2", "3"]);
@@ -637,11 +637,11 @@ describe("filterSharedGames", () => {
       ];
 
       const result = filterSharedGames(games, {
-        player1: "ellipsoul", // Team A (P1/P2)
-        player3: "xshyne", // Team B (P3/P4)
+        player1: "ellipsoul", // Team A (Player 1/Player 2)
+        player3: "xshyne", // Team B (Player 3/Player 4)
       });
 
-      // P1 (Team A) and P3 (Team B): must be on opposite teams
+      // Player 1 (Team A) and Player 3 (Team B): must be on opposite teams
       expect(result.length).toBe(2);
       expect(result.map((g) => g.id)).toEqual(["1", "2"]);
     });
@@ -679,11 +679,11 @@ describe("filterSharedGames", () => {
       ];
 
       const result = filterSharedGames(games, {
-        player1: "xshyne", // Team A (P1/P2)
-        player2: "ellipsoul", // Team A (P1/P2)
+        player1: "xshyne", // Team A (Player 1/Player 2)
+        player2: "ellipsoul", // Team A (Player 1/Player 2)
       });
 
-      // P1/P2 filters: must be on same team (either team1 or team2)
+      // Player 1/Player 2 filters: must be on same team (either team1 or team2)
       // Should match games 1, 2, and 3 (partners on same team, any team, any position within team)
       // Should NOT match game 4 (opposite teams)
       expect(result.length).toBe(3);

@@ -2,11 +2,11 @@ import type { SharedGameSummary } from "../types/sharedGame";
 
 /**
  * Filter options for shared games.
- * P1/P2 represent one team (Team A), P3/P4 represent the other team (Team B).
- * Player positions within a team are agnostic (P1/P2 can swap, P3/P4 can swap).
+ * Player 1/Player 2 represent one team (Team A), Player 3/Player 4 represent the other team (Team B).
+ * Player positions within a team are agnostic (Player 1/Player 2 can swap, Player 3/Player 4 can swap).
  * Team orientation is agnostic (Team A can be team1 OR team2, Team B can be team1 OR team2).
- * - If filters are from both groups (P1/P2 AND P3/P4): must be on opposite teams
- * - If filters are from only one group (only P1/P2 or only P3/P4): must be on the same team
+ * - If filters are from both groups (Player 1/Player 2 AND Player 3/Player 4): must be on opposite teams
+ * - If filters are from only one group (only Player 1/Player 2 or only Player 3/Player 4): must be on the same team
  */
 export interface SharedGamesFilter {
   /**
@@ -39,11 +39,11 @@ export interface SharedGamesFilter {
  * Filters shared games based on the provided filter criteria.
  *
  * Filtering rules:
- * - P1/P2 represent one team (Team A), P3/P4 represent the other team (Team B)
- * - Player positions within a team are agnostic (P1/P2 can swap, P3/P4 can swap)
+ * - Player 1/Player 2 represent one team (Team A), Player 3/Player 4 represent the other team (Team B)
+ * - Player positions within a team are agnostic (Player 1/Player 2 can swap, Player 3/Player 4 can swap)
  * - Team orientation is agnostic (Team A can be team1 OR team2, Team B can be team1 OR team2)
- * - If filters are from both groups (P1/P2 AND P3/P4): must be on opposite teams
- * - If filters are from only one group (only P1/P2 or only P3/P4): must be on the same team
+ * - If filters are from both groups (Player 1/Player 2 AND Player 3/Player 4): must be on opposite teams
+ * - If filters are from only one group (only Player 1/Player 2 or only Player 3/Player 4): must be on the same team
  * - All filters are case-insensitive substring matches
  * - Empty filters are ignored
  *
@@ -62,7 +62,7 @@ export function filterSharedGames(
     return games;
   }
 
-  // Collect filters by group: Team A (P1/P2) and Team B (P3/P4)
+  // Collect filters by group: Team A (Player 1/Player 2) and Team B (Player 3/Player 4)
   const teamAFilters: Array<{ value: string; index: number }> = [];
   const teamBFilters: Array<{ value: string; index: number }> = [];
 
