@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Funnel } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
+import { useFullAuth } from "../utils/useFullAuth";
 import type { SharedGameSummary } from "../types/sharedGame";
 import { filterSharedGames } from "../utils/sharedGamesFilter";
 import SharedGameCard from "../components/SharedGameCard";
@@ -77,6 +78,7 @@ export default function SharedGamesPageClient({
   games: allGames,
 }: SharedGamesPageClientProps) {
   const { user } = useAuth();
+  const { isFullyAuthenticated, status: fullAuthStatus } = useFullAuth();
   const isCompactLandscape = useCompactLandscape();
 
   // Track deleted game IDs to remove them from display immediately
@@ -158,6 +160,16 @@ export default function SharedGamesPageClient({
               <p className="mt-1 text-gray-400 hidden sm:block">
                 Browse games and matches shared by the community
               </p>
+              {fullAuthStatus !== "loading" && !isFullyAuthenticated && (
+                <p className="mt-2 text-sm text-gray-400 hidden sm:block">
+                  <Link
+                    href="/profile"
+                    className="text-mariner-400 hover:text-mariner-300 underline transition-colors"
+                  >
+                    Sign in and set your username to share games!
+                  </Link>
+                </p>
+              )}
             </div>
 
             {/* Compact filter section */}
