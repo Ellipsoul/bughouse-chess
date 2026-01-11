@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, Coffee, UserRound } from "lucide-react";
+import { BookMarked, ChessKnight, Coffee, Settings, UserRound } from "lucide-react";
 import { TooltipAnchor } from "./TooltipAnchor";
 import { useAuth } from "../auth/useAuth";
 
@@ -158,6 +158,24 @@ export default function Sidebar() {
           >
             <ChessKnight className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
           </Link>
+        </TooltipAnchor>
+
+        <div className="w-5 md:w-7 lg:w-10 h-px bg-gray-700/70" aria-hidden="true" />
+
+        <TooltipAnchor content="Settings are coming soon">
+          <button
+            disabled
+            aria-label="Settings"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-500 cursor-not-allowed",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <Settings className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </button>
         </TooltipAnchor>
 
         <TooltipAnchor content="Profile">
