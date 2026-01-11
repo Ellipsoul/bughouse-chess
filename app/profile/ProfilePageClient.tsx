@@ -9,6 +9,7 @@ import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
 import { UsernameReservationModal } from "../components/UsernameReservationModal";
 import { getUsernameForUser } from "../utils/usernameService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 /**
  * Client-side profile page UI.
@@ -28,6 +29,15 @@ export default function ProfilePageClient() {
   const [isLoadingUsername, setIsLoadingUsername] = useState(false);
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const isCompactLandscape = useCompactLandscape();
+  const analytics = useFirebaseAnalytics();
+
+  // Log analytics when profile page is viewed
+  useEffect(() => {
+    logAnalyticsEvent(analytics, "profile_page_viewed", {
+      user_status: status,
+      has_username: username ? "true" : "false",
+    });
+  }, [analytics, status, username]);
 
   // Fetch username when user signs in
   useEffect(() => {
@@ -51,30 +61,40 @@ export default function ProfilePageClient() {
   }, [status, user]);
 
   const handleSignIn = useCallback(async () => {
+    logAnalyticsEvent(analytics, "sign_in_initiated", {});
     setIsSigningIn(true);
     try {
       await signInWithGoogle();
+      logAnalyticsEvent(analytics, "sign_in_success", {});
       toast.success("Signed in successfully");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign-in failed";
+      logAnalyticsEvent(analytics, "sign_in_error", {
+        error: message,
+      });
       toast.error(message);
     } finally {
       setIsSigningIn(false);
     }
-  }, [signInWithGoogle]);
+  }, [signInWithGoogle, analytics]);
 
   const handleSignOut = useCallback(async () => {
+    logAnalyticsEvent(analytics, "sign_out_initiated", {});
     setIsSigningOut(true);
     try {
       await signOut();
+      logAnalyticsEvent(analytics, "sign_out_success", {});
       toast.success("Signed out");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign-out failed";
+      logAnalyticsEvent(analytics, "sign_out_error", {
+        error: message,
+      });
       toast.error(message);
     } finally {
       setIsSigningOut(false);
     }
-  }, [signOut]);
+  }, [signOut, analytics]);
 
   return (
     <div className="h-full w-full bg-gray-900 flex flex-col overflow-hidden">
@@ -124,7 +144,10 @@ export default function ProfilePageClient() {
               isSigningOut={isSigningOut}
               username={username}
               isLoadingUsername={isLoadingUsername}
-              onSetUsername={() => setIsUsernameModalOpen(true)}
+              onSetUsername={() => {
+                logAnalyticsEvent(analytics, "username_modal_opened", {});
+                setIsUsernameModalOpen(true);
+              }}
             />
           )}
         </div>
@@ -137,6 +160,9 @@ export default function ProfilePageClient() {
           onClose={() => setIsUsernameModalOpen(false)}
           userId={user.uid}
           onSuccess={(newUsername) => {
+            logAnalyticsEvent(analytics, "username_reserved", {
+              username_length: newUsername.length,
+            });
             setUsername(newUsername);
             toast.success(`Username set to "${newUsername}"`);
           }}

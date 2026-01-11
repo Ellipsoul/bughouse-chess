@@ -348,6 +348,13 @@ export default function GameViewerPage() {
 
         loadPromise
           .then((data) => {
+            // Log analytics for successful game load
+            logAnalyticsEvent(analytics, "game_loaded_success", {
+              game_id: trimmedId,
+              has_partner: data.partnerId ? "true" : "false",
+              partner_id: data.partnerId ?? "none",
+            });
+
             setGameData(data);
             setGameId(clearInput ? "" : trimmedId);
             if (clearInput) {
@@ -380,13 +387,20 @@ export default function GameViewerPage() {
             }
           })
           .catch((err: unknown) => {
+            // Log analytics for game load error
+            const errorMessage = normalizeLoadGameErrorMessage({ err, sanitizedId: trimmedId });
+            logAnalyticsEvent(analytics, "game_load_error", {
+              game_id: trimmedId,
+              error_type: err instanceof Error ? err.message.split(":")[0] ?? "unknown" : "unknown",
+            });
+
             // `toast.promise` already displays the error; avoid rendering an inline banner
             // that would shift the board layout.
-            toast.error(normalizeLoadGameErrorMessage({ err, sanitizedId: trimmedId }));
+            toast.error(errorMessage);
           });
       });
     },
-    [prefetched, startTransition, router, sharedId, searchParams],
+    [prefetched, startTransition, router, sharedId, searchParams, analytics],
   );
 
   /**
@@ -464,8 +478,11 @@ export default function GameViewerPage() {
       toast.error("No game loaded. Load a game first to find match games.");
       return;
     }
+    logAnalyticsEvent(analytics, "match_discovery_initiated", {
+      game_id: loadedGameId ?? "unknown",
+    });
     setIsDiscoveryModalOpen(true);
-  }, [gameData]);
+  }, [gameData, analytics, loadedGameId]);
 
   /**
    * Handles the discovery mode selection from the modal.
@@ -557,6 +574,14 @@ export default function GameViewerPage() {
             setMatchCurrentIndex(initialGameIndex);
             const seriesType =
               selection.mode === "partnerPair" ? "partner series" : "match";
+
+            // Log analytics for match discovery completion
+            logAnalyticsEvent(analytics, "match_discovery_complete", {
+              mode: selection.mode,
+              total_games: totalGames,
+              found_additional: totalGames > 1 ? "true" : "false",
+            });
+
             if (totalGames > 1) {
               toast.success(`Found ${totalGames} games in this ${seriesType}`);
             } else {
@@ -565,6 +590,13 @@ export default function GameViewerPage() {
           },
           onError: (error) => {
             setMatchDiscoveryStatus("error");
+
+            // Log analytics for match discovery error
+            logAnalyticsEvent(analytics, "match_discovery_error", {
+              mode: selection.mode,
+              error: error.message || "unknown",
+            });
+
             toast.error(error.message || "Failed to find match games");
           },
           onProgress: (checked, found) => {
@@ -575,7 +607,7 @@ export default function GameViewerPage() {
         cancellation,
       );
     },
-    [gameData, standaloneBoardsFlipped],
+    [gameData, standaloneBoardsFlipped, analytics],
   );
 
   /**
@@ -594,13 +626,20 @@ export default function GameViewerPage() {
     const newIndex = matchCurrentIndex - 1;
     const targetGame = matchGames[newIndex];
 
+    logAnalyticsEvent(analytics, "match_navigation", {
+      direction: "previous",
+      from_index: matchCurrentIndex,
+      to_index: newIndex,
+      total_games: matchGames.length,
+    });
+
     setMatchCurrentIndex(newIndex);
     setGameData({
       original: targetGame.original,
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
-  }, [matchCurrentIndex, matchGames]);
+  }, [matchCurrentIndex, matchGames, analytics]);
 
   /**
    * Navigates to the next game in the match.
@@ -611,13 +650,20 @@ export default function GameViewerPage() {
     const newIndex = matchCurrentIndex + 1;
     const targetGame = matchGames[newIndex];
 
+    logAnalyticsEvent(analytics, "match_navigation", {
+      direction: "next",
+      from_index: matchCurrentIndex,
+      to_index: newIndex,
+      total_games: matchGames.length,
+    });
+
     setMatchCurrentIndex(newIndex);
     setGameData({
       original: targetGame.original,
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
-  }, [matchCurrentIndex, matchGames]);
+  }, [matchCurrentIndex, matchGames, analytics]);
 
   /**
    * Navigates to a specific game in the match by index.
@@ -627,13 +673,20 @@ export default function GameViewerPage() {
 
     const targetGame = matchGames[index];
 
+    logAnalyticsEvent(analytics, "match_navigation", {
+      direction: "select",
+      from_index: matchCurrentIndex,
+      to_index: index,
+      total_games: matchGames.length,
+    });
+
     setMatchCurrentIndex(index);
     setGameData({
       original: targetGame.original,
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
-  }, [matchGames]);
+  }, [matchGames, analytics, matchCurrentIndex]);
 
   /**
    * Compute the board orientation for the currently displayed game.
@@ -654,6 +707,11 @@ export default function GameViewerPage() {
 
   const handleBoardsFlippedChange = useCallback(
     (nextEffectiveFlip: boolean) => {
+      logAnalyticsEvent(analytics, "boards_flipped", {
+        new_orientation: nextEffectiveFlip ? "flipped" : "normal",
+        in_match: baselineBottomPairKey ? "true" : "false",
+      });
+
       if (!gameData || !baselineBottomPairKey) {
         setStandaloneBoardsFlipped(nextEffectiveFlip);
         return;
@@ -667,7 +725,7 @@ export default function GameViewerPage() {
       // effective = baseFlip XOR userFlipPreference  =>  userFlipPreference = baseFlip XOR effective
       setUserFlipPreference(baseFlip !== nextEffectiveFlip);
     },
-    [baselineBottomPairKey, gameData],
+    [baselineBottomPairKey, gameData, analytics],
   );
 
   // Cleanup discovery on unmount
@@ -725,8 +783,12 @@ export default function GameViewerPage() {
    */
   const handleShareClick = useCallback(() => {
     if (!canShare) return;
+    logAnalyticsEvent(analytics, "share_button_clicked", {
+      has_match: matchGames.length > 0 ? "true" : "false",
+      match_game_count: matchGames.length > 0 ? matchGames.length : 0,
+    });
     setIsShareModalOpen(true);
-  }, [canShare]);
+  }, [canShare, analytics, matchGames.length]);
 
   /**
    * Handles successful share.
@@ -902,6 +964,13 @@ export default function GameViewerPage() {
         .then((sharedGame) => {
           const { gameData: storedData, type } = sharedGame;
 
+          // Log analytics for shared game loaded
+          logAnalyticsEvent(analytics, "shared_game_loaded", {
+            shared_id: sharedId,
+            content_type: storedData.type,
+            game_count: storedData.type === "game" ? 1 : storedData.games.length,
+          });
+
           if (storedData.type === "game") {
             // Single game
             const { game } = storedData;
@@ -954,9 +1023,13 @@ export default function GameViewerPage() {
         })
         .catch((err: unknown) => {
           console.error("[GameViewerPage] Failed to load shared game:", err);
+          logAnalyticsEvent(analytics, "shared_game_load_error", {
+            shared_id: sharedId ?? "unknown",
+            error: err instanceof Error ? err.message : "unknown",
+          });
         });
     });
-  }, [sharedId, startTransition]);
+  }, [sharedId, startTransition, analytics]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

@@ -11,6 +11,7 @@ import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../types/sharedGame";
 import { shareGame, shareMatch } from "../utils/sharedGamesService";
 import { ChessTitleBadge } from "./ChessTitleBadge";
 import { computeMatchScore } from "./MatchNavigation";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -170,6 +171,7 @@ export default function ShareGameModal({
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
+  const analytics = useFirebaseAnalytics();
 
   /**
    * Initialize the profanity filter.
@@ -180,6 +182,10 @@ export default function ShareGameModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      logAnalyticsEvent(analytics, "share_modal_opened", {
+        content_type: contentType,
+        game_count: contentType === "game" ? 1 : matchGames?.length ?? 0,
+      });
       setDescription("");
       setIsSharing(false);
       setDescriptionError(null);
@@ -188,7 +194,7 @@ export default function ShareGameModal({
         textareaRef.current?.focus();
       }, 50);
     }
-  }, [open]);
+  }, [open, analytics, contentType, matchGames?.length]);
 
   // Handle escape key
   useEffect(() => {
@@ -267,6 +273,14 @@ export default function ShareGameModal({
       if (result.success) {
         toast.success("Game shared successfully!");
 
+        // Log analytics for successful share
+        logAnalyticsEvent(analytics, "game_shared_success", {
+          content_type: contentType,
+          game_count: contentType === "game" ? 1 : matchGames?.length ?? 0,
+          has_description: description.trim().length > 0 ? "true" : "false",
+          description_length: description.trim().length,
+        });
+
         // Revalidate the shared games page cache so the new game appears immediately
         try {
           await revalidateSharedGamesPage();
@@ -278,16 +292,27 @@ export default function ShareGameModal({
         onSuccess?.(result.sharedId);
         onClose();
       } else {
+        // Log analytics for share failure
+        logAnalyticsEvent(analytics, "game_shared_error", {
+          content_type: contentType,
+          error: result.error,
+        });
         toast.error(result.error);
       }
     } catch (err) {
       console.error("[ShareGameModal] Share failed:", err);
       const message = err instanceof Error ? err.message : "Failed to share";
+
+      // Log analytics for share error
+      logAnalyticsEvent(analytics, "game_shared_error", {
+        content_type: contentType,
+        error: message,
+      });
       toast.error(message);
     } finally {
       setIsSharing(false);
     }
-  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, onSuccess, onClose]);
+  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, onSuccess, onClose, analytics]);
 
   if (!open) return null;
 

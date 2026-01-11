@@ -10,6 +10,7 @@ import {
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
 } from "../utils/usernameService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -61,6 +62,7 @@ export function UsernameReservationModal({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const analytics = useFirebaseAnalytics();
 
   // Focus input when modal opens
   useEffect(() => {
@@ -165,9 +167,19 @@ export function UsernameReservationModal({
         const result = await reserveUsername(userId, username);
 
         if (result.success) {
-          onSuccess(normalizeUsername(username));
+          const normalizedUsername = normalizeUsername(username);
+          logAnalyticsEvent(analytics, "username_reserved", {
+            username_length: normalizedUsername.length,
+          });
+          onSuccess(normalizedUsername);
           onClose();
         } else {
+          // Log analytics for reservation failure
+          logAnalyticsEvent(analytics, "username_reservation_error", {
+            reason: result.reason ?? "unknown",
+            error: result.message,
+          });
+
           // Handle specific failure reasons
           if (result.reason === "username_taken") {
             setAvailabilityStatus("taken");
@@ -185,7 +197,7 @@ export function UsernameReservationModal({
         setIsSubmitting(false);
       }
     },
-    [availabilityStatus, isSubmitting, userId, username, onSuccess, onClose],
+    [availabilityStatus, isSubmitting, userId, username, onSuccess, onClose, analytics],
   );
 
   // Handle backdrop click
@@ -245,7 +257,7 @@ export function UsernameReservationModal({
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
           {/* Warning notice */}
           <div className="flex items-start gap-3 p-3 bg-amber-900/30 border border-amber-700/50 rounded-lg">
-            <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-200">
               <strong>Important:</strong> Your username can only be set once and cannot be changed
               later. Choose wisely!

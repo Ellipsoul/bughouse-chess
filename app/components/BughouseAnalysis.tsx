@@ -51,6 +51,7 @@ import {
   isPristineLoadedMainline,
 } from "../utils/analysis/liveReplay";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -138,6 +139,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const boardsContainerRef = useRef<HTMLDivElement>(null);
   const controlsContainerRef = useRef<HTMLDivElement>(null);
   const isCompactLandscape = useCompactLandscape();
+  const analytics = useFirebaseAnalytics();
   const {
     state,
     currentPosition,
@@ -145,18 +147,64 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     navBack,
     navForwardOrOpenSelector,
     loadGameMainline,
-    promoteVariationOneLevel,
-    truncateAfterNode,
-    truncateFromNodeInclusive,
+    promoteVariationOneLevel: promoteVariationOneLevelBase,
+    truncateAfterNode: truncateAfterNodeBase,
+    truncateFromNodeInclusive: truncateFromNodeInclusiveBase,
     closeVariationSelector,
     moveVariationSelectorIndex,
     setVariationSelectorIndex,
     acceptVariationSelector,
     tryApplyMove,
     setPendingDrop,
-    commitPromotion,
+    commitPromotion: commitPromotionBase,
     cancelPendingPromotion,
   } = useAnalysisState();
+
+  // Wrap variation and promotion functions with analytics
+  const promoteVariationOneLevel = useCallback(
+    (nodeId: string) => {
+      logAnalyticsEvent(analytics, "variation_promoted", {
+        node_id: nodeId,
+      });
+      promoteVariationOneLevelBase(nodeId);
+    },
+    [analytics, promoteVariationOneLevelBase],
+  );
+
+  const truncateAfterNode = useCallback(
+    (nodeId: string) => {
+      logAnalyticsEvent(analytics, "variation_truncated", {
+        truncation_type: "after",
+        node_id: nodeId,
+      });
+      truncateAfterNodeBase(nodeId);
+    },
+    [analytics, truncateAfterNodeBase],
+  );
+
+  const truncateFromNodeInclusive = useCallback(
+    (nodeId: string) => {
+      logAnalyticsEvent(analytics, "variation_truncated", {
+        truncation_type: "inclusive",
+        node_id: nodeId,
+      });
+      truncateFromNodeInclusiveBase(nodeId);
+    },
+    [analytics, truncateFromNodeInclusiveBase],
+  );
+
+  const commitPromotion = useCallback(
+    (piece: "q" | "r" | "b" | "n") => {
+      const result = commitPromotionBase(piece);
+      if (result.type === "ok") {
+        logAnalyticsEvent(analytics, "promotion_committed", {
+          piece: piece,
+        });
+      }
+      return result;
+    },
+    [analytics, commitPromotionBase],
+  );
 
   const [localBoardsFlipped, setLocalBoardsFlipped] = useState(false);
   const isBoardsFlipped = boardsFlipped ?? localBoardsFlipped;
@@ -192,12 +240,19 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const toggleBoardsFlipped = useCallback(() => {
     const next = !isBoardsFlipped;
+
+    // Log analytics for board flip
+    logAnalyticsEvent(analytics, "boards_flipped", {
+      new_orientation: next ? "flipped" : "normal",
+      context: "analysis",
+    });
+
     if (boardsFlipped !== undefined) {
       onBoardsFlippedChange?.(next);
       return;
     }
     setLocalBoardsFlipped(next);
-  }, [boardsFlipped, isBoardsFlipped, onBoardsFlippedChange]);
+  }, [boardsFlipped, isBoardsFlipped, onBoardsFlippedChange, analytics]);
 
   /**
    * Responsive board sizing.
@@ -861,9 +916,17 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const seekLiveReplayByDelta = useCallback(
     (delta: -1 | 1): boolean => {
       const currentPly = getGlobalPlyCountAtNode(state.cursorNodeId);
-      return seekLiveReplayToGlobalPly(currentPly + delta);
+      const result = seekLiveReplayToGlobalPly(currentPly + delta);
+      if (result) {
+        logAnalyticsEvent(analytics, "live_replay_seek", {
+          direction: delta === 1 ? "forward" : "backward",
+          from_ply: currentPly,
+          to_ply: currentPly + delta,
+        });
+      }
+      return result;
     },
-    [getGlobalPlyCountAtNode, seekLiveReplayToGlobalPly, state.cursorNodeId],
+    [getGlobalPlyCountAtNode, seekLiveReplayToGlobalPly, state.cursorNodeId, analytics],
   );
 
   // Keep a stable, always-up-to-date seek handler so the keyboard effect can call it
@@ -873,26 +936,38 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   }, [seekLiveReplayByDelta]);
 
   const handleStart = useCallback(() => {
+    logAnalyticsEvent(analytics, "navigation_control", {
+      action: "jump_to_start",
+    });
     selectNode(state.tree.rootId);
-  }, [selectNode, state.tree.rootId]);
+  }, [selectNode, state.tree.rootId, analytics]);
 
   const handlePrevious = useCallback(() => {
     if (isLiveReplayPlaying) {
       seekLiveReplayByDelta(-1);
       return;
     }
+    logAnalyticsEvent(analytics, "navigation_control", {
+      action: "previous_move",
+    });
     navBack();
-  }, [isLiveReplayPlaying, navBack, seekLiveReplayByDelta]);
+  }, [isLiveReplayPlaying, navBack, seekLiveReplayByDelta, analytics]);
 
   const handleNext = useCallback(() => {
     if (isLiveReplayPlaying) {
       seekLiveReplayByDelta(1);
       return;
     }
+    logAnalyticsEvent(analytics, "navigation_control", {
+      action: "next_move",
+    });
     navForwardOrOpenSelector();
-  }, [isLiveReplayPlaying, navForwardOrOpenSelector, seekLiveReplayByDelta]);
+  }, [isLiveReplayPlaying, navForwardOrOpenSelector, seekLiveReplayByDelta, analytics]);
 
   const handleEnd = useCallback(() => {
+    logAnalyticsEvent(analytics, "navigation_control", {
+      action: "jump_to_end",
+    });
     let nodeId = state.cursorNodeId;
     while (true) {
       const node = state.tree.nodesById[nodeId];
@@ -900,7 +975,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       nodeId = node.mainChildId;
     }
     selectNode(nodeId);
-  }, [selectNode, state.cursorNodeId, state.tree.nodesById]);
+  }, [selectNode, state.cursorNodeId, state.tree.nodesById, analytics]);
 
   const liveReplayEligible = useMemo(() => {
     if (!processedGame) return false;
@@ -952,9 +1027,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     : liveReplayPlayDisabledReason ?? "Play live replay";
 
   const handleLiveReplayPause = useCallback(() => {
+    logAnalyticsEvent(analytics, "live_replay_paused", {
+      elapsed_deciseconds: liveReplayElapsedDeciseconds,
+    });
     stopLiveReplayLoop();
     setLiveReplayStatus("idle");
-  }, [stopLiveReplayLoop]);
+  }, [stopLiveReplayLoop, analytics, liveReplayElapsedDeciseconds]);
 
   const handleLiveReplayPlay = useCallback(() => {
     if (!processedGame) return;
@@ -991,6 +1069,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
     setLiveReplayStatus("playing");
     setLiveReplayElapsedDeciseconds(baseElapsed);
+
+    // Log analytics for live replay play
+    logAnalyticsEvent(analytics, "live_replay_play", {
+      start_ply: plyAtCursor,
+      total_moves: combinedMovesForMoveTimes.length,
+    });
 
     liveReplayBaseElapsedDecisecondsRef.current = baseElapsed;
     liveReplayStartPerfMsRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -1037,6 +1121,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         if (playhead >= lastTimestamp && lastIdx === monotonicMoveTimestampsDeciseconds.length - 1) {
           stopLiveReplayLoop();
           setLiveReplayStatus("finished");
+
+          // Log analytics for live replay completion
+          logAnalyticsEvent(analytics, "live_replay_completed", {
+            total_moves: monotonicMoveTimestampsDeciseconds.length,
+            total_duration_deciseconds: lastTimestamp,
+          });
+
           return;
         }
       }
@@ -1045,22 +1136,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     };
 
     liveReplayRafIdRef.current = window.requestAnimationFrame(tick);
-  }, [
-    boardMoveCountsByGlobalPly,
-    closeVariationSelector,
-    combinedMovesForMoveTimes,
-    getGlobalPlyCountAtNode,
-    isCursorOnMainline,
-    liveReplayEligible,
-    mainlineNodeIdsByGlobalPly,
-    monotonicMoveTimestampsDeciseconds,
-    processedGame,
-    selectNode,
-    setPendingDrop,
-    state.cursorNodeId,
-    state.pendingPromotion,
-    stopLiveReplayLoop,
-  ]);
+  }, [analytics, boardMoveCountsByGlobalPly, closeVariationSelector, combinedMovesForMoveTimes, getGlobalPlyCountAtNode, isCursorOnMainline, liveReplayEligible, mainlineNodeIdsByGlobalPly, monotonicMoveTimestampsDeciseconds, processedGame, selectNode, setPendingDrop, state.cursorNodeId, state.pendingPromotion, stopLiveReplayLoop]);
 
   // Keep a stable, always-up-to-date Space handler without needing to reorder the keyboard effect.
   useEffect(() => {
@@ -1302,6 +1378,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       });
 
       if (result.type === "ok") {
+        // Log analytics for successful move
+        logAnalyticsEvent(analytics, "move_applied", {
+          move_type: "normal",
+          board: payload.board,
+        });
         return;
       }
 
@@ -1321,7 +1402,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       }
       return "snapback";
     },
-    [isLiveReplayPlaying, tryApplyMove],
+    [analytics, isLiveReplayPlaying, tryApplyMove],
   );
 
   const handleSquareClick = useCallback(
@@ -1349,6 +1430,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       });
 
       if (result.type === "ok") {
+        // Log analytics for successful drop
+        logAnalyticsEvent(analytics, "move_applied", {
+          move_type: "drop",
+          board: payload.board,
+          piece: pending.piece,
+        });
         return;
       }
 
@@ -1365,7 +1452,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       toast.error(result.message);
     },
-    [isLiveReplayPlaying, state.pendingDrop, state.pendingPromotion, tryApplyMove],
+    [isLiveReplayPlaying, state.pendingDrop, state.pendingPromotion, tryApplyMove, analytics],
   );
 
   const handleReservePieceDragStart = useCallback(
@@ -1439,6 +1526,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       });
 
       if (result.type === "ok") {
+        // Log analytics for successful drop
+        logAnalyticsEvent(analytics, "move_applied", {
+          move_type: "drop",
+          board: payload.board,
+          piece: payload.piece,
+        });
         setPendingDrop(null);
         return;
       }
@@ -1459,6 +1552,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       setPendingDrop,
       state.pendingPromotion,
       tryApplyMove,
+      analytics,
     ],
   );
 

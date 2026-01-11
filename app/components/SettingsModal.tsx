@@ -12,6 +12,7 @@ import {
   DEFAULT_BOARD_ANNOTATION_COLOR,
   type UserPreferences,
 } from "../utils/userPreferencesService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -113,6 +114,7 @@ export default function SettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const [modalHeight, setModalHeight] = useState<number | null>(null);
+  const analytics = useFirebaseAnalytics();
 
   /**
    * Handles color selection from the Twitter Picker.
@@ -122,7 +124,12 @@ export default function SettingsModal({
     // Convert to rgb with opacity for CSS variable
     const rgbColor = hexToRgbWithOpacity(hexColor, 0.95);
     setSelectedColor(rgbColor);
-  }, []);
+
+    // Log analytics for color change (throttled by Firebase Analytics)
+    logAnalyticsEvent(analytics, "settings_color_changed", {
+      color_hex: hexColor,
+    });
+  }, [analytics]);
 
   /**
    * Reverts to the initial color and closes the modal.
@@ -160,9 +167,23 @@ export default function SettingsModal({
         };
         await saveUserPreferencesToFirestore(userId, preferences);
         toast.success("Settings saved!");
+
+        // Log analytics for successful save
+        logAnalyticsEvent(analytics, "settings_saved", {
+          user_authenticated: "true",
+          color_changed: selectedColor !== initialColor ? "true" : "false",
+          storage_type: "firestore",
+        });
       } else {
         // For non-authenticated users, localStorage is already updated in real-time
         toast.success("Settings saved!");
+
+        // Log analytics for successful save
+        logAnalyticsEvent(analytics, "settings_saved", {
+          user_authenticated: "false",
+          color_changed: selectedColor !== initialColor ? "true" : "false",
+          storage_type: "localStorage",
+        });
       }
 
       // Update initial color to the saved color
@@ -171,21 +192,31 @@ export default function SettingsModal({
     } catch (err) {
       console.error("[SettingsModal] Failed to save preferences:", err);
       const message = err instanceof Error ? err.message : "Failed to save settings";
+
+      // Log analytics for save error
+      logAnalyticsEvent(analytics, "settings_save_error", {
+        user_authenticated: userId ? "true" : "false",
+        error: message,
+      });
+
       toast.error(message);
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, userId, selectedColor, onClose]);
+  }, [isSaving, userId, selectedColor, initialColor, onClose, analytics]);
 
   // Load initial color when modal opens
   useEffect(() => {
     if (open) {
+      logAnalyticsEvent(analytics, "settings_modal_opened", {
+        user_authenticated: userId ? "true" : "false",
+      });
       const currentColor = getBoardAnnotationColorFromLocalStorage();
       setSelectedColor(currentColor);
       setInitialColor(currentColor);
       setIsSaving(false);
     }
-  }, [open]);
+  }, [open, analytics, userId]);
 
   // Measure modal height after render to calculate bottom alignment
   useEffect(() => {
@@ -205,7 +236,7 @@ export default function SettingsModal({
       // Save to localStorage in real-time
       saveBoardAnnotationColorToLocalStorage(selectedColor);
     }
-  }, [open, selectedColor]);
+  }, [open, selectedColor, initialColor, analytics]);
 
   // Handle escape key
   useEffect(() => {

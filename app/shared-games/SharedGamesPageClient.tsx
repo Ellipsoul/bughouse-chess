@@ -9,6 +9,8 @@ import { useFullAuth } from "../utils/useFullAuth";
 import type { SharedGameSummary } from "../types/sharedGame";
 import { filterSharedGames } from "../utils/sharedGamesFilter";
 import SharedGameCard from "../components/SharedGameCard";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+import { useEffect } from "react";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -80,6 +82,15 @@ export default function SharedGamesPageClient({
   const { user } = useAuth();
   const { isFullyAuthenticated, status: fullAuthStatus } = useFullAuth();
   const isCompactLandscape = useCompactLandscape();
+  const analytics = useFirebaseAnalytics();
+
+  // Log analytics when shared games page is viewed
+  useEffect(() => {
+    logAnalyticsEvent(analytics, "shared_games_page_viewed", {
+      total_games: allGames.length,
+      user_authenticated: user ? "true" : "false",
+    });
+  }, [analytics, allGames.length, user]);
 
   // Track deleted game IDs to remove them from display immediately
   const [deletedGameIds, setDeletedGameIds] = useState<Set<string>>(new Set());
