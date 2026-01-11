@@ -16,6 +16,10 @@ for **drops**, **variations**, **live replay**, and **fast navigation**.
 - **Paste a chess.com live game ID** (e.g. `159878252255`)
 - **Or open a link directly**:
   `https://bughouse.aronteh.com/?gameId=159878252255`
+- **Open shared games**: Use `?sharedId=<uuid>` to open games shared by other
+  users
+- **Sample games**: When visiting without a game ID, Relay suggests a random
+  sample game to explore
 - **Partner board auto-detection**
   - If chess.com provides `partnerGameId`, Relay uses it.
   - Otherwise, Relay probes nearby IDs to find the paired board.
@@ -27,6 +31,12 @@ for **drops**, **variations**, **live replay**, and **fast navigation**.
   match as it actually unfolded (including simultaneous-move quirks).
 - **Clocks** shown per player (as provided by chess.com), synchronized to the
   current position.
+- **Clock advantage visualization**: See time differences between teams with
+  color-coded indicators
+- **Material tracking**: Track captured pieces for bughouse scoring (pawn=1,
+  knight/bishop=3, rook=5, queen=9)
+- **Chess title badges**: Player titles (GM, IM, FM, etc.) are displayed next to
+  usernames
 - **Live replay mode**: play the match back in (approximate) real time using the
   original timestamps, with play/pause + seeking.
 
@@ -67,16 +77,60 @@ for **drops**, **variations**, **live replay**, and **fast navigation**.
 
 ### Match navigation (multi-game)
 
-If you’re playing a bughouse match consisting of multiple consecutive games,
+If you're playing a bughouse match consisting of multiple consecutive games,
 Relay can help you **discover and step through subsequent games** with the same
 four players and the same team pairings (rate-limited to be gentle to
 chess.com).
+
+- **Match discovery**: Automatically finds all games in a match sequence
+- **Match score tracking**: See wins, losses, and draws across the match
+- **Board orientation**: Automatically maintains correct board orientation as
+  teams swap colors
+- **Navigation controls**: Jump between games in a match with forward/backward
+  navigation
+
+### Sharing & collaboration
+
+- **Share games and matches**: Share individual games or entire matches with
+  other users
+- **Shared games browser**: Browse all shared games at `/shared-games`
+- **Advanced filtering**: Filter shared games by player names (supports
+  team-aware filtering)
+- **Descriptions**: Add optional descriptions (up to 100 characters) when
+  sharing
+- **Profanity filtering**: Automatic filtering of inappropriate content in
+  descriptions
+- **Share links**: Each shared game gets a unique URL that can be shared
+  directly
+
+### User accounts & preferences
+
+- **Google sign-in**: Authenticate with your Google account to unlock sharing
+  features
+- **Username reservation**: Reserve a unique username (one-time, cannot be
+  changed later)
+- **Profile page**: Manage your account and view your shared games
+- **Settings**: Customize your experience
+  - **Board annotation color**: Choose your preferred color for board highlights
+    and arrows
+  - **Cross-device sync**: Preferences sync across devices for authenticated
+    users
+  - **Local storage fallback**: Non-authenticated users can still save
+    preferences locally
+
+### Progressive Web App (PWA)
+
+- **Installable**: Add Relay to your home screen for a native app-like
+  experience
+- **Landscape lock**: Android phones automatically lock to landscape orientation
+  for optimal viewing
+- **Offline-ready**: Core functionality works offline once games are loaded
 
 ### Quick-open helpers (optional)
 
 - **Bookmarklet**: one-click bookmark to open the current game in Relay (see
   [`user_scripts/bookmarklet.md`](user_scripts/bookmarklet.md))
-- **TamperMonkey**: adds “Ellipviewer” buttons to bughouse games in chess.com
+- **TamperMonkey**: adds "Ellipviewer" buttons to bughouse games in chess.com
   game history (see
   [`user_scripts/ellipviewer_installation.md`](user_scripts/ellipviewer_installation.md))
 
@@ -106,23 +160,39 @@ chess.com).
   `app/utils/replayController.ts`
 - **Main UI**: `app/components/GameViewerPage.tsx`,
   `app/components/BughouseAnalysis.tsx`
+- **Shared games**: `app/utils/sharedGamesService.ts`,
+  `app/shared-games/SharedGamesPageClient.tsx`
+- **User preferences**: `app/utils/userPreferencesService.ts`,
+  `app/components/SettingsModal.tsx`
+- **Authentication**: `app/auth/AuthProvider.tsx`, `app/auth/useAuth.ts`
+- **Username service**: `app/utils/usernameService.ts`
+- **Match discovery**: `app/utils/matchDiscovery.ts`,
+  `app/components/MatchNavigation.tsx`
 
-### Firebase (optional, for metrics + analytics)
+### Firebase (optional, for metrics + analytics + user features)
 
 Relay supports:
 
-- **Firestore** (Admin SDK) for a single global metric: **how many games were
-  loaded**
-- **Firebase Analytics** (Web SDK) for basic interaction tracking (e.g. “Load
-  Game” clicks)
+- **Firestore** (Admin SDK) for:
+  - A single global metric: **how many games were loaded**
+  - **Shared games**: Public collection of games shared by users
+  - **User preferences**: Per-user settings (board annotation color, etc.)
+  - **Username reservations**: Unique username registry
+  - **User shared games**: Index of games shared by each user
+- **Firebase Analytics** (Web SDK) for basic interaction tracking (e.g. "Load
+  Game" clicks)
+- **Firebase Authentication** for Google sign-in
 
 Privacy design:
 
-- The browser does **not** talk to Firestore directly.
-- The app uses a server route (`/api/metrics/game-load`) which increments/reads
-  a counter stored at Firestore document `metrics/global`.
+- The browser does **not** talk to Firestore directly for most operations.
+- The app uses server routes (e.g., `/api/metrics/game-load`) which
+  increment/read counters stored at Firestore document `metrics/global`.
 - The metric is intentionally anonymous and low-cardinality (no per-game IDs
   stored).
+- Shared games are public and can be viewed by anyone, but only authenticated
+  users can create them.
+- User preferences are private and only accessible by the user who created them.
 
 #### Firebase / Firestore setup (local + production)
 
@@ -163,7 +233,8 @@ all). The server uses Firebase Admin SDK and bypasses rules.
 #### Firebase Authentication (optional, for user sign-in)
 
 Relay supports **Google sign-in** via Firebase Authentication. When enabled,
-users can sign in to unlock future authenticated features.
+users can sign in to unlock authenticated features like sharing games and
+syncing preferences across devices.
 
 **Setup steps:**
 
@@ -182,6 +253,20 @@ client-side config (`NEXT_PUBLIC_FIREBASE_*`) already required for Analytics.
 
 The authentication UI is accessible via the **Profile** button in the left
 sidebar. Users can sign in with Google popup and sign out from the profile page.
+
+#### Firestore Collections Structure
+
+When using Firebase features, Relay creates the following Firestore structure:
+
+- `metrics/global` - Global game load counter (server-only access)
+- `sharedGames/{sharedId}` - Public shared games collection
+  - `sharedGames/{sharedId}/games/{index}` - Game data subcollection
+- `users/{userId}/userPreferences/settings` - User preferences (private)
+- `users/{userId}/sharedGames/{sharedId}` - User's shared games index
+- `usernames/{username}` - Username reservation registry
+
+See `firestore.rules` for security rules that enforce privacy and access
+control.
 
 ### Run locally
 
