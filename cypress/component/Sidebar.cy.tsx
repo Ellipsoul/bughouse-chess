@@ -101,11 +101,15 @@ describe("Sidebar", () => {
       </AuthProvider>,
     );
 
-    // Wait for auth state to settle, then check for avatar image
+    // Wait for auth state to settle and avatar image to appear
+    // ProfileAvatar renders multiple img elements for different breakpoints,
+    // so we check for any img with the correct alt text
     cy.get('a[aria-label="Open profile"]')
+      .should("exist")
       .find("img")
       .should("exist")
-      .and("have.attr", "alt", "Profile avatar for test@example.com");
+      .first()
+      .should("have.attr", "alt", "Profile avatar for test@example.com");
   });
 
   it("shows UserRound icon when signed in but no photoURL", () => {
@@ -122,6 +126,9 @@ describe("Sidebar", () => {
         <Sidebar />
       </AuthProvider>,
     );
+
+    // Wait for auth state to settle by first ensuring the profile link exists
+    cy.get('a[aria-label="Open profile"]').should("exist");
 
     // Should show the fallback UserRound icon
     cy.get('a[aria-label="Open profile"]')
