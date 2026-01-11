@@ -10,8 +10,9 @@ import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../types/sharedGame";
 import { shareGame, shareMatch } from "../utils/sharedGamesService";
 import { ChessTitleBadge } from "./ChessTitleBadge";
-import { computeMatchScore } from "./MatchNavigation";
+import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "./MatchNavigation";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+import type { PartnerPair } from "../types/match";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -50,6 +51,12 @@ export interface ShareGameModalProps {
   contentType: SharedContentType;
 
   /**
+   * The selected partner pair for partner games mode.
+   * Required when contentType is "partnerGames".
+   */
+  selectedPair?: PartnerPair | null;
+
+  /**
    * Called when the modal is closed (via cancel or after successful share).
    */
   onClose: () => void;
@@ -84,6 +91,7 @@ function PlayerDisplay({
 
 /**
  * Extracts player information from a ChessGame for display.
+ * This is used for single games only.
  */
 function getPlayersFromGame(
   original: ChessGame,
@@ -123,6 +131,123 @@ function getPlayersFromGame(
 }
 
 /**
+ * Extracts chess titles for a partner pair from the first game in a match.
+ * @param matchGames - Array of match games
+ * @param selectedPair - The selected partner pair
+ * @returns Array of chess titles corresponding to the pair's display names, or undefined if not found
+ */
+function getPartnerPairTitles(
+  matchGames: MatchGame[],
+  selectedPair: PartnerPair,
+): [string | undefined, string | undefined] {
+  if (matchGames.length === 0) {
+    return [undefined, undefined];
+  }
+
+  const firstGame = matchGames[0]!;
+  const original = firstGame.original;
+  const partner = firstGame.partner;
+
+  // Create a map of username (lowercase) to chess title
+  const titleMap = new Map<string, string | undefined>();
+
+  // Extract titles from board A
+  const aWhiteTitle = original.players.top.color === "white"
+    ? original.players.top.chessTitle
+    : original.players.bottom.chessTitle;
+  const aBlackTitle = original.players.top.color === "black"
+    ? original.players.top.chessTitle
+    : original.players.bottom.chessTitle;
+
+  titleMap.set(original.game.pgnHeaders.White.toLowerCase(), aWhiteTitle);
+  titleMap.set(original.game.pgnHeaders.Black.toLowerCase(), aBlackTitle);
+
+  // Extract titles from board B
+  if (partner) {
+    const bWhiteTitle = partner.players.top.color === "white"
+      ? partner.players.top.chessTitle
+      : partner.players.bottom.chessTitle;
+    const bBlackTitle = partner.players.top.color === "black"
+      ? partner.players.top.chessTitle
+      : partner.players.bottom.chessTitle;
+
+    titleMap.set(partner.game.pgnHeaders.White.toLowerCase(), bWhiteTitle);
+    titleMap.set(partner.game.pgnHeaders.Black.toLowerCase(), bBlackTitle);
+  }
+
+  // Get titles for the selected pair
+  return [
+    titleMap.get(selectedPair.usernames[0]),
+    titleMap.get(selectedPair.usernames[1]),
+  ];
+}
+
+/**
+ * Gets team display information for a match using reference teams.
+ * @param matchGames - Array of match games
+ * @returns Team display information with chess titles
+ */
+function getMatchTeamsFromReference(
+  matchGames: MatchGame[],
+): {
+  team1: { player1: { username: string; chessTitle?: string }; player2: { username: string; chessTitle?: string } };
+  team2: { player1: { username: string; chessTitle?: string }; player2: { username: string; chessTitle?: string } };
+} {
+  if (matchGames.length === 0) {
+    throw new Error("Cannot get teams from empty match");
+  }
+
+  const refTeams = establishReferenceTeams(matchGames[0]!);
+  const firstGame = matchGames[0]!;
+
+  // Get chess titles for each player
+  const getTitle = (username: string): string | undefined => {
+    const lowerUsername = username.toLowerCase();
+    const original = firstGame.original;
+    const partner = firstGame.partner;
+
+    // Check board A
+    if (original.game.pgnHeaders.White.toLowerCase() === lowerUsername) {
+      return original.players.top.color === "white"
+        ? original.players.top.chessTitle
+        : original.players.bottom.chessTitle;
+    }
+    if (original.game.pgnHeaders.Black.toLowerCase() === lowerUsername) {
+      return original.players.top.color === "black"
+        ? original.players.top.chessTitle
+        : original.players.bottom.chessTitle;
+    }
+
+    // Check board B
+    if (partner) {
+      if (partner.game.pgnHeaders.White.toLowerCase() === lowerUsername) {
+        return partner.players.top.color === "white"
+          ? partner.players.top.chessTitle
+          : partner.players.bottom.chessTitle;
+      }
+      if (partner.game.pgnHeaders.Black.toLowerCase() === lowerUsername) {
+        return partner.players.top.color === "black"
+          ? partner.players.top.chessTitle
+          : partner.players.bottom.chessTitle;
+      }
+    }
+
+    return undefined;
+  };
+
+  return {
+    team1: {
+      player1: { username: refTeams.team1Display[0], chessTitle: getTitle(refTeams.team1Display[0]) },
+      player2: { username: refTeams.team1Display[1], chessTitle: getTitle(refTeams.team1Display[1]) },
+    },
+    team2: {
+      player1: { username: refTeams.team2Display[0], chessTitle: getTitle(refTeams.team2Display[0]) },
+      player2: { username: refTeams.team2Display[1], chessTitle: getTitle(refTeams.team2Display[1]) },
+    },
+  };
+}
+
+/**
  * Computes the result string for a single game.
  */
 function getSingleGameResult(original: ChessGame): string {
@@ -148,6 +273,21 @@ function getMatchResult(matchGames: MatchGame[]): string {
   return `${matchScore.team1Wins} - ${matchScore.team2Wins}`;
 }
 
+/**
+ * Computes the result string for partner games.
+ * Uses the same correct logic from MatchNavigation for partner pair scoring.
+ */
+function getPartnerGamesResult(matchGames: MatchGame[], selectedPair: PartnerPair): string {
+  const score = computePartnerPairScore(matchGames, selectedPair);
+
+  // Format result string (include draws if any)
+  if (score.draws > 0) {
+    return `${score.pairWins} - ${score.pairLosses} (${score.draws} draw${score.draws !== 1 ? "s" : ""})`;
+  }
+
+  return `${score.pairWins} - ${score.pairLosses}`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Main Component                                                             */
 /* -------------------------------------------------------------------------- */
@@ -163,6 +303,7 @@ export default function ShareGameModal({
   singleGameData,
   matchGames,
   contentType,
+  selectedPair,
   onClose,
   onSuccess,
 }: ShareGameModalProps) {
@@ -332,10 +473,37 @@ export default function ShareGameModal({
     ? { original: firstGame!.original, partner: firstGame!.partner }
     : { original: singleGameData!.original, partner: singleGameData!.partner };
 
-  const players = getPlayersFromGame(displayGame.original, displayGame.partner);
-  const result = isMatch && matchGames
-    ? getMatchResult(matchGames)
-    : getSingleGameResult(displayGame.original);
+  // Determine players and result based on content type
+  let players: {
+    team1: { player1: { username: string; chessTitle?: string }; player2: { username: string; chessTitle?: string } };
+    team2: { player1: { username: string; chessTitle?: string }; player2: { username: string; chessTitle?: string } };
+  };
+  let result: string;
+
+  if (contentType === "partnerGames" && matchGames && selectedPair) {
+    // Partner games: show selected pair on left, "Random Opponents" on right
+    const pairTitles = getPartnerPairTitles(matchGames, selectedPair);
+    players = {
+      team1: {
+        player1: { username: selectedPair.displayNames[0], chessTitle: pairTitles[0] },
+        player2: { username: selectedPair.displayNames[1], chessTitle: pairTitles[1] },
+      },
+      team2: {
+        player1: { username: "Random", chessTitle: undefined },
+        player2: { username: "Opponents", chessTitle: undefined },
+      },
+    };
+    result = getPartnerGamesResult(matchGames, selectedPair);
+  } else if (contentType === "match" && matchGames) {
+    // Regular match: use reference teams for correct display
+    players = getMatchTeamsFromReference(matchGames);
+    result = getMatchResult(matchGames);
+  } else {
+    // Single game: use simple extraction
+    players = getPlayersFromGame(displayGame.original, displayGame.partner);
+    result = getSingleGameResult(displayGame.original);
+  }
+
   const gameCount = isMatch && matchGames ? matchGames.length : 1;
 
   const contentTypeLabel = contentType === "match"
@@ -405,14 +573,20 @@ export default function ShareGameModal({
 
               {/* Team 2 */}
               <div className="flex flex-col items-end gap-0.5 text-gray-200">
-                <PlayerDisplay
-                  username={players.team2.player1.username}
-                  chessTitle={players.team2.player1.chessTitle}
-                />
-                <PlayerDisplay
-                  username={players.team2.player2.username}
-                  chessTitle={players.team2.player2.chessTitle}
-                />
+                {contentType === "partnerGames" ? (
+                  <span className="font-medium italic">Random Opponents</span>
+                ) : (
+                  <>
+                    <PlayerDisplay
+                      username={players.team2.player1.username}
+                      chessTitle={players.team2.player1.chessTitle}
+                    />
+                    <PlayerDisplay
+                      username={players.team2.player2.username}
+                      chessTitle={players.team2.player2.chessTitle}
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>

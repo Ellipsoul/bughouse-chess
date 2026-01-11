@@ -1240,6 +1240,7 @@ export default function GameViewerPage() {
           singleGameData={shareContentType === "game" ? pristineGameData : null}
           matchGames={shareContentType !== "game" ? matchGames : undefined}
           contentType={shareContentType}
+          selectedPair={shareContentType === "partnerGames" ? selectedPairForDisplay : null}
           onClose={() => setIsShareModalOpen(false)}
           onSuccess={handleShareSuccess}
         />
