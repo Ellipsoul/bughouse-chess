@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
 import type { MatchGame } from "../../../app/types/match";
-import { buildMatchMetadata } from "../../../app/utils/sharedGamesService";
+import { buildMatchMetadata, reconstructPartnerPairFromMetadata } from "../../../app/utils/sharedGamesService";
 import { computeMatchScore, computePartnerPairScore } from "../../../app/components/MatchNavigation";
 import { extractPartnerPairs } from "../../../app/types/match";
 
@@ -366,6 +366,116 @@ describe("sharedGamesService", () => {
         expect(expectedScore.pairLosses).toBe(0);
         expect(metadata.result).toBe(`${expectedScore.pairWins} - ${expectedScore.pairLosses}`);
       });
+    });
+  });
+
+  describe("reconstructPartnerPairFromMetadata", () => {
+    let originalGame: ChessGame;
+    let partnerGame: ChessGame;
+
+    beforeEach(() => {
+      originalGame = loadFixture("160319845633.json");
+      partnerGame = loadFixture("160319845635.json");
+    });
+
+    it("reconstructs PartnerPair from partner games metadata", () => {
+      const games = [
+        createMatchGameWithResult(originalGame, partnerGame, "1-0"),
+        createMatchGameWithResult(originalGame, partnerGame, "0-1"),
+      ];
+
+      const pairs = extractPartnerPairs(originalGame, partnerGame);
+      expect(pairs).not.toBeNull();
+      if (!pairs) return;
+
+      const selectedPair = pairs[0]!;
+      const metadata = buildMatchMetadata(games, "partnerGames", selectedPair);
+
+      // Reconstruct the pair from metadata
+      const reconstructed = reconstructPartnerPairFromMetadata(metadata);
+
+      expect(reconstructed).not.toBeNull();
+      if (!reconstructed) return;
+
+      // Verify the reconstructed pair matches the original
+      expect(reconstructed.displayNames).toEqual(selectedPair.displayNames);
+      expect(reconstructed.usernames).toEqual(selectedPair.usernames);
+    });
+
+    it("returns null for regular match metadata", () => {
+      const games = [
+        createMatchGameWithResult(originalGame, partnerGame, "1-0"),
+        createMatchGameWithResult(originalGame, partnerGame, "0-1"),
+      ];
+
+      const metadata = buildMatchMetadata(games, "match");
+
+      // Should return null for regular matches
+      const reconstructed = reconstructPartnerPairFromMetadata(metadata);
+      expect(reconstructed).toBeNull();
+    });
+
+    it("returns null when team2 is not 'Random Opponents'", () => {
+      const games = [
+        createMatchGameWithResult(originalGame, partnerGame, "1-0"),
+      ];
+
+      const metadata = buildMatchMetadata(games, "match");
+
+      // Modify metadata to not be a partner game
+      const modifiedMetadata = {
+        ...metadata,
+        team2: {
+          player1: { username: "Player1" },
+          player2: { username: "Player2" },
+        },
+      };
+
+      const reconstructed = reconstructPartnerPairFromMetadata(modifiedMetadata);
+      expect(reconstructed).toBeNull();
+    });
+
+    it("preserves display names with original case", () => {
+      const games = [
+        createMatchGameWithResult(originalGame, partnerGame, "1-0"),
+      ];
+
+      const pairs = extractPartnerPairs(originalGame, partnerGame);
+      expect(pairs).not.toBeNull();
+      if (!pairs) return;
+
+      const selectedPair = pairs[0]!;
+      const metadata = buildMatchMetadata(games, "partnerGames", selectedPair);
+
+      const reconstructed = reconstructPartnerPairFromMetadata(metadata);
+      expect(reconstructed).not.toBeNull();
+      if (!reconstructed) return;
+
+      // Display names should preserve original case from metadata
+      expect(reconstructed.displayNames[0]).toBe(metadata.team1.player1.username);
+      expect(reconstructed.displayNames[1]).toBe(metadata.team1.player2.username);
+    });
+
+    it("sorts usernames correctly for comparison", () => {
+      const games = [
+        createMatchGameWithResult(originalGame, partnerGame, "1-0"),
+      ];
+
+      const pairs = extractPartnerPairs(originalGame, partnerGame);
+      expect(pairs).not.toBeNull();
+      if (!pairs) return;
+
+      const selectedPair = pairs[0]!;
+      const metadata = buildMatchMetadata(games, "partnerGames", selectedPair);
+
+      const reconstructed = reconstructPartnerPairFromMetadata(metadata);
+      expect(reconstructed).not.toBeNull();
+      if (!reconstructed) return;
+
+      // Usernames should be sorted (lowercase)
+      expect(reconstructed.usernames[0] <= reconstructed.usernames[1]).toBe(true);
+      expect(reconstructed.usernames[0]).toBe(reconstructed.usernames[0].toLowerCase());
+      expect(reconstructed.usernames[1]).toBe(reconstructed.usernames[1].toLowerCase());
     });
   });
 });

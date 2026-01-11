@@ -54,7 +54,7 @@ import { useFullAuth, getFullAuthRequirementMessage } from "../utils/useFullAuth
 import ShareGameModal from "./ShareGameModal";
 import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { fromMatchGameData } from "../types/sharedGame";
-import { getSharedGame } from "../utils/sharedGamesService";
+import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -1007,7 +1007,20 @@ export default function GameViewerPage() {
             setMatchGames(matchGameData);
             setMatchCurrentIndex(0);
             setMatchDiscoveryStatus("complete");
-            setSelectedPairForDisplay(type === "partnerGames" ? extractPartnerPairs(firstGame.original, firstGame.partner)?.[0] ?? null : null);
+
+            // For partner games, reconstruct the selected pair from metadata
+            // The metadata.team1 contains the partner pair, and team2 is "Random Opponents"
+            let selectedPair: PartnerPair | null = null;
+            if (type === "partnerGames") {
+              selectedPair = reconstructPartnerPairFromMetadata(sharedGame.metadata);
+
+              // Fallback: try to extract from first game if metadata doesn't match expected format
+              if (!selectedPair) {
+                selectedPair = extractPartnerPairs(firstGame.original, firstGame.partner)?.[0] ?? null;
+              }
+            }
+
+            setSelectedPairForDisplay(selectedPair);
           }
 
           // Reset other state

@@ -278,6 +278,38 @@ export function buildMatchMetadata(
 }
 
 /**
+ * Reconstructs a PartnerPair from shared game metadata.
+ * For partner games, the metadata.team1 contains the partner pair,
+ * and metadata.team2 is "Random Opponents".
+ *
+ * @param metadata - The shared game metadata
+ * @returns PartnerPair if this is a partner game, null otherwise
+ */
+export function reconstructPartnerPairFromMetadata(
+  metadata: SharedGameMetadata,
+): PartnerPair | null {
+  // Check if this is a partner game by verifying team2 is "Random Opponents"
+  const isPartnerGame = metadata.team2.player1.username === "Random" &&
+    metadata.team2.player2.username === "Opponents";
+
+  if (!isPartnerGame) {
+    return null;
+  }
+
+  // Reconstruct the PartnerPair from metadata.team1
+  const player1Username = metadata.team1.player1.username;
+  const player2Username = metadata.team1.player2.username;
+
+  // Create sorted lowercase usernames for comparison
+  const usernames = [player1Username.toLowerCase(), player2Username.toLowerCase()].sort() as [string, string];
+
+  return {
+    usernames,
+    displayNames: [player1Username, player2Username],
+  };
+}
+
+/**
  * Fetches game data from the subcollection.
  *
  * @param sharedId - The shared game ID
@@ -408,7 +440,7 @@ export async function shareGame(
     return { success: true, sharedId };
   } catch (err) {
     console.error("[sharedGamesService] shareGame failed:", err);
-    const message = err instanceof Error ? err.message : "Failed to share game";
+    const message = err instanceof Error ? err.message : "Failed to share";
     return { success: false, error: message };
   }
 }
@@ -422,6 +454,7 @@ export async function shareGame(
  * @param matchGames - Array of match games to share
  * @param type - Type of shared content ("match" or "partnerGames")
  * @param description - Optional description (max 100 characters)
+ * @param selectedPair - The selected partner pair for partner games mode
  * @returns ShareResult indicating success or failure
  */
 export async function shareMatch(
@@ -620,22 +653,20 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
  * @param sharedId - The shared game UUID to delete
  * @returns DeleteSharedGameResult indicating success or failure
  */
-export async function deleteSharedGame(
-  userId: string,
-  sharedId: string,
-): Promise<DeleteSharedGameResult> {
+export async function deleteSharedGame(userId: string, sharedId: string): Promise<DeleteSharedGameResult> {
   try {
     const db = getFirestoreDb();
 
     // First verify the user is the sharer
-    const sharedGameRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
-    const sharedGameSnap = await getDoc(sharedGameRef);
+    const sharedGameDocRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
+    const sharedGameSnap = await getDoc(sharedGameDocRef);
 
     if (!sharedGameSnap.exists()) {
       return { success: false, error: "Shared game not found" };
     }
 
     const sharedGameData = sharedGameSnap.data() as SharedGameDocument;
+
     if (sharedGameData.sharerUserId !== userId) {
       return { success: false, error: "You can only delete your own shared games" };
     }
@@ -644,16 +675,16 @@ export async function deleteSharedGame(
     const gamesRef = collection(db, SHARED_GAMES_COLLECTION, sharedId, SHARED_GAMES_SUBCOLLECTION);
     const gamesSnapshot = await getDocs(gamesRef);
 
-    // Use a batch write to delete everything atomically
+    // Use a batch to delete all documents atomically
     const batch = writeBatch(db);
 
-    // Delete all game documents in subcollection
-    for (const gameDoc of gamesSnapshot.docs) {
+    // Delete all game data documents
+    gamesSnapshot.docs.forEach((gameDoc) => {
       batch.delete(gameDoc.ref);
-    }
+    });
 
     // Delete the main document
-    batch.delete(sharedGameRef);
+    batch.delete(sharedGameDocRef);
 
     // Delete the user reference
     const userSharedGameRef = doc(
@@ -676,7 +707,7 @@ export async function deleteSharedGame(
 }
 
 /**
- * Fetches shared games for a specific user (summaries only).
+ * Fetches all shared games for a specific user.
  *
  * @param userId - Firebase Auth UID of the user
  * @returns Array of SharedGameSummary objects
@@ -699,8 +730,8 @@ export async function getUserSharedGames(userId: string): Promise<SharedGameSumm
       return [];
     }
 
-    // Fetch the shared game summaries (not full data)
-    const sharedIds = snapshot.docs.map((d) => d.id);
+    const sharedIds = snapshot.docs.map((doc) => doc.id);
+
     const games: SharedGameSummary[] = [];
 
     for (const sharedId of sharedIds) {
