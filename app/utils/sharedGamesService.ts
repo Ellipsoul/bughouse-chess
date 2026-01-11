@@ -16,8 +16,8 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "./firebaseClient";
 import type { ChessGame } from "../actions";
-import type { MatchGame } from "../types/match";
-import { computeMatchScore } from "../components/MatchNavigation";
+import type { MatchGame, PartnerPair } from "../types/match";
+import { computeMatchScore, computePartnerPairScore } from "../components/MatchNavigation";
 import type {
   SharedGameDocument,
   SharedGame,
@@ -158,15 +158,82 @@ function buildSingleGameMetadata(
  * Builds metadata for a match (multiple games).
  *
  * @param matchGames - Array of match games
+ * @param type - Type of shared content ("match" or "partnerGames")
+ * @param selectedPair - The selected partner pair for partner games mode
  * @returns SharedGameMetadata object
  * @internal Exported for testing purposes
  */
-export function buildMatchMetadata(matchGames: MatchGame[]): SharedGameMetadata {
+export function buildMatchMetadata(
+  matchGames: MatchGame[],
+  type: "match" | "partnerGames" = "match",
+  selectedPair?: PartnerPair | null,
+): SharedGameMetadata {
   if (matchGames.length === 0) {
     throw new Error("Cannot build metadata for empty match");
   }
 
-  // Use first game to get player info
+  // For partner games, use the selected pair and "Random Opponents"
+  if (type === "partnerGames" && selectedPair) {
+    const firstGame = matchGames[0]!;
+
+    // Get chess titles for the selected pair from the first game
+    const getTitle = (username: string): string | undefined => {
+      const lowerUsername = username.toLowerCase();
+      const original = firstGame.original;
+      const partner = firstGame.partner;
+
+      // Check board A
+      if (original.game.pgnHeaders.White.toLowerCase() === lowerUsername) {
+        return original.players.top.color === "white"
+          ? original.players.top.chessTitle
+          : original.players.bottom.chessTitle;
+      }
+      if (original.game.pgnHeaders.Black.toLowerCase() === lowerUsername) {
+        return original.players.top.color === "black"
+          ? original.players.top.chessTitle
+          : original.players.bottom.chessTitle;
+      }
+
+      // Check board B
+      if (partner) {
+        if (partner.game.pgnHeaders.White.toLowerCase() === lowerUsername) {
+          return partner.players.top.color === "white"
+            ? partner.players.top.chessTitle
+            : partner.players.bottom.chessTitle;
+        }
+        if (partner.game.pgnHeaders.Black.toLowerCase() === lowerUsername) {
+          return partner.players.top.color === "black"
+            ? partner.players.top.chessTitle
+            : partner.players.bottom.chessTitle;
+        }
+      }
+
+      return undefined;
+    };
+
+    // Use partner pair score calculation
+    const score = computePartnerPairScore(matchGames, selectedPair);
+
+    // Format result string (include draws if any)
+    const result = score.draws > 0
+      ? `${score.pairWins} - ${score.pairLosses} (${score.draws} draw${score.draws !== 1 ? "s" : ""})`
+      : `${score.pairWins} - ${score.pairLosses}`;
+
+    return {
+      gameCount: matchGames.length,
+      result,
+      team1: {
+        player1: createPlayerForMetadata(selectedPair.displayNames[0], getTitle(selectedPair.displayNames[0])),
+        player2: createPlayerForMetadata(selectedPair.displayNames[1], getTitle(selectedPair.displayNames[1])),
+      },
+      team2: {
+        player1: createPlayerForMetadata("Random", undefined),
+        player2: createPlayerForMetadata("Opponents", undefined),
+      },
+    };
+  }
+
+  // For regular matches, use reference teams from first game
   const firstGame = matchGames[0]!;
   const aWhite = firstGame.original.game.pgnHeaders.White;
   const aBlack = firstGame.original.game.pgnHeaders.Black;
@@ -363,6 +430,7 @@ export async function shareMatch(
   matchGames: MatchGame[],
   type: "match" | "partnerGames" = "match",
   description: string = "",
+  selectedPair?: PartnerPair | null,
 ): Promise<ShareResult> {
   try {
     if (matchGames.length === 0) {
@@ -372,7 +440,7 @@ export async function shareMatch(
     const db = getFirestoreDb();
     const sharedId = uuidv4();
 
-    const metadata = buildMatchMetadata(matchGames);
+    const metadata = buildMatchMetadata(matchGames, type, selectedPair);
     // Use the first game's date as the match date
     const gameDate = extractGameDate(matchGames[0]!.original);
 

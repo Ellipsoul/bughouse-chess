@@ -404,7 +404,7 @@ export default function ShareGameModal({
       if (contentType === "game" && singleGameData) {
         result = await shareGame(userId, username, singleGameData, description);
       } else if ((contentType === "match" || contentType === "partnerGames") && matchGames && matchGames.length > 0) {
-        result = await shareMatch(userId, username, matchGames, contentType, description);
+        result = await shareMatch(userId, username, matchGames, contentType, description, selectedPair ?? null);
       } else {
         toast.error("No valid content to share");
         setIsSharing(false);
@@ -453,7 +453,7 @@ export default function ShareGameModal({
     } finally {
       setIsSharing(false);
     }
-  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, onSuccess, onClose, analytics]);
+  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, selectedPair, onSuccess, onClose, analytics]);
 
   if (!open) return null;
 
