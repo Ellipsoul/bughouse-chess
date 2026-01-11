@@ -131,6 +131,28 @@ service cloud.firestore {
         // Never allow updates (references are immutable)
         allow update: if false;
       }
+
+      /**
+       * User's preferences subcollection.
+       *
+       * Document ID: "settings" (single document per user)
+       * Document fields:
+       *   - boardAnnotationColor: string (RGB color string)
+       */
+      match /userPreferences/{preferencesDocId} {
+        // Users can only read their own preferences
+        allow read: if isOwner(userId);
+
+        // Users can create/update their own preferences
+        // Only allow the "settings" document ID
+        allow create, update: if isOwner(userId)
+                               && preferencesDocId == 'settings'
+                               && request.resource.data.keys().hasAll(['boardAnnotationColor'])
+                               && request.resource.data.boardAnnotationColor is string;
+
+        // Users can delete their own preferences
+        allow delete: if isOwner(userId);
+      }
     }
 
     /**

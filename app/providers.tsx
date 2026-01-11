@@ -6,6 +6,16 @@ import { Tooltip } from "react-tooltip";
 import { APP_TOOLTIP_ID } from "./utils/tooltips";
 import { getFirebaseAnalytics } from "./utils/firebaseClient";
 import { AuthProvider } from "./auth/AuthProvider";
+import { useUserPreferences } from "./utils/useUserPreferences";
+
+/**
+ * Component that loads user preferences after auth is initialized.
+ * Must be rendered inside AuthProvider to access auth context.
+ */
+function UserPreferencesLoader() {
+  useUserPreferences();
+  return null;
+}
 
 /**
  * Top-level client providers. Currently hosts the toast system so all pages
@@ -80,7 +90,10 @@ export default function Providers({
           zIndex: 60,
         }}
       />
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <UserPreferencesLoader />
+        {children}
+      </AuthProvider>
     </>
   );
 }

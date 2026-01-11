@@ -1,6 +1,6 @@
 {
   "name": "bughouse-chess",
-  "version": "2.1.4",
+  "version": "2.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -24,6 +24,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@types/react-color": "^3.0.13",
     "@vercel/analytics": "^1.6.0",
     "bad-words": "^4.0.0",
     "chess.js": "^1.4.0",
@@ -34,6 +35,7 @@
     "lucide-react": "^0.561.0",
     "next": "^16.0.10",
     "react": "^19.2.3",
+    "react-color": "^2.19.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
     "react-tooltip": "^5.30.0",

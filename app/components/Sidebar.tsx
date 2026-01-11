@@ -1,10 +1,12 @@
 "use client";
 
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BookMarked, ChessKnight, Coffee, Settings, UserRound } from "lucide-react";
 import { TooltipAnchor } from "./TooltipAnchor";
 import { useAuth } from "../auth/useAuth";
+import SettingsModal from "./SettingsModal";
 
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";
@@ -63,9 +65,34 @@ function ProfileAvatar({ src, alt }: { src: string; alt: string }) {
  */
 export default function Sidebar() {
   const { user, status } = useAuth();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsButtonPosition, setSettingsButtonPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+  });
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   const avatarAlt =
     status === "signed_in" && user?.email ? `Profile avatar for ${user.email}` : "Profile";
+
+  const handleSettingsClick = useCallback(() => {
+    if (settingsButtonRef.current) {
+      const rect = settingsButtonRef.current.getBoundingClientRect();
+      setSettingsButtonPosition({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    }
+    setIsSettingsOpen((prev) => !prev);
+  }, []);
+
+  const handleSettingsClose = useCallback(() => {
+    setIsSettingsOpen(false);
+  }, []);
 
   return (
     <aside
@@ -162,15 +189,18 @@ export default function Sidebar() {
 
         <div className="w-5 md:w-7 lg:w-10 h-px bg-gray-700/70" aria-hidden="true" />
 
-        <TooltipAnchor content="Settings are coming soon">
+        <TooltipAnchor content="Settings">
           <button
-            disabled
+            ref={settingsButtonRef}
+            onClick={handleSettingsClick}
             aria-label="Settings"
+            aria-expanded={isSettingsOpen}
             className={[
               "inline-flex items-center justify-center rounded-md",
               // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
               "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
-              "text-gray-500 cursor-not-allowed",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              isSettingsOpen && "bg-gray-700/60",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
             ].join(" ")}
           >
@@ -200,6 +230,14 @@ export default function Sidebar() {
           </Link>
         </TooltipAnchor>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        open={isSettingsOpen}
+        userId={status === "signed_in" && user?.uid ? user.uid : null}
+        buttonPosition={settingsButtonPosition}
+        onClose={handleSettingsClose}
+      />
     </aside>
   );
 }
