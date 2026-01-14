@@ -35,7 +35,8 @@ export interface ShareGameModalProps {
   username: string;
 
   /**
-   * Single game data to share (when not sharing a match).
+   * Single game data to share.
+   * In match/series mode, this should be the currently selected game.
    */
   singleGameData?: SingleGameData | null;
 
@@ -307,11 +308,14 @@ export default function ShareGameModal({
   onClose,
   onSuccess,
 }: ShareGameModalProps) {
+  const isMatchContext = contentType === "match" || contentType === "partnerGames";
   const [description, setDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [shareSeriesEnabled, setShareSeriesEnabled] = useState(isMatchContext);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
+  const wasOpenRef = useRef(false);
   const analytics = useFirebaseAnalytics();
 
   /**
@@ -320,12 +324,45 @@ export default function ShareGameModal({
    */
   const profanityFilter = useMemo(() => new Filter(), []);
 
-  // Reset state when modal opens
+  /**
+   * Determines the effective content type based on share scope.
+   * Match/partner series can be shared as a single game when toggled off.
+   */
+  const resolvedContentType: SharedContentType = isMatchContext && shareSeriesEnabled
+    ? contentType
+    : "game";
+
+  /**
+   * Returns the user-facing label for the current share scope.
+   */
+  const contentTypeLabel = resolvedContentType === "match"
+    ? "Match"
+    : resolvedContentType === "partnerGames"
+      ? "Partner Series"
+      : "Game";
+
+  /**
+   * Returns the dialog title for the current share scope.
+   */
+  const shareTitle = `Share ${contentTypeLabel}`;
+
+  /**
+   * Returns the description placeholder based on share scope.
+   */
+  const descriptionPlaceholder = resolvedContentType === "match"
+    ? "Add a note about this match..."
+    : resolvedContentType === "partnerGames"
+      ? "Add a note about this partner series..."
+      : "Add a note about this game...";
+
+  // Reset state only when the modal transitions from closed to open.
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
+      const defaultShareSeriesEnabled = isMatchContext;
+      setShareSeriesEnabled(defaultShareSeriesEnabled);
       logAnalyticsEvent(analytics, "share_modal_opened", {
-        content_type: contentType,
-        game_count: contentType === "game" ? 1 : matchGames?.length ?? 0,
+        content_type: defaultShareSeriesEnabled ? contentType : "game",
+        game_count: defaultShareSeriesEnabled ? matchGames?.length ?? 0 : 1,
       });
       setDescription("");
       setIsSharing(false);
@@ -335,7 +372,8 @@ export default function ShareGameModal({
         textareaRef.current?.focus();
       }, 50);
     }
-  }, [open, analytics, contentType, matchGames?.length]);
+    wasOpenRef.current = open;
+  }, [open, analytics, contentType, matchGames?.length, isMatchContext]);
 
   // Handle escape key
   useEffect(() => {
@@ -401,10 +439,21 @@ export default function ShareGameModal({
     try {
       let result;
 
-      if (contentType === "game" && singleGameData) {
+      if (resolvedContentType === "game" && singleGameData) {
         result = await shareGame(userId, username, singleGameData, description);
-      } else if ((contentType === "match" || contentType === "partnerGames") && matchGames && matchGames.length > 0) {
-        result = await shareMatch(userId, username, matchGames, contentType, description, selectedPair ?? null);
+      } else if (
+        (resolvedContentType === "match" || resolvedContentType === "partnerGames")
+        && matchGames
+        && matchGames.length > 0
+      ) {
+        result = await shareMatch(
+          userId,
+          username,
+          matchGames,
+          resolvedContentType,
+          description,
+          selectedPair ?? null,
+        );
       } else {
         toast.error("No valid content to share");
         setIsSharing(false);
@@ -416,8 +465,8 @@ export default function ShareGameModal({
 
         // Log analytics for successful share
         logAnalyticsEvent(analytics, "game_shared_success", {
-          content_type: contentType,
-          game_count: contentType === "game" ? 1 : matchGames?.length ?? 0,
+          content_type: resolvedContentType,
+          game_count: resolvedContentType === "game" ? 1 : matchGames?.length ?? 0,
           has_description: description.trim().length > 0 ? "true" : "false",
           description_length: description.trim().length,
         });
@@ -435,7 +484,7 @@ export default function ShareGameModal({
       } else {
         // Log analytics for share failure
         logAnalyticsEvent(analytics, "game_shared_error", {
-          content_type: contentType,
+          content_type: resolvedContentType,
           error: result.error,
         });
         toast.error(result.error);
@@ -446,20 +495,32 @@ export default function ShareGameModal({
 
       // Log analytics for share error
       logAnalyticsEvent(analytics, "game_shared_error", {
-        content_type: contentType,
+        content_type: resolvedContentType,
         error: message,
       });
       toast.error(message);
     } finally {
       setIsSharing(false);
     }
-  }, [contentType, singleGameData, matchGames, userId, username, description, validateDescription, selectedPair, onSuccess, onClose, analytics]);
+  }, [
+    resolvedContentType,
+    singleGameData,
+    matchGames,
+    userId,
+    username,
+    description,
+    validateDescription,
+    selectedPair,
+    onSuccess,
+    onClose,
+    analytics,
+  ]);
 
   if (!open) return null;
 
   // Determine content to display
-  const isMatch = contentType === "match" || contentType === "partnerGames";
-  const hasValidContent = isMatch
+  const isSeriesShare = resolvedContentType === "match" || resolvedContentType === "partnerGames";
+  const hasValidContent = isSeriesShare
     ? matchGames && matchGames.length > 0
     : singleGameData?.original;
 
@@ -468,8 +529,8 @@ export default function ShareGameModal({
   }
 
   // Get display data
-  const firstGame = isMatch && matchGames ? matchGames[0]! : null;
-  const displayGame = isMatch
+  const firstGame = isSeriesShare && matchGames ? matchGames[0]! : null;
+  const displayGame = isSeriesShare
     ? { original: firstGame!.original, partner: firstGame!.partner }
     : { original: singleGameData!.original, partner: singleGameData!.partner };
 
@@ -480,7 +541,7 @@ export default function ShareGameModal({
   };
   let result: string;
 
-  if (contentType === "partnerGames" && matchGames && selectedPair) {
+  if (resolvedContentType === "partnerGames" && matchGames && selectedPair) {
     // Partner games: show selected pair on left, "Random Opponents" on right
     const pairTitles = getPartnerPairTitles(matchGames, selectedPair);
     players = {
@@ -494,7 +555,7 @@ export default function ShareGameModal({
       },
     };
     result = getPartnerGamesResult(matchGames, selectedPair);
-  } else if (contentType === "match" && matchGames) {
+  } else if (resolvedContentType === "match" && matchGames) {
     // Regular match: use reference teams for correct display
     players = getMatchTeamsFromReference(matchGames);
     result = getMatchResult(matchGames);
@@ -504,13 +565,10 @@ export default function ShareGameModal({
     result = getSingleGameResult(displayGame.original);
   }
 
-  const gameCount = isMatch && matchGames ? matchGames.length : 1;
+  const gameCount = isSeriesShare && matchGames ? matchGames.length : 1;
+  const showGameCount = isSeriesShare && gameCount > 1;
 
-  const contentTypeLabel = contentType === "match"
-    ? "Match"
-    : contentType === "partnerGames"
-      ? "Partner Games"
-      : "Game";
+  const toggleLabel = contentType === "partnerGames" ? "Share partner series" : "Share match";
 
   const charactersRemaining = SHARED_GAME_DESCRIPTION_MAX_LENGTH - description.length;
 
@@ -529,27 +587,64 @@ export default function ShareGameModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Share ${contentTypeLabel}`}
+        aria-label={shareTitle}
         className="relative z-10 w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
       >
         <div className="p-5">
           {/* Header */}
-          <div className="mb-4 text-base font-semibold tracking-wide text-gray-100">
-            Share {contentTypeLabel}
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="text-base font-semibold tracking-wide text-gray-100">
+              {shareTitle}
+            </div>
+            {isMatchContext ? (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shareSeriesEnabled}
+                aria-label={toggleLabel}
+                onClick={() => setShareSeriesEnabled((prev) => !prev)}
+                disabled={isSharing}
+                data-testid="share-scope-toggle"
+                className="inline-flex items-center gap-2 rounded-full bg-gray-800/60 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span>{toggleLabel}</span>
+                <span
+                  className={[
+                    "relative inline-flex h-4 w-8 items-center rounded-full border border-gray-600 transition-colors",
+                    shareSeriesEnabled ? "bg-mariner-500/60" : "bg-gray-700",
+                  ].join(" ")}
+                  aria-hidden="true"
+                >
+                  <span
+                    className={[
+                      "inline-block h-3 w-3 rounded-full bg-white transition-transform",
+                      shareSeriesEnabled ? "translate-x-4" : "translate-x-0.5",
+                    ].join(" ")}
+                  />
+                </span>
+              </button>
+            ) : null}
           </div>
 
           {/* Game Summary */}
-          <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 p-4" data-testid="game-summary">
+          <div
+            className="mb-4 min-h-[120px] rounded-lg border border-gray-700 bg-gray-800/50 p-4"
+            data-testid="game-summary"
+          >
             {/* Type and game count */}
             <div className="mb-3 flex items-center justify-between">
               <span className="rounded bg-mariner-600/20 px-2 py-0.5 text-xs font-medium text-mariner-400">
                 {contentTypeLabel}
               </span>
-              {gameCount > 1 && (
-                <span className="text-xs text-gray-400">
-                  {gameCount} games
-                </span>
-              )}
+              <span
+                className={[
+                  "text-xs text-gray-400",
+                  showGameCount ? "visible" : "invisible",
+                ].join(" ")}
+                aria-hidden={!showGameCount}
+              >
+                {gameCount} games
+              </span>
             </div>
 
             {/* Players and result */}
@@ -573,8 +668,11 @@ export default function ShareGameModal({
 
               {/* Team 2 */}
               <div className="flex flex-col items-end gap-0.5 text-gray-200">
-                {contentType === "partnerGames" ? (
-                  <span className="font-medium italic">Random Opponents</span>
+                {resolvedContentType === "partnerGames" ? (
+                  <>
+                    <span className="font-medium italic">Random</span>
+                    <span className="font-medium italic">Opponents</span>
+                  </>
                 ) : (
                   <>
                     <PlayerDisplay
@@ -604,7 +702,7 @@ export default function ShareGameModal({
               id="share-description"
               value={description}
               onChange={handleDescriptionChange}
-              placeholder="Add a note about this game..."
+              placeholder={descriptionPlaceholder}
               rows={2}
               className={`w-full resize-none rounded-md border bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 outline-none transition-colors ${
                 descriptionError

@@ -153,6 +153,7 @@ export default function GameViewerPage() {
       partnerId: string | null;
     } | null
   >(null);
+  const [sharedGameDescription, setSharedGameDescription] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
@@ -327,6 +328,7 @@ export default function GameViewerPage() {
 
             setGameData(data);
             setGameId(clearInput ? "" : trimmedId);
+            setSharedGameDescription(null);
             if (clearInput) {
               setPrefetched({ status: "idle" });
             }
@@ -722,6 +724,27 @@ export default function GameViewerPage() {
   })();
 
   /**
+   * The game data that should be shared when the user opts to share a single game.
+   * In match/series mode, this uses the currently selected match game.
+   */
+  const shareSingleGameData: SingleGameData | null = (() => {
+    if (shareContentType === "game") {
+      return pristineGameData ?? null;
+    }
+
+    if (matchGames.length === 0) {
+      return null;
+    }
+
+    const currentMatchGame = matchGames[matchCurrentIndex] ?? matchGames[0]!;
+    return {
+      original: currentMatchGame.original,
+      partner: currentMatchGame.partner,
+      partnerId: currentMatchGame.partnerGameId,
+    };
+  })();
+
+  /**
    * Whether match discovery is currently in progress.
    */
   const isDiscovering = matchDiscoveryStatus === "discovering";
@@ -935,6 +958,7 @@ export default function GameViewerPage() {
       loadSharedGamePromise
         .then((sharedGame) => {
           const { gameData: storedData, type } = sharedGame;
+          setSharedGameDescription(sharedGame.description?.trim() || null);
 
           // Log analytics for shared game loaded
           logAnalyticsEvent(analytics, "shared_game_loaded", {
@@ -1017,6 +1041,7 @@ export default function GameViewerPage() {
         })
         .catch((err: unknown) => {
           console.error("[GameViewerPage] Failed to load shared game:", err);
+          setSharedGameDescription(null);
           logAnalyticsEvent(analytics, "shared_game_load_error", {
             shared_id: sharedId ?? "unknown",
             error: err instanceof Error ? err.message : "unknown",
@@ -1221,6 +1246,7 @@ export default function GameViewerPage() {
             onShareClick={handleShareClick}
             canShare={canShare}
             shareDisabledReason={shareDisabledReason}
+            sharedGameDescription={sharedGameDescription}
           />
         </div>
       </main>
@@ -1231,7 +1257,7 @@ export default function GameViewerPage() {
           open={isShareModalOpen}
           userId={user.uid}
           username={username}
-          singleGameData={shareContentType === "game" ? pristineGameData : null}
+          singleGameData={shareSingleGameData}
           matchGames={shareContentType !== "game" ? matchGames : undefined}
           contentType={shareContentType}
           selectedPair={shareContentType === "partnerGames" ? selectedPairForDisplay : null}

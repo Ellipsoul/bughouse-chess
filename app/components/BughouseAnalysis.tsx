@@ -35,6 +35,7 @@ import PromotionPicker from "./PromotionPicker";
 import MoveListWithVariations from "./MoveListWithVariations";
 import { ChessTitleBadge } from "./ChessTitleBadge";
 import { TooltipAnchor } from "./TooltipAnchor";
+import SharedGameDescription from "./SharedGameDescription";
 import { BoardCornerMaterial } from "./BoardCornerMaterial";
 import type { BoardAnnotations } from "../utils/boardAnnotations";
 import {
@@ -104,6 +105,11 @@ interface BughouseAnalysisProps {
    * Tooltip message explaining why sharing is disabled (when canShare is false).
    */
   shareDisabledReason?: string;
+  /**
+   * Optional description from a shared game/match/series.
+   * Only rendered when the viewer is opened via a shared link.
+   */
+  sharedGameDescription?: string | null;
 }
 
 const PLACEHOLDER_PLAYERS: {
@@ -134,6 +140,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   onShareClick,
   canShare,
   shareDisabledReason,
+  sharedGameDescription,
 }) => {
   const analysisContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
@@ -1862,7 +1869,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Board Controls */}
           <div
             ref={controlsContainerRef}
-            className="flex items-center justify-between w-full max-w-full px-1"
+            className={[
+              "grid w-full max-w-full items-center px-1",
+              "grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto]",
+            ].join(" ")}
             style={{ maxWidth: controlsWidth }}
           >
             {/* Live replay controls: left side */}
@@ -1884,8 +1894,25 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
+            {/* Shared description: between play/pause and navigation controls */}
+            {sharedGameDescription ? (
+              <div className="min-w-0 px-3">
+                <SharedGameDescription
+                  description={sharedGameDescription}
+                  density={isCompactLandscape ? "compact" : "default"}
+                />
+              </div>
+            ) : (
+              <div aria-hidden="true" />
+            )}
+
             {/* Center navigation controls */}
-            <div className={["flex items-center", isCompactLandscape ? "gap-1 sm:gap-2" : "gap-2 sm:gap-3"].join(" ")}>
+            <div
+              className={[
+                "shrink-0 flex items-center justify-center",
+                isCompactLandscape ? "gap-1 sm:gap-2" : "gap-2 sm:gap-3",
+              ].join(" ")}
+            >
               <TooltipAnchor content="Jump to start (↑)">
                 <button
                   onClick={handleStart}
@@ -1932,8 +1959,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
+            {/* Spacer to mirror description column width */}
+            <div aria-hidden="true" />
+
             {/* Right side: share + flip boards */}
-            <div className="shrink-0 inline-flex items-center gap-1">
+            <div className="shrink-0 inline-flex items-center gap-2 pl-2">
               <TooltipAnchor content={shareDisabledReason ?? "Share game"}>
                 <button
                   onClick={onShareClick}
