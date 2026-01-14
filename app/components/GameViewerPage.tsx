@@ -57,6 +57,10 @@ import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { fromMatchGameData } from "../types/sharedGame";
 import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
 import { getShareEligibility } from "../utils/shareEligibility";
+import {
+  isValidChessComGameId,
+  sanitizeChessComGameIdInput,
+} from "../utils/chessComGameIdInput";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -72,43 +76,6 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
-}
-
-/**
- * Sanitizes a "game id" input value that may be either a raw chess.com game id
- * or a full URL (or any other string containing `/` path segments).
- *
- * Per chess.com examples like `https://www.chess.com/game/live/160407448121`,
- * we extract **everything after the last slash (`/`)**.
- *
- * We also defensively strip query/hash fragments and trailing slashes to avoid
- * common copy/paste artifacts like:
- * - `https://www.chess.com/game/live/160407448121?foo=bar`
- * - `https://www.chess.com/game/live/160407448121/`
- */
-function sanitizeChessComGameIdInput(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
-
-  // Remove `?query` / `#hash` fragments (not part of the game id).
-  const withoutQueryOrHash = trimmed.split(/[?#]/, 1)[0] ?? "";
-  const withoutTrailingSlashes = withoutQueryOrHash.replace(/\/+$/g, "");
-
-  const lastSlashIdx = withoutTrailingSlashes.lastIndexOf("/");
-  if (lastSlashIdx === -1) return withoutTrailingSlashes;
-  return withoutTrailingSlashes.slice(lastSlashIdx + 1);
-}
-
-/**
- * Validates that a game ID matches the expected Chess.com format.
- * Chess.com game IDs are 10, 11, or 12-digit numeric values.
- *
- * @param gameId - The game ID string to validate
- * @returns `true` if the game ID is valid, `false` otherwise
- */
-function isValidChessComGameId(gameId: string): boolean {
-  // Chess.com game IDs must be 10, 11, or 12 digits
-  return /^\d{10,12}$/.test(gameId);
 }
 
 /**
