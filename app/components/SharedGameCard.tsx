@@ -182,6 +182,7 @@ export default function SharedGameCard({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
         ].join(" ")}
         aria-label={`View ${getContentTypeLabel(game.type)} by ${game.sharerUsername}`}
+        data-testid="shared-game-card"
       >
         {/* Delete button (only visible to owner) */}
         {isOwner && (

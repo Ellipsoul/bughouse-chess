@@ -1,0 +1,147 @@
+{
+  "mode": "partnerPair",
+  "initialGameId": "161530622681",
+  "totalGames": 27,
+  "selectedPair": [
+    "ellipsoul",
+    "xshyne"
+  ],
+  "games": [
+    {
+      "gameId": "161527026775",
+      "partnerGameId": "161527026773",
+      "endTime": 1767213699
+    },
+    {
+      "gameId": "161527623399",
+      "partnerGameId": "161527623401",
+      "endTime": 1767213963
+    },
+    {
+      "gameId": "161527624519",
+      "partnerGameId": "161527624521",
+      "endTime": 1767214094
+    },
+    {
+      "gameId": "161527626177",
+      "partnerGameId": "161527626179",
+      "endTime": 1767214163
+    },
+    {
+      "gameId": "161528221047",
+      "partnerGameId": "161528221049",
+      "endTime": 1767214362
+    },
+    {
+      "gameId": "161528221791",
+      "partnerGameId": "161528221793",
+      "endTime": 1767214440
+    },
+    {
+      "gameId": "161528222583",
+      "partnerGameId": "161528222581",
+      "endTime": 1767214475
+    },
+    {
+      "gameId": "161528222909",
+      "partnerGameId": "161528222911",
+      "endTime": 1767214766
+    },
+    {
+      "gameId": "161528226377",
+      "partnerGameId": "161528226375",
+      "endTime": 1767214812
+    },
+    {
+      "gameId": "161528227059",
+      "partnerGameId": "161528227057",
+      "endTime": 1767214887
+    },
+    {
+      "gameId": "161528820879",
+      "partnerGameId": "161528820881",
+      "endTime": 1767215117
+    },
+    {
+      "gameId": "161528823187",
+      "partnerGameId": "161528823185",
+      "endTime": 1767215338
+    },
+    {
+      "gameId": "161528826413",
+      "partnerGameId": "161528826411",
+      "endTime": 1767215646
+    },
+    {
+      "gameId": "161529422429",
+      "partnerGameId": "161529422431",
+      "endTime": 1767215999
+    },
+    {
+      "gameId": "161529426603",
+      "partnerGameId": "161529426605",
+      "endTime": 1767216220
+    },
+    {
+      "gameId": "161530022943",
+      "partnerGameId": "161530022941",
+      "endTime": 1767216474
+    },
+    {
+      "gameId": "161530025905",
+      "partnerGameId": "161530025903",
+      "endTime": 1767216695
+    },
+    {
+      "gameId": "161530620979",
+      "partnerGameId": "161530620981",
+      "endTime": 1767216784
+    },
+    {
+      "gameId": "161530622151",
+      "partnerGameId": "161530622149",
+      "endTime": 1767216827
+    },
+    {
+      "gameId": "161530622681",
+      "partnerGameId": "161530622683",
+      "endTime": 1767217126
+    },
+    {
+      "gameId": "161530626821",
+      "partnerGameId": "161530626823",
+      "endTime": 1767217259
+    },
+    {
+      "gameId": "161531222359",
+      "partnerGameId": "161531222361",
+      "endTime": 1767217624
+    },
+    {
+      "gameId": "161531224861",
+      "partnerGameId": "161531224859",
+      "endTime": 1767217684
+    },
+    {
+      "gameId": "161531225499",
+      "partnerGameId": "161531225497",
+      "endTime": 1767217868
+    },
+    {
+      "gameId": "161531227415",
+      "partnerGameId": "161531227417",
+      "endTime": 1767217966
+    },
+    {
+      "gameId": "161531821761",
+      "partnerGameId": "161531821759",
+      "endTime": 1767218208
+    },
+    {
+      "gameId": "161531824441",
+      "partnerGameId": "161531824439",
+      "endTime": 1767218440
+    }
+  ],
+  "recordedAt": "2026-01-14T17:35:53.258Z"
+}

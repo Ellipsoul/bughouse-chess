@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
-import { getFirebaseApp } from "../utils/firebaseClient";
+import { getFirebaseAuth } from "../utils/firebaseClient";
 import type { AuthAdapter, AuthUser } from "./types";
 
 // Re-export for backwards compatibility
@@ -28,6 +27,9 @@ let cachedAdapter: AuthAdapter | null = null;
 /**
  * Returns a singleton Firebase auth adapter.
  *
+ * Uses `getFirebaseAuth()` from firebaseClient which automatically connects to
+ * the Auth emulator when `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` is set.
+ *
  * Notes:
  * - This function may throw if Firebase client env vars are missing.
  * - `AuthProvider` catches errors and degrades gracefully to `status="unavailable"`.
@@ -35,8 +37,7 @@ let cachedAdapter: AuthAdapter | null = null;
 export function getFirebaseAuthAdapter(): AuthAdapter {
   if (cachedAdapter) return cachedAdapter;
 
-  const app = getFirebaseApp();
-  const auth = getAuth(app);
+  const auth = getFirebaseAuth();
   const provider = new GoogleAuthProvider();
 
   cachedAdapter = {

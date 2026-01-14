@@ -253,12 +253,12 @@ describe("ShareGameModal", () => {
       cy.get("@onClose").should("have.been.calledOnce");
     });
 
-    // NOTE: The following tests require stubbing sharedGamesService (ES module),
-    // which is not supported by Cypress. Share functionality is tested manually.
+    // NOTE: Share functionality tests require real Firebase services and are
+    // covered by E2E tests in cypress/e2e/sharing-flows.cy.ts:
+    // - Game sharing flow with description
+    // - Match sharing flow
+    // - Share success/error handling
     //
-    // Skipped tests:
-    // - calls shareGame service when share button is clicked
-    // - shows loading state while sharing
-    // - closes on escape key (flaky in Cypress)
+    // Component tests here focus on UI rendering and form validation.
   });
 });

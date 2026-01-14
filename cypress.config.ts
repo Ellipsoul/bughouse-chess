@@ -6,7 +6,7 @@ import path from "path";
  * Test environment variables for Firebase Emulator Suite.
  *
  * These are fake/demo values since the emulator doesn't require real credentials.
- * The FIRESTORE_EMULATOR_HOST tells the Firebase SDK to connect to the local emulator.
+ * The emulator host variables tell the Firebase SDK to connect to local emulators.
  */
 const testEnv = {
   NEXT_PUBLIC_FIREBASE_API_KEY: "fake-api-key-for-testing",
@@ -15,6 +15,7 @@ const testEnv = {
   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "demo-bughouse.appspot.com",
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "123456789012",
   NEXT_PUBLIC_FIREBASE_APP_ID: "1:123456789012:web:abcdef123456",
+  NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
   NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080",
 };
 
@@ -45,6 +46,7 @@ export default defineConfig({
           "process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": JSON.stringify(testEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
           "process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": JSON.stringify(testEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
           "process.env.NEXT_PUBLIC_FIREBASE_APP_ID": JSON.stringify(testEnv.NEXT_PUBLIC_FIREBASE_APP_ID),
+          "process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST": JSON.stringify(testEnv.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST),
           "process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST": JSON.stringify(testEnv.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST),
         },
         resolve: {
@@ -61,9 +63,46 @@ export default defineConfig({
     supportFile: "cypress/support/component.ts",
   },
   e2e: {
-    // E2E tests will be added later
-    setupNodeEvents() {
-      // implement node event listeners here
+    baseUrl: "http://localhost:3000",
+    specPattern: "cypress/e2e/**/*.cy.{js,jsx,ts,tsx}",
+    supportFile: "cypress/support/e2e.ts",
+    /**
+     * E2E environment variables for Firebase Emulator Suite.
+     * These are passed to the test environment via Cypress.env().
+     */
+    env: {
+      ...testEnv,
+      CHESSCOM_API_BASE: "https://www.chess.com",
+    },
+    /**
+     * Increase default command timeout for E2E tests
+     * as they may involve network requests and page loads.
+     */
+    defaultCommandTimeout: 10000,
+    /**
+     * Video recording settings for CI debugging.
+     */
+    video: false,
+    screenshotOnRunFailure: true,
+    setupNodeEvents(on, config) {
+      // Task for clearing emulators from Node.js context
+      on("task", {
+        async clearFirestoreEmulator() {
+          const response = await fetch(
+            `http://${testEnv.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/demo-bughouse/databases/(default)/documents`,
+            { method: "DELETE" },
+          );
+          return response.ok ? null : "Failed to clear Firestore emulator";
+        },
+        async clearAuthEmulator() {
+          const response = await fetch(
+            `http://${testEnv.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST}/emulator/v1/projects/demo-bughouse/accounts`,
+            { method: "DELETE" },
+          );
+          return response.ok ? null : "Failed to clear Auth emulator";
+        },
+      });
+      return config;
     },
   },
 });

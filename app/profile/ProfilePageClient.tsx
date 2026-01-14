@@ -287,7 +287,7 @@ function SignedInState({
           <div className="flex flex-col min-h-0 overflow-y-auto">
             <dl className="text-left space-y-3 mb-6">
               {/* Username field */}
-              <div>
+              <div data-testid="username-section">
                 <dt className="text-xs text-gray-500 uppercase tracking-wide">Username</dt>
                 <dd className="text-sm text-gray-200 flex items-center gap-2">
                   {isLoadingUsername ? (
@@ -372,7 +372,7 @@ function SignedInState({
         {/* User details */}
         <dl className="w-full max-w-xs text-left space-y-3 mb-8">
           {/* Username field */}
-          <div>
+          <div data-testid="username-section">
             <dt className="text-xs text-gray-500 uppercase tracking-wide">Username</dt>
             <dd className="text-sm text-gray-200 flex items-center gap-2">
               {isLoadingUsername ? (

@@ -246,15 +246,11 @@ describe("ProfilePageClient", () => {
     });
   });
 
-  // NOTE: Username Feature tests are skipped because they require stubbing
-  // usernameService (ES module), which is not supported by Cypress.
-  // These features are tested manually with the Firestore emulator.
+  // NOTE: Username feature tests require real Firebase services and are
+  // covered by E2E tests in cypress/e2e/auth-flow.cy.ts:
+  // - Username reservation flow
+  // - Duplicate username prevention
+  // - Username display after reservation
   //
-  // Skipped tests:
-  // - shows loading state while fetching username
-  // - shows 'None' with Set button when user has no username
-  // - shows username when user has one
-  // - opens username reservation modal when Set button is clicked
-  // - updates username display after successful reservation
-  // - does not show Set button on desktop when user has username
+  // Component tests here focus on UI state management with fake adapters.
 });

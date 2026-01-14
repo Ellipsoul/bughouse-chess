@@ -307,7 +307,7 @@ export default function SettingsModal({
           </div>
 
           {/* Board Annotation Color Section */}
-          <div className="mb-3">
+          <div className="mb-3" data-testid="annotation-color-picker">
             <label className="mb-1.5 block text-xs font-medium text-gray-300">
               Board Annotation Color
             </label>

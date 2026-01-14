@@ -1,0 +1,43 @@
+{
+  "mode": "fullMatch",
+  "initialGameId": "160842422747",
+  "totalGames": 7,
+  "games": [
+    {
+      "gameId": "160842422747",
+      "partnerGameId": "160842422749",
+      "endTime": 1766528749
+    },
+    {
+      "gameId": "160842423883",
+      "partnerGameId": "160842423885",
+      "endTime": 1766528839
+    },
+    {
+      "gameId": "160842424923",
+      "partnerGameId": "160842424925",
+      "endTime": 1766528885
+    },
+    {
+      "gameId": "160842425503",
+      "partnerGameId": "160842425505",
+      "endTime": 1766528945
+    },
+    {
+      "gameId": "160842426293",
+      "partnerGameId": "160842426295",
+      "endTime": 1766529016
+    },
+    {
+      "gameId": "160842427501",
+      "partnerGameId": "160842427503",
+      "endTime": 1766529103
+    },
+    {
+      "gameId": "160843020967",
+      "partnerGameId": "160843020969",
+      "endTime": 1766529242
+    }
+  ],
+  "recordedAt": "2026-01-14T17:34:02.167Z"
+}

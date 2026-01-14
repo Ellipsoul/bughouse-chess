@@ -1,9 +1,19 @@
 set -e
 
+echo "Running pre-push checks..."
+echo ""
+
+# 1. Lint and type check
+echo "=== Linting ==="
 npm run lint
+
+# 2. Unit tests
+echo ""
+echo "=== Unit Tests ==="
 npm run test:unit
 
-# Cypress (component tests) requires a separate, OS-specific binary download that
+# 3. Verify Cypress binary is installed
+# Cypress requires a separate, OS-specific binary download that
 # lives in the user's Cypress cache directory (not in `node_modules/`).
 #
 # When that binary is missing/corrupted, `cypress run` tends to fail with a
@@ -17,9 +27,20 @@ if ! npx --no-install cypress verify >/dev/null 2>&1; then
   echo "  npx cypress install"
   echo ""
   echo "Then re-run:"
-  echo "  npm run test:component"
+  echo "  git push"
   echo ""
   exit 1
 fi
 
+# 4. Component tests (with Firebase emulators)
+echo ""
+echo "=== Component Tests ==="
 npm run test:component
+
+# 5. E2E tests (with Firebase emulators + Next.js server)
+echo ""
+echo "=== E2E Tests ==="
+npm run test:e2e
+
+echo ""
+echo "All pre-push checks passed!"

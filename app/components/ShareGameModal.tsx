@@ -539,7 +539,7 @@ export default function ShareGameModal({
           </div>
 
           {/* Game Summary */}
-          <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+          <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 p-4" data-testid="game-summary">
             {/* Type and game count */}
             <div className="mb-3 flex items-center justify-between">
               <span className="rounded bg-mariner-600/20 px-2 py-0.5 text-xs font-medium text-mariner-400">

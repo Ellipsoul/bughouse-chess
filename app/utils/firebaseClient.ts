@@ -3,6 +3,11 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import {
+  getAuth as firebaseGetAuth,
+  connectAuthEmulator,
+  type Auth,
+} from "firebase/auth";
+import {
   getFirestore as firestoreGetFirestore,
   connectFirestoreEmulator,
   type Firestore,
@@ -91,6 +96,49 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
 
   const app = getFirebaseApp();
   return getAnalytics(app);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Auth                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/** Tracks whether the Auth emulator has been connected to avoid duplicate connections. */
+let authEmulatorConnected = false;
+
+/** Cached Auth instance (singleton). */
+let cachedAuth: Auth | null = null;
+
+/**
+ * Gets or initializes Firebase Auth instance (singleton pattern).
+ *
+ * Automatically connects to the Auth emulator if the
+ * `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` environment variable is set.
+ *
+ * @example
+ * ```ts
+ * const auth = getFirebaseAuth();
+ * onAuthStateChanged(auth, (user) => { ... });
+ * ```
+ */
+export function getFirebaseAuth(): Auth {
+  if (cachedAuth) {
+    return cachedAuth;
+  }
+
+  const app = getFirebaseApp();
+  const auth = firebaseGetAuth(app);
+
+  // Connect to emulator if configured (only once)
+  const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
+  if (emulatorHost && !authEmulatorConnected) {
+    // Auth emulator requires the full URL with http:// prefix
+    connectAuthEmulator(auth, `http://${emulatorHost}`, { disableWarnings: true });
+    authEmulatorConnected = true;
+    console.info(`[Firebase] Connected to Auth emulator at ${emulatorHost}`);
+  }
+
+  cachedAuth = auth;
+  return auth;
 }
 
 /* -------------------------------------------------------------------------- */

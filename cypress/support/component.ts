@@ -16,10 +16,8 @@
 // Import commands.js using ES2015 syntax:
 import "./commands";
 
-// Alternatively you can use CommonJS syntax:
-// require('./commands')
-
 import { mount } from "cypress/react";
+import { registerFirebaseCommands } from "./firebase";
 
 // Augment the Cypress namespace to include type definitions for
 // your custom command.
@@ -34,6 +32,9 @@ declare global {
 }
 
 Cypress.Commands.add("mount", mount);
+
+// Register Firebase Auth and Firestore emulator commands
+registerFirebaseCommands();
 
 /**
  * Handle uncaught exceptions from Firebase Analytics in test environment.
