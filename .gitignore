@@ -45,6 +45,7 @@ next-env.d.ts
 
 # Firebase debug and emulator logs
 firestore-debug.log
+firebase-debug.log
 ui-debug.log
 
 # Process PID files (created by test scripts)

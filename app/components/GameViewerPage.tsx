@@ -50,6 +50,7 @@ import {
   computeEffectiveFlip,
   getBottomPairKeyForGame,
 } from "../utils/matchBoardOrientation";
+import { getSharedMatchBaselineBottomPairKey } from "../utils/sharedGameOrientation";
 import { useFullAuth, getFullAuthRequirementMessage } from "../utils/useFullAuth";
 import ShareGameModal from "./ShareGameModal";
 import type { SharedContentType, SingleGameData } from "../types/sharedGame";
@@ -975,6 +976,8 @@ export default function GameViewerPage() {
             game_count: storedData.type === "game" ? 1 : storedData.games.length,
           });
 
+          let sharedBaselineBottomPairKey: PairKey | null = null;
+
           if (storedData.type === "game") {
             // Single game
             const { game } = storedData;
@@ -1027,6 +1030,11 @@ export default function GameViewerPage() {
             }
 
             setSelectedPairForDisplay(selectedPair);
+            sharedBaselineBottomPairKey = getSharedMatchBaselineBottomPairKey({
+              contentType: type,
+              matchGames: matchGameData,
+              selectedPair,
+            });
           }
 
           // Reset other state
@@ -1036,7 +1044,7 @@ export default function GameViewerPage() {
             discoveryCancellationRef.current.cancel();
             discoveryCancellationRef.current = null;
           }
-          setBaselineBottomPairKey(null);
+          setBaselineBottomPairKey(sharedBaselineBottomPairKey);
           setUserFlipPreference(false);
           setStandaloneBoardsFlipped(false);
         })
