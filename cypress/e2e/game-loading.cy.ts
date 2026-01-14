@@ -56,6 +56,30 @@ describe("Game Loading", () => {
     });
   });
 
+  describe("Viewer Reset", () => {
+    it("resets the viewer state without a full reload", () => {
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+
+      cy.window().then((win) => {
+        (win as Window & { __logoResetMarker?: string }).__logoResetMarker = "alive";
+      });
+
+      cy.get('a[aria-label="Go to home page"]').click();
+
+      cy.window()
+        .its("__logoResetMarker")
+        .should("eq", "alive");
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`).should(
+        "not.exist",
+      );
+    });
+  });
+
   describe("Shared Games Page", () => {
     it("loads shared games page", () => {
       cy.visit("/shared-games");

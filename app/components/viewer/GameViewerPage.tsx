@@ -170,6 +170,7 @@ export default function GameViewerPage() {
   const isCompactLandscape = useCompactLandscape();
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
   const analytics = useFirebaseAnalytics();
+  const hasLoadedGame = Boolean(gameData);
   const [prefetched, setPrefetched] = useState<PrefetchedGameLoad>({ status: "idle" });
   const prefetchedRef = useRef(prefetched);
   const prefetchSeqRef = useRef(0);
@@ -281,6 +282,64 @@ export default function GameViewerPage() {
 
     toast.success("Game URL copied to clipboard!");
   }, [SHARE_BASE_URL, copyToClipboard, loadedGameId]);
+
+  /**
+   * Resets the viewer to the initial "blank" state without a full page refresh.
+   * This mirrors the behavior of a hard reload while keeping client-side routing intact.
+   */
+  const resetViewerState = useCallback(() => {
+    if (discoveryCancellationRef.current) {
+      discoveryCancellationRef.current.cancel();
+      discoveryCancellationRef.current = null;
+    }
+
+    if (prefetchDebounceTimeoutRef.current !== null) {
+      window.clearTimeout(prefetchDebounceTimeoutRef.current);
+      prefetchDebounceTimeoutRef.current = null;
+    }
+
+    prefetchSeqRef.current += 1;
+    didPrefetchSeededSampleRef.current = false;
+    prefetchedRef.current = { status: "idle" };
+    setPrefetched({ status: "idle" });
+    setPendingLoadRequest(null);
+
+    setGameData(null);
+    setPristineGameData(null);
+    setSharedGameDescription(null);
+    setAutoStartLiveReplayGameId(null);
+    setMatchGames([]);
+    setMatchCurrentIndex(0);
+    setMatchDiscoveryStatus("idle");
+    setHasUserInitiatedMatchDiscovery(false);
+    setSelectedPairForDisplay(null);
+    setBaselineBottomPairKey(null);
+    setUserFlipPreference(false);
+    setStandaloneBoardsFlipped(false);
+    setAnalysisIsDirty(false);
+    setIsDiscoveryModalOpen(false);
+    setIsShareModalOpen(false);
+
+    setGameId(getRandomSampleGameId());
+    lastAutoLoadedIdRef.current = null;
+    lastAutoLoadedSharedIdRef.current = null;
+
+    if (autoLoadGameId || sharedId) {
+      router.replace("/", { scroll: false });
+    }
+  }, [autoLoadGameId, router, sharedId]);
+
+  const handleLogoClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!hasLoadedGame) {
+        return;
+      }
+
+      event.preventDefault();
+      resetViewerState();
+    },
+    [hasLoadedGame, resetViewerState],
+  );
 
   const performLoadGame = useCallback(
     (trimmedId: string, clearInput: boolean) => {
@@ -1226,10 +1285,7 @@ export default function GameViewerPage() {
             <Link
               href="/"
               aria-label="Go to home page"
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = "/";
-              }}
+              onClick={handleLogoClick}
             >
               <Image
                 src="/logo.png"
