@@ -55,6 +55,7 @@ import ShareGameModal from "./ShareGameModal";
 import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { fromMatchGameData } from "../types/sharedGame";
 import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
+import { getShareEligibility } from "../utils/shareEligibility";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -207,6 +208,7 @@ export default function GameViewerPage() {
   const [matchCurrentIndex, setMatchCurrentIndex] = useState(0);
   const [matchDiscoveryStatus, setMatchDiscoveryStatus] = useState<MatchDiscoveryStatus>("idle");
   const discoveryCancellationRef = useRef<DiscoveryCancellation | null>(null);
+  const [hasUserInitiatedMatchDiscovery, setHasUserInitiatedMatchDiscovery] = useState(false);
 
   // Match discovery modal state
   const [isDiscoveryModalOpen, setIsDiscoveryModalOpen] = useState(false);
@@ -374,6 +376,7 @@ export default function GameViewerPage() {
             setMatchGames([]);
             setMatchCurrentIndex(0);
             setMatchDiscoveryStatus("idle");
+            setHasUserInitiatedMatchDiscovery(false);
             setSelectedPairForDisplay(null);
             setBaselineBottomPairKey(null);
             setUserFlipPreference(false);
@@ -539,6 +542,7 @@ export default function GameViewerPage() {
       setMatchGames([initialMatchGame]);
       setMatchCurrentIndex(0);
       setMatchDiscoveryStatus("discovering");
+      setHasUserInitiatedMatchDiscovery(true);
 
       // Start discovery (searches both backward and forward)
       discoverMatchGames(
@@ -755,28 +759,28 @@ export default function GameViewerPage() {
   const isDiscovering = matchDiscoveryStatus === "discovering";
 
   /**
-   * Whether the share button should be enabled.
-   * Requires: fully authenticated AND game loaded AND not currently discovering match games
-   * AND not loaded from a shared game (to prevent re-sharing).
+   * Determines whether sharing is allowed and why it might be blocked.
    */
-  const canShare = isFullyAuthenticated && !!loadedGameId && !isDiscovering && !sharedId;
+  const shareEligibility = getShareEligibility({
+    isFullyAuthenticated,
+    loadedGameId: loadedGameId ?? null,
+    isDiscovering,
+    sharedId,
+    matchDiscoveryStatus,
+    matchGamesCount: matchGames.length,
+    hasUserInitiatedMatchDiscovery,
+    authMessage: getFullAuthRequirementMessage(fullAuthStatus),
+  });
+
+  /**
+   * Whether the share button should be enabled.
+   */
+  const canShare = shareEligibility.canShare;
 
   /**
    * Message explaining why sharing is disabled.
    */
-  const shareDisabledReason: string | undefined = (() => {
-    if (!loadedGameId) {
-      return "Load a game to share";
-    }
-    if (sharedId) {
-      return "Cannot re-share a game from the shared games list";
-    }
-    if (isDiscovering) {
-      return "Wait for match discovery to complete";
-    }
-    const authMessage = getFullAuthRequirementMessage(fullAuthStatus);
-    return authMessage ?? undefined;
-  })();
+  const shareDisabledReason = shareEligibility.disabledReason;
 
   /**
    * Opens the share modal.
@@ -983,6 +987,7 @@ export default function GameViewerPage() {
             setMatchGames([]);
             setMatchCurrentIndex(0);
             setMatchDiscoveryStatus("idle");
+            setHasUserInitiatedMatchDiscovery(false);
           } else {
             // Match or partner games
             const matchGameData = fromMatchGameData(storedData.games);
@@ -1007,6 +1012,7 @@ export default function GameViewerPage() {
             setMatchGames(matchGameData);
             setMatchCurrentIndex(0);
             setMatchDiscoveryStatus("complete");
+            setHasUserInitiatedMatchDiscovery(false);
 
             // For partner games, reconstruct the selected pair from metadata
             // The metadata.team1 contains the partner pair, and team2 is "Random Opponents"
