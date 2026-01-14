@@ -2,7 +2,7 @@ import type { BughouseCaptureMaterialLedger } from "../../types/bughouse";
 import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../../types/analysis";
 
 const BUGHOUSE_CAPTURE_VALUE_BY_PIECE: Record<BughousePieceType, number> = {
-  p: 1,
+  p: 1.5,
   n: 3,
   b: 3,
   r: 4,
@@ -25,9 +25,9 @@ export function createEmptyCaptureMaterialLedger(): BughouseCaptureMaterialLedge
  * Return the bughouse material value for a captured piece.
  *
  * Bughouse scoring (as used by this UI feature):
- * - pawn: 1
+ * - pawn: 1.5
  * - knight/bishop: 3
- * - rook: 5
+ * - rook: 4
  * - queen: 7
  */
 export function getBughouseCaptureValueForPiece(piece: BughousePieceType): number {

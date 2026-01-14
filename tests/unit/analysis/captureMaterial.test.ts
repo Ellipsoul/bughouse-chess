@@ -8,7 +8,7 @@ import {
 
 describe("captureMaterial", () => {
   it("maps pieces to bughouse capture values", () => {
-    expect(getBughouseCaptureValueForPiece("p")).toBe(1);
+    expect(getBughouseCaptureValueForPiece("p")).toBe(1.5);
     expect(getBughouseCaptureValueForPiece("n")).toBe(3);
     expect(getBughouseCaptureValueForPiece("b")).toBe(3);
     expect(getBughouseCaptureValueForPiece("r")).toBe(4);

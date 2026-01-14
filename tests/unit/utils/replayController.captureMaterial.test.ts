@@ -41,8 +41,8 @@ describe("BughouseReplayController - captureMaterial", () => {
     expect(controller.moveForward()).toBe(true); // exd5
 
     const afterCapture = controller.getCurrentGameState().captureMaterial;
-    expect(afterCapture.A.white).toBe(1);
-    expect(afterCapture.A.black).toBe(-1);
+    expect(afterCapture.A.white).toBe(1.5);
+    expect(afterCapture.A.black).toBe(-1.5);
 
     // Undo the capture: should restore previous ledger state.
     expect(controller.moveBackward()).toBe(true);
