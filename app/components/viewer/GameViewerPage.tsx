@@ -15,59 +15,59 @@ import {
   ChessGame,
   fetchChessGame,
   findPartnerGameId,
-} from "../actions";
+} from "../../actions";
 import BughouseAnalysis from "./BughouseAnalysis";
-import { APP_TOOLTIP_ID } from "../utils/tooltips";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
 import Link from "next/link";
 import { Share } from "lucide-react";
-import { getNonBughouseGameErrorMessage } from "../utils/chesscomGameValidation";
+import { getNonBughouseGameErrorMessage } from "../../utils/chesscomGameValidation";
 import {
   GameLoadCounterFloating,
   useGameLoadCounterLabel,
-} from "./GameLoadCounterBadge";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
-import { getRandomSampleGameId } from "../utils/sampleGameIds";
-import ConfirmLoadNewGameModal from "./ConfirmLoadNewGameModal";
+} from "../badges/GameLoadCounterBadge";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
+import { getRandomSampleGameId } from "../../utils/sampleGameIds";
+import ConfirmLoadNewGameModal from "../modals/ConfirmLoadNewGameModal";
 import {
   setSkipLoadGameOverrideConfirm,
   shouldSkipLoadGameOverrideConfirm,
-} from "../utils/loadGameOverrideConfirmPreference";
-import MatchNavigation from "./MatchNavigation";
+} from "../../utils/loadGameOverrideConfirmPreference";
+import MatchNavigation from "../match/MatchNavigation";
 import MatchDiscoveryModeModal, {
   type DiscoveryModeSelection,
-} from "./MatchDiscoveryModeModal";
-import type { MatchGame, MatchDiscoveryStatus, PartnerPair } from "../types/match";
-import { extractPartnerPairs } from "../types/match";
+} from "../match/MatchDiscoveryModeModal";
+import type { MatchGame, MatchDiscoveryStatus, PartnerPair } from "../../types/match";
+import { extractPartnerPairs } from "../../types/match";
 import {
   discoverMatchGames,
   createMatchGameFromLoaded,
   DiscoveryCancellation,
-} from "../utils/matchDiscovery";
-import { useCompactLandscape } from "../utils/useCompactLandscape";
-import type { PairKey } from "../utils/matchBoardOrientation";
+} from "../../utils/matchDiscovery";
+import { useCompactLandscape } from "../../utils/useCompactLandscape";
+import type { PairKey } from "../../utils/matchBoardOrientation";
 import {
   computeBaseFlip,
   computeEffectiveFlip,
   getBottomPairKeyForGame,
-} from "../utils/matchBoardOrientation";
-import { getSharedMatchBaselineBottomPairKey } from "../utils/sharedGameOrientation";
-import { useFullAuth, getFullAuthRequirementMessage } from "../utils/useFullAuth";
-import ShareGameModal from "./ShareGameModal";
-import type { SharedContentType, SingleGameData } from "../types/sharedGame";
-import { fromMatchGameData } from "../types/sharedGame";
-import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
-import { getShareEligibility } from "../utils/shareEligibility";
-import { useSharedGameHashes } from "../utils/sharedGameHashesStore";
+} from "../../utils/matchBoardOrientation";
+import { getSharedMatchBaselineBottomPairKey } from "../../utils/sharedGameOrientation";
+import { useFullAuth, getFullAuthRequirementMessage } from "../../utils/useFullAuth";
+import ShareGameModal from "../shared/ShareGameModal";
+import type { SharedContentType, SingleGameData } from "../../types/sharedGame";
+import { fromMatchGameData } from "../../types/sharedGame";
+import { getSharedGame, reconstructPartnerPairFromMetadata } from "../../utils/sharedGamesService";
+import { getShareEligibility } from "../../utils/shareEligibility";
+import { useSharedGameHashes } from "../../utils/sharedGameHashesStore";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "../utils/sharedGameHash";
-import { getAutoAdvanceLiveReplayFromLocalStorage } from "../utils/userPreferencesService";
+} from "../../utils/sharedGameHash";
+import { getAutoAdvanceLiveReplayFromLocalStorage } from "../../utils/userPreferencesService";
 import {
   isValidChessComGameId,
   sanitizeChessComGameIdInput,
-} from "../utils/chessComGameIdInput";
+} from "../../utils/chessComGameIdInput";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);

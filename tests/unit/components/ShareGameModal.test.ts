@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
 import type { MatchGame } from "../../../app/types/match";
-import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../../../app/components/MatchNavigation";
+import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../../../app/components/match/MatchNavigation";
 import { extractPartnerPairs } from "../../../app/types/match";
 
 // Load fixtures

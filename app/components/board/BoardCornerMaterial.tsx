@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { formatSignedCaptureMaterial } from "../utils/analysis/captureMaterial";
+import { formatSignedCaptureMaterial } from "../../utils/analysis/captureMaterial";
 
 export type BoardCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 

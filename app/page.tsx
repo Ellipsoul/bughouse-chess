@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import GameViewerPage from "./components/GameViewerPage";
+import GameViewerPage from "./components/viewer/GameViewerPage";
 
 /**
  * Landing page that hosts the bughouse game viewer with a suspense fallback.

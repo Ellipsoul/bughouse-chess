@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BughouseMove, BughousePlayer } from "../types/bughouse";
-import type { AnalysisNode, AnalysisTree } from "../types/analysis";
-import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
+import type { BughouseMove, BughousePlayer } from "../../types/bughouse";
+import type { AnalysisNode, AnalysisTree } from "../../types/analysis";
+import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
 
 interface MoveListWithVariationsProps {
   tree: AnalysisTree;

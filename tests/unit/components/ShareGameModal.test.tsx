@@ -6,7 +6,7 @@ import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
 import type { MatchGame, PartnerPair } from "../../../app/types/match";
 import type { SingleGameData } from "../../../app/types/sharedGame";
-import ShareGameModal from "../../../app/components/ShareGameModal";
+import ShareGameModal from "../../../app/components/shared/ShareGameModal";
 import { shareGame, shareMatch } from "../../../app/utils/sharedGamesService";
 import { revalidateSharedGamesPage } from "../../../app/actions";
 import {

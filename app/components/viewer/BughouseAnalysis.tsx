@@ -14,45 +14,45 @@ import {
   StepForward,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import type { ChessGame } from "../actions";
-import { processGameData } from "../utils/moveOrdering";
-import { deriveBughouseConclusionSummary } from "../utils/gameConclusion";
-import type { BughouseMove } from "../types/bughouse";
-import type { BughousePlayer } from "../types/bughouse";
-import type { AnalysisNode } from "../types/analysis";
-import { buildBughouseClockTimeline } from "../utils/analysis/buildBughouseClockTimeline";
-import { buildPerBoardMoveDurationsDeciseconds } from "../utils/analysis/buildPerBoardMoveDurationsDeciseconds";
-import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
+import type { ChessGame } from "../../actions";
+import { processGameData } from "../../utils/moveOrdering";
+import { deriveBughouseConclusionSummary } from "../../utils/gameConclusion";
+import type { BughouseMove } from "../../types/bughouse";
+import type { BughousePlayer } from "../../types/bughouse";
+import type { AnalysisNode } from "../../types/analysis";
+import { buildBughouseClockTimeline } from "../../utils/analysis/buildBughouseClockTimeline";
+import { buildPerBoardMoveDurationsDeciseconds } from "../../utils/analysis/buildPerBoardMoveDurationsDeciseconds";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/clockAdvantage";
 import {
   createInitialPositionSnapshot,
   validateAndApplyMoveFromNotation,
-} from "../utils/analysis/applyMove";
-import ChessBoard from "./ChessBoard";
-import PieceReserveVertical from "./PieceReserveVertical";
-import { reorderSimultaneousCheckmateMove, useAnalysisState } from "./useAnalysisState";
-import VariationSelector from "./VariationSelector";
-import PromotionPicker from "./PromotionPicker";
-import MoveListWithVariations from "./MoveListWithVariations";
-import { ChessTitleBadge } from "./ChessTitleBadge";
-import { TooltipAnchor } from "./TooltipAnchor";
-import SharedGameDescription from "./SharedGameDescription";
-import { BoardCornerMaterial } from "./BoardCornerMaterial";
-import type { BoardAnnotations } from "../utils/boardAnnotations";
+} from "../../utils/analysis/applyMove";
+import ChessBoard from "../board/ChessBoard";
+import PieceReserveVertical from "../board/PieceReserveVertical";
+import { reorderSimultaneousCheckmateMove, useAnalysisState } from "../moves/useAnalysisState";
+import VariationSelector from "../moves/VariationSelector";
+import PromotionPicker from "../board/PromotionPicker";
+import MoveListWithVariations from "../moves/MoveListWithVariations";
+import { ChessTitleBadge } from "../badges/ChessTitleBadge";
+import { TooltipAnchor } from "../ui/TooltipAnchor";
+import SharedGameDescription from "../shared/SharedGameDescription";
+import { BoardCornerMaterial } from "../board/BoardCornerMaterial";
+import type { BoardAnnotations } from "../../utils/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
   getAnnotationsForFen,
   setAnnotationsForFen,
   toFenKey,
-} from "../utils/boardAnnotationPersistence";
+} from "../../utils/boardAnnotationPersistence";
 import {
   buildBughouseBoardMoveCountsByGlobalPly,
   buildMonotonicMoveTimestampsDeciseconds,
   getBughouseClockSnapshotAtElapsedDeciseconds,
   getLiveReplayElapsedDecisecondsAtGlobalPly,
   isPristineLoadedMainline,
-} from "../utils/analysis/liveReplay";
-import { useCompactLandscape } from "../utils/useCompactLandscape";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+} from "../../utils/analysis/liveReplay";
+import { useCompactLandscape } from "../../utils/useCompactLandscape";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
 
 interface BughouseAnalysisProps {
   gameData?: {

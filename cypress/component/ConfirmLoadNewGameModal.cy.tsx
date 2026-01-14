@@ -1,4 +1,4 @@
-import ConfirmLoadNewGameModal from "../../app/components/ConfirmLoadNewGameModal";
+import ConfirmLoadNewGameModal from "../../app/components/modals/ConfirmLoadNewGameModal";
 
 describe("ConfirmLoadNewGameModal", () => {
   it("renders nothing when closed", () => {

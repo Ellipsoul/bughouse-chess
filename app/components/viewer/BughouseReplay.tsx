@@ -2,24 +2,24 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCcw, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
-import ChessBoard from "./ChessBoard";
-import MoveList from "./MoveList";
-import PieceReserveVertical from "./PieceReserveVertical";
-import { TooltipAnchor } from "./TooltipAnchor";
-import { BoardCornerMaterial } from "./BoardCornerMaterial";
-import { processGameData } from "../utils/moveOrdering";
-import { BughouseReplayController } from "../utils/replayController";
-import { BughouseGameState, BughousePlayer } from "../types/bughouse";
-import { ChessGame } from "../actions";
-import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../utils/clockAdvantage";
-import { ChessTitleBadge } from "./ChessTitleBadge";
-import type { BoardAnnotations } from "../utils/boardAnnotations";
+import ChessBoard from "../board/ChessBoard";
+import MoveList from "../moves/MoveList";
+import PieceReserveVertical from "../board/PieceReserveVertical";
+import { TooltipAnchor } from "../ui/TooltipAnchor";
+import { BoardCornerMaterial } from "../board/BoardCornerMaterial";
+import { processGameData } from "../../utils/moveOrdering";
+import { BughouseReplayController } from "../../utils/replayController";
+import { BughouseGameState, BughousePlayer } from "../../types/bughouse";
+import { ChessGame } from "../../actions";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/clockAdvantage";
+import { ChessTitleBadge } from "../badges/ChessTitleBadge";
+import type { BoardAnnotations } from "../../utils/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
   getAnnotationsForFen,
   setAnnotationsForFen,
   toFenKey,
-} from "../utils/boardAnnotationPersistence";
+} from "../../utils/boardAnnotationPersistence";
 
 interface BughouseReplayProps {
   gameData: {

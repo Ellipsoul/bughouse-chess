@@ -1,4 +1,4 @@
-import MatchNavigation from "../../app/components/MatchNavigation";
+import MatchNavigation from "../../app/components/match/MatchNavigation";
 import type { MatchGame } from "../../app/types/match";
 import type { ChessGame } from "../../app/actions";
 

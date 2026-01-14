@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "./firebaseClient";
 import type { ChessGame } from "../actions";
 import type { MatchGame, PartnerPair } from "../types/match";
-import { computeMatchScore, computePartnerPairScore } from "../components/MatchNavigation";
+import { computeMatchScore, computePartnerPairScore } from "../components/match/MatchNavigation";
 import type {
   SharedGameDocument,
   SharedGame,

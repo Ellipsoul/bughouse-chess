@@ -1,4 +1,4 @@
-import MoveListWithVariations from "../../app/components/MoveListWithVariations";
+import MoveListWithVariations from "../../app/components/moves/MoveListWithVariations";
 import type { AnalysisTree } from "../../app/types/analysis";
 import type { BughouseMove } from "../../app/types/bughouse";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";

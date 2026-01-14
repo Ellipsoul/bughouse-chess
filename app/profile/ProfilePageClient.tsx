@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, LogOut, Pencil, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
-import { UsernameReservationModal } from "../components/UsernameReservationModal";
+import { UsernameReservationModal } from "../components/modals/UsernameReservationModal";
 import { getUsernameForUser } from "../utils/usernameService";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ChessTitleBadge } from "../../../app/components/ChessTitleBadge";
+import { ChessTitleBadge } from "../../../app/components/badges/ChessTitleBadge";
 
 describe("ChessTitleBadge", () => {
   it("renders nothing when chessTitle is missing/empty", () => {

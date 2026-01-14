@@ -3,7 +3,7 @@ import { Fira_Code, Inter, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Providers from "./providers";
-import AppShell from "./components/AppShell";
+import AppShell from "./components/layout/AppShell";
 
 const inter = Inter({
   subsets: ["latin"],

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { APP_TOOLTIP_ID } from "../utils/tooltips";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
 
 export interface TooltipAnchorProps {
   /** Tooltip text shown on hover/focus of the wrapped content. */

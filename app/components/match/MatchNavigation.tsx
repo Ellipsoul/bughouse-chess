@@ -2,8 +2,8 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
-import { APP_TOOLTIP_ID } from "../utils/tooltips";
-import type { MatchDiscoveryStatus, MatchGame, PartnerPair } from "../types/match";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
+import type { MatchDiscoveryStatus, MatchGame, PartnerPair } from "../../types/match";
 
 /**
  * Reference team composition established from the first game.

@@ -1,4 +1,4 @@
-import PromotionPicker from "../../app/components/PromotionPicker";
+import PromotionPicker from "../../app/components/board/PromotionPicker";
 import type { BughousePromotionPiece } from "../../app/types/analysis";
 
 describe("PromotionPicker", () => {

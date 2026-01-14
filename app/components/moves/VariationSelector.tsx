@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import type { AnalysisTree } from "../types/analysis";
+import type { AnalysisTree } from "../../types/analysis";
 import type { VariationSelectorState } from "./useAnalysisState";
-import { APP_TOOLTIP_ID } from "../utils/tooltips";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
 
 interface VariationSelectorProps {
   tree: AnalysisTree;

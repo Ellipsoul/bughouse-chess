@@ -40,7 +40,7 @@
  */
 import { useCallback, useMemo, useReducer } from "react";
 import type { Square } from "chess.js";
-import type { BughouseMove } from "../types/bughouse";
+import type { BughouseMove } from "../../types/bughouse";
 import type {
   AnalysisNode,
   AnalysisTree,
@@ -49,14 +49,14 @@ import type {
   BughouseHalfMove,
   BughousePositionSnapshot,
   BughousePromotionPiece,
-} from "../types/analysis";
+} from "../../types/analysis";
 import {
   createInitialPositionSnapshot,
   validateAndApplyBughouseHalfMove,
   validateAndApplyMoveFromNotation,
   type ValidateAndApplyResult,
-} from "../utils/analysis/applyMove";
-import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
+} from "../../utils/analysis/applyMove";
+import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
 
 export interface PendingDropSelection {
   board: BughouseBoardId;

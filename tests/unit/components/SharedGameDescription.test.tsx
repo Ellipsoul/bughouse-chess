@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import SharedGameDescription from "../../../app/components/SharedGameDescription";
+import SharedGameDescription from "../../../app/components/shared/SharedGameDescription";
 
 describe("SharedGameDescription", () => {
   it("renders a trimmed description", () => {

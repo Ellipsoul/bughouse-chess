@@ -1,4 +1,4 @@
-import BughouseAnalysis from "../../app/components/BughouseAnalysis";
+import BughouseAnalysis from "../../app/components/viewer/BughouseAnalysis";
 import type { ChessGame } from "../../app/actions";
 
 import originalFixture from "../../tests/fixtures/chesscom/160064848971.json";

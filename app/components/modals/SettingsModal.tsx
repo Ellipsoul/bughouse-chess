@@ -13,8 +13,8 @@ import {
   loadAutoAdvanceLiveReplayPreference,
   saveAutoAdvanceLiveReplayToLocalStorage,
   type UserPreferences,
-} from "../utils/userPreferencesService";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+} from "../../utils/userPreferencesService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */

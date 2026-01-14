@@ -1,4 +1,4 @@
-import { UsernameReservationModal } from "../../app/components/UsernameReservationModal";
+import { UsernameReservationModal } from "../../app/components/modals/UsernameReservationModal";
 
 /**
  * Component tests for UsernameReservationModal.

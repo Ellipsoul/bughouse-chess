@@ -1,4 +1,4 @@
-import PieceReserveVertical from "../../app/components/PieceReserveVertical";
+import PieceReserveVertical from "../../app/components/board/PieceReserveVertical";
 
 describe("PieceReserveVertical", () => {
   const defaultProps = {

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useRef } from "react";
 import { Users, UserCheck } from "lucide-react";
-import type { PartnerPair, DiscoveryMode } from "../types/match";
-import { useCompactLandscape } from "../utils/useCompactLandscape";
+import type { PartnerPair, DiscoveryMode } from "../../types/match";
+import { useCompactLandscape } from "../../utils/useCompactLandscape";
 
 /**
  * Result of the discovery mode selection.

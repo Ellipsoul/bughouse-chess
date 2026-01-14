@@ -9,8 +9,8 @@ import {
   normalizeUsername,
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
-} from "../utils/usernameService";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+} from "../../utils/usernameService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */

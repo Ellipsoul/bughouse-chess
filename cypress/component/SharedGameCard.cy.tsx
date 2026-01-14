@@ -1,4 +1,4 @@
-import SharedGameCard from "../../app/components/SharedGameCard";
+import SharedGameCard from "../../app/components/shared/SharedGameCard";
 import type { SharedGameSummary, SharedGameMetadata } from "../../app/types/sharedGame";
 
 /**

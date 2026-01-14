@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeReservePiecePx } from "../../../app/components/PieceReserveVertical";
+import { computeReservePiecePx } from "../../../app/components/board/PieceReserveVertical";
 
 describe("PieceReserveVertical sizing", () => {
   describe("computeReservePiecePx", () => {

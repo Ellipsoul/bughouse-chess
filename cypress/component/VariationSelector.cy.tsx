@@ -1,5 +1,5 @@
-import VariationSelector from "../../app/components/VariationSelector";
-import type { VariationSelectorState } from "../../app/components/useAnalysisState";
+import VariationSelector from "../../app/components/moves/VariationSelector";
+import type { VariationSelectorState } from "../../app/components/moves/useAnalysisState";
 import type { AnalysisTree } from "../../app/types/analysis";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";
 

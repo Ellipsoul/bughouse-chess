@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
-import type { AnalysisNode, AnalysisTree } from "../types/analysis";
-import { findContainingVariationHeadNodeId } from "../utils/analysis/findVariationHead";
-import { TooltipAnchor } from "./TooltipAnchor";
+import type { AnalysisNode, AnalysisTree } from "../../types/analysis";
+import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
+import { TooltipAnchor } from "../ui/TooltipAnchor";
 
 interface MoveTreeProps {
   tree: AnalysisTree;

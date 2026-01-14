@@ -4,21 +4,21 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Filter } from "bad-words";
-import { revalidateSharedGamesPage, type ChessGame } from "../actions";
-import type { MatchGame } from "../types/match";
-import type { SharedContentType, SingleGameData } from "../types/sharedGame";
-import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../types/sharedGame";
-import { shareGame, shareMatch } from "../utils/sharedGamesService";
-import { ChessTitleBadge } from "./ChessTitleBadge";
-import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "./MatchNavigation";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
-import type { PartnerPair } from "../types/match";
-import { useSharedGameHashes } from "../utils/sharedGameHashesStore";
+import { revalidateSharedGamesPage, type ChessGame } from "../../actions";
+import type { MatchGame } from "../../types/match";
+import type { SharedContentType, SingleGameData } from "../../types/sharedGame";
+import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../../types/sharedGame";
+import { shareGame, shareMatch } from "../../utils/sharedGamesService";
+import { ChessTitleBadge } from "../badges/ChessTitleBadge";
+import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../match/MatchNavigation";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
+import type { PartnerPair } from "../../types/match";
+import { useSharedGameHashes } from "../../utils/sharedGameHashesStore";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "../utils/sharedGameHash";
+} from "../../utils/sharedGameHash";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */

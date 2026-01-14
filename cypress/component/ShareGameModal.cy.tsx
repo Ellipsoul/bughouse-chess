@@ -1,4 +1,4 @@
-import ShareGameModal from "../../app/components/ShareGameModal";
+import ShareGameModal from "../../app/components/shared/ShareGameModal";
 import type { SingleGameData } from "../../app/types/sharedGame";
 import type { ChessGame } from "../../app/actions";
 

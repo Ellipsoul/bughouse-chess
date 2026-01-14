@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Square } from "chess.js";
 // Import CSS from the package
 import "chessboardjs/www/css/chessboard.css";
-import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../types/analysis";
+import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../../types/analysis";
 import {
   type BoardAnnotations,
   type ArrowKey,
@@ -12,7 +12,7 @@ import {
   isSquare,
   toggleArrowInList,
   toggleSquareInList,
-} from "../utils/boardAnnotations";
+} from "../../utils/boardAnnotations";
 
 interface ChessBoardInstance {
   destroy: () => void;

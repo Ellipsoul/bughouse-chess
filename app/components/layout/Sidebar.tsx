@@ -4,9 +4,9 @@ import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BookMarked, ChessKnight, Coffee, Settings, UserRound } from "lucide-react";
-import { TooltipAnchor } from "./TooltipAnchor";
-import { useAuth } from "../auth/useAuth";
-import SettingsModal from "./SettingsModal";
+import { TooltipAnchor } from "../ui/TooltipAnchor";
+import { useAuth } from "../../auth/useAuth";
+import SettingsModal from "../modals/SettingsModal";
 
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";

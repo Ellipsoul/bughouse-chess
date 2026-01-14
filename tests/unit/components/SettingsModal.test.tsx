@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
-import SettingsModal from "../../../app/components/SettingsModal";
+import SettingsModal from "../../../app/components/modals/SettingsModal";
 import * as userPreferencesService from "../../../app/utils/userPreferencesService";
 import toast from "react-hot-toast";
 

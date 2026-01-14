@@ -20,7 +20,7 @@ import {
   computeMatchScore,
   computePartnerPairScore,
   establishReferenceTeams,
-} from "../../../app/components/MatchNavigation";
+} from "../../../app/components/match/MatchNavigation";
 
 // Load fixtures
 function loadFixture(filename: string): ChessGame {

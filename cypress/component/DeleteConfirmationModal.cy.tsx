@@ -1,4 +1,4 @@
-import DeleteConfirmationModal from "../../app/components/DeleteConfirmationModal";
+import DeleteConfirmationModal from "../../app/components/modals/DeleteConfirmationModal";
 
 describe("DeleteConfirmationModal", () => {
   describe("Rendering", () => {

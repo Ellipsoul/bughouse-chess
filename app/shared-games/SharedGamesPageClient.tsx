@@ -8,7 +8,7 @@ import { useCompactLandscape } from "../utils/useCompactLandscape";
 import { useFullAuth } from "../utils/useFullAuth";
 import type { SharedGameSummary } from "../types/sharedGame";
 import { filterSharedGames } from "../utils/sharedGamesFilter";
-import SharedGameCard from "../components/SharedGameCard";
+import SharedGameCard from "../components/shared/SharedGameCard";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 import { useEffect } from "react";
 

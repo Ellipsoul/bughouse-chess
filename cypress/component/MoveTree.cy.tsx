@@ -1,4 +1,4 @@
-import MoveTree from "../../app/components/MoveTree";
+import MoveTree from "../../app/components/moves/MoveTree";
 import type { AnalysisTree } from "../../app/types/analysis";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";
 

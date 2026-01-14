@@ -40,7 +40,7 @@ export default defineConfig({
         "app/types/**/*.{ts,tsx}",
         "app/chesscom_movelist_parse.ts",
         "app/actions.ts",
-        "app/components/useAnalysisState.ts",
+        "app/components/moves/useAnalysisState.ts",
       ],
       exclude: [
         "**/*.d.ts",
@@ -49,7 +49,7 @@ export default defineConfig({
         "app/**/page.tsx",
         "app/providers.tsx",
         "app/components/**/*.tsx",
-        "!app/components/useAnalysisState.ts",
+        "!app/components/moves/useAnalysisState.ts",
       ],
     },
   },

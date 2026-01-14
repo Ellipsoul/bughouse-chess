@@ -1,4 +1,4 @@
-import Sidebar from "../../app/components/Sidebar";
+import Sidebar from "../../app/components/layout/Sidebar";
 import { AuthProvider } from "../../app/auth/AuthProvider";
 import type { AuthAdapter, AuthUser } from "../../app/auth/types";
 

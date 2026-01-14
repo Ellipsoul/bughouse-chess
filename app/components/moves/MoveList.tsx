@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { BughouseMove } from "../types/bughouse";
-import { BughousePlayer } from "../types/bughouse";
+import { BughouseMove } from "../../types/bughouse";
+import { BughousePlayer } from "../../types/bughouse";
 
 interface MoveListProps {
   moves: BughouseMove[];

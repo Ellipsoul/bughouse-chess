@@ -4,7 +4,7 @@ import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
 import type { MatchGame } from "../../../app/types/match";
 import { buildMatchMetadata, reconstructPartnerPairFromMetadata } from "../../../app/utils/sharedGamesService";
-import { computeMatchScore, computePartnerPairScore } from "../../../app/components/MatchNavigation";
+import { computeMatchScore, computePartnerPairScore } from "../../../app/components/match/MatchNavigation";
 import { extractPartnerPairs } from "../../../app/types/match";
 
 // Load fixtures
