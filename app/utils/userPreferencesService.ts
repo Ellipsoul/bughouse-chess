@@ -19,6 +19,11 @@ export const DEFAULT_BOARD_ANNOTATION_COLOR = "rgb(52, 168, 83, 0.95)";
 const LOCAL_STORAGE_KEY = "bh-board-annotation-color";
 
 /**
+ * LocalStorage key for auto-advance live replay preference.
+ */
+const AUTO_ADVANCE_LIVE_REPLAY_KEY = "bh-auto-advance-live-replay";
+
+/**
  * Firestore collection path for user preferences.
  * Structure: users/{userId}/userPreferences/{preferencesDocId}
  */
@@ -31,6 +36,7 @@ const USER_PREFERENCES_DOC_ID = "settings";
 
 export interface UserPreferences {
   boardAnnotationColor: string;
+  autoAdvanceLiveReplay: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -90,6 +96,63 @@ export function removeBoardAnnotationColorFromLocalStorage(): void {
   }
 }
 
+/**
+ * Gets the auto-advance live replay preference from localStorage.
+ * Returns null when no explicit preference is stored.
+ */
+export function getAutoAdvanceLiveReplayFromLocalStorage(): boolean | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = localStorage.getItem(AUTO_ADVANCE_LIVE_REPLAY_KEY);
+    if (stored === null) {
+      return null;
+    }
+    if (stored === "true") {
+      return true;
+    }
+    if (stored === "false") {
+      return false;
+    }
+  } catch (err) {
+    console.warn("[userPreferencesService] Failed to read from localStorage:", err);
+  }
+
+  return null;
+}
+
+/**
+ * Saves the auto-advance live replay preference to localStorage.
+ */
+export function saveAutoAdvanceLiveReplayToLocalStorage(enabled: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.setItem(AUTO_ADVANCE_LIVE_REPLAY_KEY, String(enabled));
+  } catch (err) {
+    console.warn("[userPreferencesService] Failed to write to localStorage:", err);
+  }
+}
+
+/**
+ * Removes the auto-advance live replay preference from localStorage.
+ */
+export function removeAutoAdvanceLiveReplayFromLocalStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(AUTO_ADVANCE_LIVE_REPLAY_KEY);
+  } catch (err) {
+    console.warn("[userPreferencesService] Failed to remove from localStorage:", err);
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Firestore Operations                                                       */
 /* -------------------------------------------------------------------------- */
@@ -113,6 +176,7 @@ export async function loadUserPreferencesFromFirestore(
     const data = docSnap.data();
     return {
       boardAnnotationColor: data.boardAnnotationColor ?? DEFAULT_BOARD_ANNOTATION_COLOR,
+      autoAdvanceLiveReplay: data.autoAdvanceLiveReplay ?? false,
     };
   } catch (err) {
     console.error("[userPreferencesService] Failed to load preferences from Firestore:", err);
@@ -170,4 +234,32 @@ export async function loadBoardAnnotationColor(
   }
 
   return DEFAULT_BOARD_ANNOTATION_COLOR;
+}
+
+/**
+ * Loads the auto-advance live replay preference using the following priority:
+ * 1. localStorage (if present)
+ * 2. Firestore (if authenticated and localStorage is empty)
+ * 3. Default value (false)
+ */
+export async function loadAutoAdvanceLiveReplayPreference(
+  userId: string | null,
+): Promise<boolean> {
+  // First, check localStorage for an explicit preference
+  const localPreference = getAutoAdvanceLiveReplayFromLocalStorage();
+  if (localPreference !== null) {
+    return localPreference;
+  }
+
+  // If authenticated and no localStorage value, check Firestore
+  if (userId) {
+    const firestorePrefs = await loadUserPreferencesFromFirestore(userId);
+    if (typeof firestorePrefs?.autoAdvanceLiveReplay === "boolean") {
+      // Sync to localStorage for future loads
+      saveAutoAdvanceLiveReplayToLocalStorage(firestorePrefs.autoAdvanceLiveReplay);
+      return firestorePrefs.autoAdvanceLiveReplay;
+    }
+  }
+
+  return false;
 }

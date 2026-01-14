@@ -5,6 +5,7 @@ import { useAuth } from "../auth/useAuth";
 import {
   loadBoardAnnotationColor,
   DEFAULT_BOARD_ANNOTATION_COLOR,
+  loadAutoAdvanceLiveReplayPreference,
 } from "./userPreferencesService";
 
 /**
@@ -35,6 +36,9 @@ export function useUserPreferences() {
         const color = await loadBoardAnnotationColor(userId);
         const root = document.documentElement;
         root.style.setProperty("--bh-board-annotation-color", color);
+
+        // Pre-warm localStorage with any stored auto-advance preference.
+        await loadAutoAdvanceLiveReplayPreference(userId);
       } catch (err) {
         console.error("[useUserPreferences] Failed to load preferences:", err);
         // Fall back to default on error

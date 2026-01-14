@@ -57,6 +57,7 @@ import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { fromMatchGameData } from "../types/sharedGame";
 import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
 import { getShareEligibility } from "../utils/shareEligibility";
+import { getAutoAdvanceLiveReplayFromLocalStorage } from "../utils/userPreferencesService";
 import {
   isValidChessComGameId,
   sanitizeChessComGameIdInput,
@@ -178,6 +179,7 @@ export default function GameViewerPage() {
   const [matchDiscoveryStatus, setMatchDiscoveryStatus] = useState<MatchDiscoveryStatus>("idle");
   const discoveryCancellationRef = useRef<DiscoveryCancellation | null>(null);
   const [hasUserInitiatedMatchDiscovery, setHasUserInitiatedMatchDiscovery] = useState(false);
+  const [autoStartLiveReplayGameId, setAutoStartLiveReplayGameId] = useState<string | null>(null);
 
   // Match discovery modal state
   const [isDiscoveryModalOpen, setIsDiscoveryModalOpen] = useState(false);
@@ -327,6 +329,7 @@ export default function GameViewerPage() {
             });
 
             setGameData(data);
+            setAutoStartLiveReplayGameId(null);
             setGameId(clearInput ? "" : trimmedId);
             setSharedGameDescription(null);
             if (clearInput) {
@@ -613,6 +616,7 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    setAutoStartLiveReplayGameId(null);
   }, [matchCurrentIndex, matchGames, analytics]);
 
   /**
@@ -637,6 +641,7 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    setAutoStartLiveReplayGameId(null);
   }, [matchCurrentIndex, matchGames, analytics]);
 
   /**
@@ -660,7 +665,42 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    setAutoStartLiveReplayGameId(null);
   }, [matchGames, analytics, matchCurrentIndex]);
+
+  /**
+   * Auto-advance to the next match game when a live replay finishes, if enabled.
+   */
+  const handleLiveReplayCompleted = useCallback(() => {
+    const autoAdvancePreference = getAutoAdvanceLiveReplayFromLocalStorage();
+    if (!autoAdvancePreference) return;
+    if (matchGames.length === 0) return;
+    if (matchCurrentIndex >= matchGames.length - 1) {
+      toast("Reached the end of this match.", { id: "live-replay-auto-advance-end", duration: 2600 });
+      return;
+    }
+
+    const newIndex = matchCurrentIndex + 1;
+    const targetGame = matchGames[newIndex];
+
+    logAnalyticsEvent(analytics, "live_replay_auto_advance", {
+      from_index: matchCurrentIndex,
+      to_index: newIndex,
+      total_games: matchGames.length,
+    });
+
+    setMatchCurrentIndex(newIndex);
+    setGameData({
+      original: targetGame.original,
+      partner: targetGame.partner,
+      partnerId: targetGame.partnerGameId,
+    });
+    setAutoStartLiveReplayGameId(targetGame.original.game.id?.toString() ?? null);
+    toast(`Auto-advanced to game ${newIndex + 1} of ${matchGames.length}.`, {
+      id: "live-replay-auto-advance-next",
+      duration: 2600,
+    });
+  }, [matchCurrentIndex, matchGames, analytics]);
 
   /**
    * Compute the board orientation for the currently displayed game.
@@ -772,6 +812,12 @@ export default function GameViewerPage() {
    * Message explaining why sharing is disabled.
    */
   const shareDisabledReason = shareEligibility.disabledReason;
+
+  /**
+   * Whether the current game should auto-start live replay after auto-advance.
+   */
+  const shouldAutoStartLiveReplay =
+    autoStartLiveReplayGameId !== null && loadedGameId === autoStartLiveReplayGameId;
 
   /**
    * Opens the share modal.
@@ -977,6 +1023,7 @@ export default function GameViewerPage() {
               partner: game.partner,
               partnerId: game.partnerId,
             });
+            setAutoStartLiveReplayGameId(null);
             setPristineGameData(game);
             setMatchGames([]);
             setMatchCurrentIndex(0);
@@ -996,6 +1043,7 @@ export default function GameViewerPage() {
               partner: firstGame.partner,
               partnerId: firstGame.partnerGameId,
             });
+            setAutoStartLiveReplayGameId(null);
             setPristineGameData({
               original: firstGame.original,
               partner: firstGame.partner,
@@ -1247,6 +1295,8 @@ export default function GameViewerPage() {
             canShare={canShare}
             shareDisabledReason={shareDisabledReason}
             sharedGameDescription={sharedGameDescription}
+            onLiveReplayCompleted={handleLiveReplayCompleted}
+            autoStartLiveReplay={shouldAutoStartLiveReplay}
           />
         </div>
       </main>

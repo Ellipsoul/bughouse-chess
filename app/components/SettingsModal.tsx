@@ -10,6 +10,8 @@ import {
   removeBoardAnnotationColorFromLocalStorage,
   saveUserPreferencesToFirestore,
   DEFAULT_BOARD_ANNOTATION_COLOR,
+  loadAutoAdvanceLiveReplayPreference,
+  saveAutoAdvanceLiveReplayToLocalStorage,
   type UserPreferences,
 } from "../utils/userPreferencesService";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
@@ -111,6 +113,8 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [selectedColor, setSelectedColor] = useState<string>(DEFAULT_BOARD_ANNOTATION_COLOR);
   const [initialColor, setInitialColor] = useState<string>(DEFAULT_BOARD_ANNOTATION_COLOR);
+  const [autoAdvanceLiveReplay, setAutoAdvanceLiveReplay] = useState(false);
+  const [initialAutoAdvanceLiveReplay, setInitialAutoAdvanceLiveReplay] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const [modalHeight, setModalHeight] = useState<number | null>(null);
@@ -148,8 +152,9 @@ export default function SettingsModal({
       saveBoardAnnotationColorToLocalStorage(initialColor);
     }
 
+    setAutoAdvanceLiveReplay(initialAutoAdvanceLiveReplay);
     onClose();
-  }, [isSaving, initialColor, onClose]);
+  }, [isSaving, initialColor, initialAutoAdvanceLiveReplay, onClose]);
 
   /**
    * Saves the preference to Firestore (if authenticated) and closes the modal.
@@ -164,7 +169,9 @@ export default function SettingsModal({
       if (userId) {
         const preferences: UserPreferences = {
           boardAnnotationColor: selectedColor,
+          autoAdvanceLiveReplay,
         };
+        saveAutoAdvanceLiveReplayToLocalStorage(autoAdvanceLiveReplay);
         await saveUserPreferencesToFirestore(userId, preferences);
         toast.success("Settings saved!");
 
@@ -172,22 +179,26 @@ export default function SettingsModal({
         logAnalyticsEvent(analytics, "settings_saved", {
           user_authenticated: "true",
           color_changed: selectedColor !== initialColor ? "true" : "false",
+          auto_advance_live_replay: autoAdvanceLiveReplay ? "true" : "false",
           storage_type: "firestore",
         });
       } else {
-        // For non-authenticated users, localStorage is already updated in real-time
+        saveAutoAdvanceLiveReplayToLocalStorage(autoAdvanceLiveReplay);
+        // For non-authenticated users, board color localStorage is already updated in real-time
         toast.success("Settings saved!");
 
         // Log analytics for successful save
         logAnalyticsEvent(analytics, "settings_saved", {
           user_authenticated: "false",
           color_changed: selectedColor !== initialColor ? "true" : "false",
+          auto_advance_live_replay: autoAdvanceLiveReplay ? "true" : "false",
           storage_type: "localStorage",
         });
       }
 
       // Update initial color to the saved color
       setInitialColor(selectedColor);
+      setInitialAutoAdvanceLiveReplay(autoAdvanceLiveReplay);
       onClose();
     } catch (err) {
       console.error("[SettingsModal] Failed to save preferences:", err);
@@ -203,11 +214,12 @@ export default function SettingsModal({
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, userId, selectedColor, initialColor, onClose, analytics]);
+  }, [isSaving, userId, selectedColor, initialColor, autoAdvanceLiveReplay, onClose, analytics]);
 
   // Load initial color when modal opens
   useEffect(() => {
     if (open) {
+      let isActive = true;
       logAnalyticsEvent(analytics, "settings_modal_opened", {
         user_authenticated: userId ? "true" : "false",
       });
@@ -215,6 +227,17 @@ export default function SettingsModal({
       setSelectedColor(currentColor);
       setInitialColor(currentColor);
       setIsSaving(false);
+
+      void (async () => {
+        const preference = await loadAutoAdvanceLiveReplayPreference(userId);
+        if (!isActive) return;
+        setAutoAdvanceLiveReplay(preference);
+        setInitialAutoAdvanceLiveReplay(preference);
+      })();
+
+      return () => {
+        isActive = false;
+      };
     }
   }, [open, analytics, userId]);
 
@@ -331,6 +354,24 @@ export default function SettingsModal({
                 },
               }}
             />
+          </div>
+
+          {/* Auto-Advance Live Replay Section */}
+          <div className="mb-3" data-testid="auto-advance-live-replay">
+            <label className="flex items-start gap-2 text-xs text-gray-200">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-mariner-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+                checked={autoAdvanceLiveReplay}
+                onChange={(event) => setAutoAdvanceLiveReplay(event.target.checked)}
+              />
+              <span className="flex flex-col gap-1">
+                <span className="font-medium text-gray-300">Auto-advance live replay</span>
+                <span className="text-[10px] text-gray-400">
+                  When a live replay ends, automatically move to the next game in the match.
+                </span>
+              </span>
+            </label>
           </div>
 
           {/* Actions */}

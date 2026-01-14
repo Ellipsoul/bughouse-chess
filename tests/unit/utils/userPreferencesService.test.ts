@@ -3,9 +3,13 @@ import {
   getBoardAnnotationColorFromLocalStorage,
   saveBoardAnnotationColorToLocalStorage,
   removeBoardAnnotationColorFromLocalStorage,
+  getAutoAdvanceLiveReplayFromLocalStorage,
+  saveAutoAdvanceLiveReplayToLocalStorage,
+  removeAutoAdvanceLiveReplayFromLocalStorage,
   loadUserPreferencesFromFirestore,
   saveUserPreferencesToFirestore,
   loadBoardAnnotationColor,
+  loadAutoAdvanceLiveReplayPreference,
   DEFAULT_BOARD_ANNOTATION_COLOR,
   type UserPreferences,
 } from "../../../app/utils/userPreferencesService";
@@ -173,6 +177,96 @@ describe("userPreferencesService - localStorage operations", () => {
       }).not.toThrow();
     });
   });
+
+  describe("getAutoAdvanceLiveReplayFromLocalStorage", () => {
+    it("returns null when localStorage has no preference", () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const preference = getAutoAdvanceLiveReplayFromLocalStorage();
+      expect(preference).toBeNull();
+    });
+
+    it("returns true when preference is stored", () => {
+      const { storage } = createStorageMock({
+        "bh-auto-advance-live-replay": "true",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const preference = getAutoAdvanceLiveReplayFromLocalStorage();
+      expect(preference).toBe(true);
+    });
+
+    it("returns false when preference is stored", () => {
+      const { storage } = createStorageMock({
+        "bh-auto-advance-live-replay": "false",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const preference = getAutoAdvanceLiveReplayFromLocalStorage();
+      expect(preference).toBe(false);
+    });
+  });
+
+  describe("saveAutoAdvanceLiveReplayToLocalStorage", () => {
+    it("saves preference to localStorage", () => {
+      const { storage, data } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      saveAutoAdvanceLiveReplayToLocalStorage(true);
+
+      expect(data.get("bh-auto-advance-live-replay")).toBe("true");
+    });
+
+    it("handles localStorage errors gracefully", () => {
+      const errorStorage = {
+        getItem: () => null,
+        setItem: () => {
+          throw new Error("Storage quota exceeded");
+        },
+        removeItem: () => {},
+        clear: () => {},
+        key: () => null,
+        length: 0,
+      } as unknown as Storage;
+      Object.defineProperty(window, "localStorage", {
+        value: errorStorage,
+        writable: true,
+      });
+
+      expect(() => {
+        saveAutoAdvanceLiveReplayToLocalStorage(false);
+      }).not.toThrow();
+    });
+  });
+
+  describe("removeAutoAdvanceLiveReplayFromLocalStorage", () => {
+    it("removes preference from localStorage", () => {
+      const { storage, data } = createStorageMock({
+        "bh-auto-advance-live-replay": "true",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      removeAutoAdvanceLiveReplayFromLocalStorage();
+
+      expect(data.get("bh-auto-advance-live-replay")).toBeUndefined();
+    });
+  });
 });
 
 describe("userPreferencesService - Firestore operations", () => {
@@ -203,10 +297,12 @@ describe("userPreferencesService - Firestore operations", () => {
       const mockDb = {} as Firestore;
       const mockDocRef = {} as DocumentReference;
       const customColor = "rgb(255, 0, 0, 0.95)";
+      const autoAdvanceLiveReplay = true;
       const mockDocSnap = {
         exists: () => true,
         data: () => ({
           boardAnnotationColor: customColor,
+          autoAdvanceLiveReplay,
         }),
       } as unknown as DocumentSnapshot;
 
@@ -218,6 +314,7 @@ describe("userPreferencesService - Firestore operations", () => {
 
       expect(result).toEqual({
         boardAnnotationColor: customColor,
+        autoAdvanceLiveReplay,
       });
     });
 
@@ -237,6 +334,7 @@ describe("userPreferencesService - Firestore operations", () => {
 
       expect(result).toEqual({
         boardAnnotationColor: DEFAULT_BOARD_ANNOTATION_COLOR,
+        autoAdvanceLiveReplay: false,
       });
     });
 
@@ -260,6 +358,7 @@ describe("userPreferencesService - Firestore operations", () => {
       const mockDocRef = {} as DocumentReference;
       const preferences: UserPreferences = {
         boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
+        autoAdvanceLiveReplay: false,
       };
 
       vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
@@ -277,6 +376,7 @@ describe("userPreferencesService - Firestore operations", () => {
       const mockDocRef = {} as DocumentReference;
       const preferences: UserPreferences = {
         boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
+        autoAdvanceLiveReplay: true,
       };
 
       vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
@@ -394,6 +494,104 @@ describe("userPreferencesService - unified loading", () => {
       const color = await loadBoardAnnotationColor("user123");
 
       expect(color).toBe(DEFAULT_BOARD_ANNOTATION_COLOR);
+    });
+  });
+
+  describe("loadAutoAdvanceLiveReplayPreference", () => {
+    it("returns localStorage value when present", async () => {
+      const { storage } = createStorageMock({
+        "bh-auto-advance-live-replay": "false",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const preference = await loadAutoAdvanceLiveReplayPreference("user123");
+
+      expect(preference).toBe(false);
+      expect(getDoc).not.toHaveBeenCalled();
+    });
+
+    it("loads from Firestore when localStorage is empty and user is authenticated", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const mockDb = {} as Firestore;
+      const mockDocRef = {} as DocumentReference;
+      const mockDocSnap = {
+        exists: () => true,
+        data: () => ({
+          autoAdvanceLiveReplay: true,
+        }),
+      } as unknown as DocumentSnapshot;
+
+      vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
+      vi.mocked(doc).mockReturnValue(mockDocRef);
+      vi.mocked(getDoc).mockResolvedValue(mockDocSnap);
+
+      const preference = await loadAutoAdvanceLiveReplayPreference("user123");
+
+      expect(preference).toBe(true);
+      expect(getDoc).toHaveBeenCalled();
+      expect(storage.getItem("bh-auto-advance-live-replay")).toBe("true");
+    });
+
+    it("returns default when localStorage is empty and user is not authenticated", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const preference = await loadAutoAdvanceLiveReplayPreference(null);
+
+      expect(preference).toBe(false);
+      expect(getDoc).not.toHaveBeenCalled();
+    });
+
+    it("returns default when localStorage is empty and Firestore document does not exist", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const mockDb = {} as Firestore;
+      const mockDocRef = {} as DocumentReference;
+      const mockDocSnap = {
+        exists: () => false,
+      } as unknown as DocumentSnapshot;
+
+      vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
+      vi.mocked(doc).mockReturnValue(mockDocRef);
+      vi.mocked(getDoc).mockResolvedValue(mockDocSnap);
+
+      const preference = await loadAutoAdvanceLiveReplayPreference("user123");
+
+      expect(preference).toBe(false);
+    });
+
+    it("handles Firestore errors gracefully and returns default", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const mockDb = {} as Firestore;
+      const mockDocRef = {} as DocumentReference;
+
+      vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
+      vi.mocked(doc).mockReturnValue(mockDocRef);
+      vi.mocked(getDoc).mockRejectedValue(new Error("Firestore error"));
+
+      const preference = await loadAutoAdvanceLiveReplayPreference("user123");
+
+      expect(preference).toBe(false);
     });
   });
 });

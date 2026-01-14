@@ -110,6 +110,14 @@ interface BughouseAnalysisProps {
    * Only rendered when the viewer is opened via a shared link.
    */
   sharedGameDescription?: string | null;
+  /**
+   * Called once when a live replay finishes naturally (playhead reaches the end).
+   */
+  onLiveReplayCompleted?: () => void;
+  /**
+   * When true, attempt to auto-start live replay for the currently loaded game.
+   */
+  autoStartLiveReplay?: boolean;
 }
 
 const PLACEHOLDER_PLAYERS: {
@@ -141,6 +149,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   canShare,
   shareDisabledReason,
   sharedGameDescription,
+  onLiveReplayCompleted,
+  autoStartLiveReplay,
 }) => {
   const analysisContainerRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
@@ -400,6 +410,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const liveReplayLastEmittedDecisecondsRef = useRef<number>(-1);
   const liveReplaySpaceToggleRef = useRef<(() => boolean) | null>(null);
   const liveReplaySeekDeltaRef = useRef<((delta: -1 | 1) => boolean) | null>(null);
+  const lastAutoStartGameIdRef = useRef<string | null>(null);
 
   const stopLiveReplayLoop = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1135,6 +1146,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             total_duration_deciseconds: lastTimestamp,
           });
 
+          onLiveReplayCompleted?.();
+
           return;
         }
       }
@@ -1143,7 +1156,28 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     };
 
     liveReplayRafIdRef.current = window.requestAnimationFrame(tick);
-  }, [analytics, boardMoveCountsByGlobalPly, closeVariationSelector, combinedMovesForMoveTimes, getGlobalPlyCountAtNode, isCursorOnMainline, liveReplayEligible, mainlineNodeIdsByGlobalPly, monotonicMoveTimestampsDeciseconds, processedGame, selectNode, setPendingDrop, state.cursorNodeId, state.pendingPromotion, stopLiveReplayLoop]);
+  }, [analytics, boardMoveCountsByGlobalPly, closeVariationSelector, combinedMovesForMoveTimes, getGlobalPlyCountAtNode, isCursorOnMainline, liveReplayEligible, mainlineNodeIdsByGlobalPly, monotonicMoveTimestampsDeciseconds, onLiveReplayCompleted, processedGame, selectNode, setPendingDrop, state.cursorNodeId, state.pendingPromotion, stopLiveReplayLoop]);
+
+  const currentGameId = gameData?.original?.game?.id?.toString() ?? null;
+
+  /**
+   * Auto-start live replay when requested by the parent (e.g., match auto-advance).
+   */
+  useEffect(() => {
+    if (!autoStartLiveReplay) return;
+    if (!currentGameId) return;
+    if (!canStartLiveReplay) return;
+    if (lastAutoStartGameIdRef.current === currentGameId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      handleLiveReplayPlay();
+      lastAutoStartGameIdRef.current = currentGameId;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [autoStartLiveReplay, canStartLiveReplay, currentGameId, handleLiveReplayPlay]);
 
   // Keep a stable, always-up-to-date Space handler without needing to reorder the keyboard effect.
   useEffect(() => {

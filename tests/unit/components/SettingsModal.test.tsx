@@ -37,6 +37,8 @@ vi.mock("../../../app/utils/userPreferencesService", () => ({
   saveBoardAnnotationColorToLocalStorage: vi.fn(),
   removeBoardAnnotationColorFromLocalStorage: vi.fn(),
   saveUserPreferencesToFirestore: vi.fn(),
+  loadAutoAdvanceLiveReplayPreference: vi.fn(),
+  saveAutoAdvanceLiveReplayToLocalStorage: vi.fn(),
   DEFAULT_BOARD_ANNOTATION_COLOR: "rgb(52, 168, 83, 0.95)",
 }));
 
@@ -61,6 +63,7 @@ describe("SettingsModal", () => {
     vi.mocked(userPreferencesService.getBoardAnnotationColorFromLocalStorage).mockReturnValue(
       "rgb(52, 168, 83, 0.95)",
     );
+    vi.mocked(userPreferencesService.loadAutoAdvanceLiveReplayPreference).mockResolvedValue(false);
   });
 
   it("does not render when open is false", () => {
@@ -89,6 +92,25 @@ describe("SettingsModal", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Board Annotation Color")).toBeInTheDocument();
+    expect(screen.getByText("Auto-advance live replay")).toBeInTheDocument();
+  });
+
+  it("loads auto-advance preference when opened", async () => {
+    vi.mocked(userPreferencesService.loadAutoAdvanceLiveReplayPreference).mockResolvedValue(true);
+
+    render(
+      <SettingsModal
+        open={true}
+        userId={null}
+        buttonPosition={defaultButtonPosition}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox");
+    await waitFor(() => {
+      expect(checkbox).toBeChecked();
+    });
   });
 
   it("loads initial color from localStorage when opened", () => {
@@ -207,6 +229,7 @@ describe("SettingsModal", () => {
 
   it("saves to Firestore when Save is clicked and user is authenticated", async () => {
     vi.mocked(userPreferencesService.saveUserPreferencesToFirestore).mockResolvedValue(undefined);
+    vi.mocked(userPreferencesService.loadAutoAdvanceLiveReplayPreference).mockResolvedValue(true);
 
     render(
       <SettingsModal
@@ -216,6 +239,10 @@ describe("SettingsModal", () => {
         onClose={vi.fn()}
       />,
     );
+
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox")).toBeChecked();
+    });
 
     // Change color
     const colorSwatch = screen.getByTestId("color-swatch");
@@ -234,6 +261,7 @@ describe("SettingsModal", () => {
         "user123",
         {
           boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
+          autoAdvanceLiveReplay: true,
         },
       );
     });
@@ -260,6 +288,9 @@ describe("SettingsModal", () => {
       expect(toast.success).toHaveBeenCalledWith("Settings saved!");
     });
 
+    await waitFor(() => {
+      expect(userPreferencesService.saveAutoAdvanceLiveReplayToLocalStorage).toHaveBeenCalledWith(false);
+    });
     expect(userPreferencesService.saveUserPreferencesToFirestore).not.toHaveBeenCalled();
   });
 
