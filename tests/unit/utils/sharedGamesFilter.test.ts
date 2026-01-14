@@ -7,6 +7,7 @@ import type { SharedGameSummary } from "../../../app/types/sharedGame";
  */
 function createMockGame(overrides: {
   id?: string;
+  type?: SharedGameSummary["type"];
   team1Player1?: string;
   team1Player2?: string;
   team2Player1?: string;
@@ -15,6 +16,7 @@ function createMockGame(overrides: {
 }): SharedGameSummary {
   const {
     id = "test-id",
+    type = "game",
     team1Player1 = "Player1",
     team1Player2 = "Player2",
     team2Player1 = "Player3",
@@ -24,7 +26,7 @@ function createMockGame(overrides: {
 
   return {
     id,
-    type: "game",
+    type,
     sharerUserId: "user-id",
     sharerUsername,
     description: "",
@@ -49,9 +51,9 @@ describe("filterSharedGames", () => {
   describe("No filters", () => {
     it("returns all games when no filters are provided", () => {
       const games = [
-        createMockGame({ id: "1" }),
-        createMockGame({ id: "2" }),
-        createMockGame({ id: "3" }),
+        createMockGame({ id: "1", type: "game" }),
+        createMockGame({ id: "2", type: "match" }),
+        createMockGame({ id: "3", type: "partnerGames" }),
       ];
 
       const result = filterSharedGames(games, {});
@@ -75,6 +77,40 @@ describe("filterSharedGames", () => {
       });
 
       expect(result).toEqual(games);
+    });
+  });
+
+  describe("Content type filters", () => {
+    it("filters by selected content types", () => {
+      const games = [
+        createMockGame({ id: "1", type: "game" }),
+        createMockGame({ id: "2", type: "match" }),
+        createMockGame({ id: "3", type: "partnerGames" }),
+      ];
+
+      const result = filterSharedGames(games, {
+        includeGame: true,
+        includeMatch: false,
+        includePartnerGames: true,
+      });
+
+      expect(result.length).toBe(2);
+      expect(result.map((game) => game.id)).toEqual(["1", "3"]);
+    });
+
+    it("returns no games when all content types are excluded", () => {
+      const games = [
+        createMockGame({ id: "1", type: "game" }),
+        createMockGame({ id: "2", type: "match" }),
+      ];
+
+      const result = filterSharedGames(games, {
+        includeGame: false,
+        includeMatch: false,
+        includePartnerGames: false,
+      });
+
+      expect(result).toEqual([]);
     });
   });
 

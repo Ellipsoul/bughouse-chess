@@ -1,4 +1,4 @@
-import type { SharedGameSummary } from "../types/sharedGame";
+import type { SharedContentType, SharedGameSummary } from "../types/sharedGame";
 
 /**
  * Filter options for shared games.
@@ -33,6 +33,24 @@ export interface SharedGamesFilter {
    * Sharer filter - matches the sharer username.
    */
   sharer?: string;
+
+  /**
+   * Whether to include shared single games.
+   * Defaults to true when omitted.
+   */
+  includeGame?: boolean;
+
+  /**
+   * Whether to include shared matches.
+   * Defaults to true when omitted.
+   */
+  includeMatch?: boolean;
+
+  /**
+   * Whether to include shared partner game series.
+   * Defaults to true when omitted.
+   */
+  includePartnerGames?: boolean;
 }
 
 /**
@@ -46,6 +64,7 @@ export interface SharedGamesFilter {
  * - If filters are from only one group (only Player 1/Player 2 or only Player 3/Player 4): must be on the same team
  * - All filters are case-insensitive substring matches
  * - Empty filters are ignored
+ * - Content type filters default to all types when omitted
  *
  * @param games - Array of shared games to filter
  * @param filter - Filter criteria
@@ -55,10 +74,31 @@ export function filterSharedGames(
   games: SharedGameSummary[],
   filter: SharedGamesFilter,
 ): SharedGameSummary[] {
-  const { player1, player2, player3, player4, sharer } = filter;
+  const {
+    player1,
+    player2,
+    player3,
+    player4,
+    sharer,
+    includeGame,
+    includeMatch,
+    includePartnerGames,
+  } = filter;
+
+  const allowedTypes = new Set<SharedContentType>();
+  if (includeGame ?? true) {
+    allowedTypes.add("game");
+  }
+  if (includeMatch ?? true) {
+    allowedTypes.add("match");
+  }
+  if (includePartnerGames ?? true) {
+    allowedTypes.add("partnerGames");
+  }
+  const hasTypeFilter = allowedTypes.size !== 3;
 
   // If no filters are active, return all games
-  if (!player1 && !player2 && !player3 && !player4 && !sharer) {
+  if (!player1 && !player2 && !player3 && !player4 && !sharer && !hasTypeFilter) {
     return games;
   }
 
@@ -84,6 +124,9 @@ export function filterSharedGames(
   const allFilters = [...teamAFilters, ...teamBFilters];
 
   return games.filter((game) => {
+    if (!allowedTypes.has(game.type)) {
+      return false;
+    }
     const { team1, team2 } = game.metadata;
 
     // Get all player usernames (case-insensitive for matching)

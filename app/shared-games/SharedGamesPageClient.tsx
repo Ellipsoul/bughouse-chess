@@ -101,6 +101,9 @@ export default function SharedGamesPageClient({
   const [filterPlayer3, setFilterPlayer3] = useState("");
   const [filterPlayer4, setFilterPlayer4] = useState("");
   const [filterSharer, setFilterSharer] = useState("");
+  const [includeGame, setIncludeGame] = useState(true);
+  const [includeMatch, setIncludeMatch] = useState(true);
+  const [includePartnerGames, setIncludePartnerGames] = useState(true);
 
   // Filter out deleted games from the games list
   const availableGames = useMemo(() => {
@@ -118,8 +121,21 @@ export default function SharedGamesPageClient({
       player3: filterPlayer3,
       player4: filterPlayer4,
       sharer: filterSharer,
+      includeGame,
+      includeMatch,
+      includePartnerGames,
     });
-  }, [availableGames, filterPlayer1, filterPlayer2, filterPlayer3, filterPlayer4, filterSharer]);
+  }, [
+    availableGames,
+    filterPlayer1,
+    filterPlayer2,
+    filterPlayer3,
+    filterPlayer4,
+    filterSharer,
+    includeGame,
+    includeMatch,
+    includePartnerGames,
+  ]);
 
   /**
    * Handles game deletion - removes from local display immediately.
@@ -131,8 +147,6 @@ export default function SharedGamesPageClient({
 
   const isEmpty = availableGames.length === 0;
   const hasFilteredResults = filteredGames.length > 0;
-  const hasActiveFilters =
-    filterPlayer1 || filterPlayer2 || filterPlayer3 || filterPlayer4 || filterSharer;
 
   return (
     <div className="h-full w-full bg-gray-900 flex flex-col overflow-hidden">
@@ -249,6 +263,48 @@ export default function SharedGamesPageClient({
                       className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                   </div>
+
+                  <div className="flex flex-wrap items-center gap-4 pt-1.5">
+                    <label
+                      htmlFor="filter-type-game"
+                      className="flex items-center gap-1 text-[10px] text-gray-300"
+                    >
+                      <input
+                        id="filter-type-game"
+                        type="checkbox"
+                        checked={includeGame}
+                        onChange={(e) => setIncludeGame(e.target.checked)}
+                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                      />
+                      Game
+                    </label>
+                    <label
+                      htmlFor="filter-type-match"
+                      className="flex items-center gap-1 text-[10px] text-gray-300"
+                    >
+                      <input
+                        id="filter-type-match"
+                        type="checkbox"
+                        checked={includeMatch}
+                        onChange={(e) => setIncludeMatch(e.target.checked)}
+                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                      />
+                      Match
+                    </label>
+                    <label
+                      htmlFor="filter-type-partner"
+                      className="flex items-center gap-1 text-[10px] text-gray-300"
+                    >
+                      <input
+                        id="filter-type-partner"
+                        type="checkbox"
+                        checked={includePartnerGames}
+                        onChange={(e) => setIncludePartnerGames(e.target.checked)}
+                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                      />
+                      Partner games
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -257,18 +313,14 @@ export default function SharedGamesPageClient({
           {/* Content */}
           {isEmpty && <NoGamesState />}
 
-          {!isEmpty && !hasFilteredResults && hasActiveFilters && (
-            <EmptyState />
-          )}
+          {!isEmpty && !hasFilteredResults && <EmptyState />}
 
           {hasFilteredResults && (
             <>
               {/* Results count */}
-              {hasActiveFilters && (
-                <div className="mb-4 text-sm text-gray-400">
-                  Showing {filteredGames.length} of {availableGames.length} games
-                </div>
-              )}
+              <div className="mb-4 text-sm text-gray-400">
+                Showing {filteredGames.length} of {availableGames.length} games and matches
+              </div>
 
               {/* Games grid */}
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
