@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  where,
 } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "./firebaseClient";
@@ -39,6 +40,11 @@ import {
   SHARED_GAMES_SCHEMA_VERSION,
   SHARED_GAMES_SUBCOLLECTION,
 } from "../types/sharedGame";
+import {
+  computeShareContentHash,
+  createShareHashInputFromMatchGames,
+  createShareHashInputFromSingleGame,
+} from "./sharedGameHash";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -94,6 +100,26 @@ function createPlayerForMetadata(
     return { username, chessTitle };
   }
   return { username };
+}
+
+/**
+ * Checks if a user has already shared content with the given hash.
+ *
+ * @param userId - Firebase Auth UID of the user
+ * @param contentHash - Hash of the content to check
+ * @returns True if a matching hash exists, false otherwise
+ */
+async function hasUserSharedContentHash(userId: string, contentHash: string): Promise<boolean> {
+  const db = getFirestoreDb();
+  const userSharedGamesRef = collection(
+    db,
+    USERS_COLLECTION,
+    userId,
+    USER_SHARED_GAMES_SUBCOLLECTION,
+  );
+  const q = query(userSharedGamesRef, where("contentHash", "==", contentHash), limit(1));
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
 }
 
 /**
@@ -381,6 +407,14 @@ export async function shareGame(
 
     const metadata = buildSingleGameMetadata(gameData.original, gameData.partner);
     const gameDate = extractGameDate(gameData.original);
+    const contentHash = computeShareContentHash(
+      createShareHashInputFromSingleGame({ userId, gameData }),
+    );
+
+    const hasDuplicate = await hasUserSharedContentHash(userId, contentHash);
+    if (hasDuplicate) {
+      return { success: false, error: "You have already shared this game." };
+    }
 
     // Main document (without game data)
     const sharedGameDoc = {
@@ -399,6 +433,7 @@ export async function shareGame(
     const userSharedGameRef = {
       sharedId,
       sharedAt: serverTimestamp(),
+      contentHash,
     };
 
     // Game data subcollection document
@@ -469,6 +504,9 @@ export async function shareMatch(
     if (matchGames.length === 0) {
       return { success: false, error: "No games to share" };
     }
+    if (type === "partnerGames" && !selectedPair) {
+      return { success: false, error: "Select a partner pair before sharing." };
+    }
 
     const db = getFirestoreDb();
     const sharedId = uuidv4();
@@ -476,6 +514,20 @@ export async function shareMatch(
     const metadata = buildMatchMetadata(matchGames, type, selectedPair);
     // Use the first game's date as the match date
     const gameDate = extractGameDate(matchGames[0]!.original);
+    const contentHash = computeShareContentHash(
+      createShareHashInputFromMatchGames({
+        userId,
+        contentType: type,
+        matchGames,
+        selectedPair,
+      }),
+    );
+
+    const hasDuplicate = await hasUserSharedContentHash(userId, contentHash);
+    if (hasDuplicate) {
+      const label = type === "partnerGames" ? "partner series" : "match";
+      return { success: false, error: `You have already shared this ${label}.` };
+    }
 
     // Main document (without game data)
     const sharedGameDoc = {
@@ -494,6 +546,7 @@ export async function shareMatch(
     const userSharedGameRef = {
       sharedId,
       sharedAt: serverTimestamp(),
+      contentHash,
     };
 
     // Convert match games to storage format
@@ -747,5 +800,41 @@ export async function getUserSharedGames(userId: string): Promise<SharedGameSumm
   } catch (err) {
     console.error("[sharedGamesService] getUserSharedGames failed:", err);
     throw new Error("Failed to fetch user's shared games");
+  }
+}
+
+/**
+ * Fetches all content hashes for a user's shared games.
+ *
+ * @param userId - Firebase Auth UID of the user
+ * @returns Array of content hashes (deduplicated)
+ */
+export async function getUserSharedGameHashes(userId: string): Promise<string[]> {
+  try {
+    const db = getFirestoreDb();
+    const userSharedGamesRef = collection(
+      db,
+      USERS_COLLECTION,
+      userId,
+      USER_SHARED_GAMES_SUBCOLLECTION,
+    );
+    const snapshot = await getDocs(userSharedGamesRef);
+
+    if (snapshot.empty) {
+      return [];
+    }
+
+    const hashes = new Set<string>();
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() as { contentHash?: string };
+      if (data.contentHash) {
+        hashes.add(data.contentHash);
+      }
+    });
+
+    return Array.from(hashes);
+  } catch (err) {
+    console.error("[sharedGamesService] getUserSharedGameHashes failed:", err);
+    throw new Error("Failed to fetch user's shared game hashes");
   }
 }

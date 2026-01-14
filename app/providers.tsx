@@ -7,6 +7,7 @@ import { APP_TOOLTIP_ID } from "./utils/tooltips";
 import { getFirebaseAnalytics } from "./utils/firebaseClient";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useUserPreferences } from "./utils/useUserPreferences";
+import { SharedGameHashesProvider } from "./utils/sharedGameHashesStore";
 
 /**
  * Component that loads user preferences after auth is initialized.
@@ -92,7 +93,9 @@ export default function Providers({
       />
       <AuthProvider>
         <UserPreferencesLoader />
-        {children}
+        <SharedGameHashesProvider>
+          {children}
+        </SharedGameHashesProvider>
       </AuthProvider>
     </>
   );

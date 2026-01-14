@@ -9,7 +9,18 @@ import type { SingleGameData } from "../../../app/types/sharedGame";
 import ShareGameModal from "../../../app/components/ShareGameModal";
 import { shareGame, shareMatch } from "../../../app/utils/sharedGamesService";
 import { revalidateSharedGamesPage } from "../../../app/actions";
+import {
+  computeShareContentHash,
+  createShareHashInputFromMatchGames,
+  createShareHashInputFromSingleGame,
+} from "../../../app/utils/sharedGameHash";
 import React from "react";
+
+const sharedGameHashesState = vi.hoisted(() => ({
+  hashes: new Set<string>(),
+  status: "loaded" as const,
+  addHash: vi.fn(),
+}));
 
 vi.mock("../../../app/utils/sharedGamesService", () => ({
   shareGame: vi.fn(),
@@ -30,6 +41,16 @@ vi.mock("react-hot-toast", () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock("../../../app/utils/sharedGameHashesStore", () => ({
+  useSharedGameHashes: () => ({
+    hashes: sharedGameHashesState.hashes,
+    status: sharedGameHashesState.status,
+    error: null,
+    refresh: vi.fn(),
+    addHash: sharedGameHashesState.addHash,
+  }),
 }));
 
 type MatchIndexEntry = {
@@ -87,6 +108,7 @@ describe("ShareGameModal", () => {
     vi.mocked(shareGame).mockResolvedValue({ success: true, sharedId: "shared-game-1" });
     vi.mocked(shareMatch).mockResolvedValue({ success: true, sharedId: "shared-match-1" });
     vi.mocked(revalidateSharedGamesPage).mockResolvedValue(undefined);
+    sharedGameHashesState.hashes = new Set();
   });
 
   it("defaults to sharing the match series", () => {
@@ -215,5 +237,71 @@ describe("ShareGameModal", () => {
         selectedPair,
       );
     });
+  });
+
+  it("disables sharing when the current match is already shared", () => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const matchGames = loadMatchGames(index.games);
+    const matchHash = computeShareContentHash(
+      createShareHashInputFromMatchGames({
+        userId: "user-123",
+        contentType: "match",
+        matchGames,
+      }),
+    );
+    sharedGameHashesState.hashes = new Set([matchHash]);
+
+    render(
+      <ShareGameModal
+        open={true}
+        userId="user-123"
+        username="ellipsoul"
+        singleGameData={toSingleGameData(matchGames[0]!)}
+        matchGames={matchGames}
+        contentType="match"
+        selectedPair={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
+    expect(
+      screen.getByText("You already shared this match. Switch to share a single game instead."),
+    ).toBeInTheDocument();
+  });
+
+  it("allows sharing a single game when match is already shared", async () => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const matchGames = loadMatchGames(index.games);
+    const singleGameData = toSingleGameData(matchGames[0]!);
+    const matchHash = computeShareContentHash(
+      createShareHashInputFromMatchGames({
+        userId: "user-123",
+        contentType: "match",
+        matchGames,
+      }),
+    );
+    const singleHash = computeShareContentHash(
+      createShareHashInputFromSingleGame({ userId: "user-123", gameData: singleGameData }),
+    );
+    sharedGameHashesState.hashes = new Set([matchHash]);
+
+    render(
+      <ShareGameModal
+        open={true}
+        userId="user-123"
+        username="ellipsoul"
+        singleGameData={singleGameData}
+        matchGames={matchGames}
+        contentType="match"
+        selectedPair={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("switch", { name: "Share match" }));
+
+    expect(sharedGameHashesState.hashes.has(singleHash)).toBe(false);
+    expect(screen.getByRole("button", { name: "Share" })).not.toBeDisabled();
   });
 });

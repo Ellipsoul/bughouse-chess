@@ -244,6 +244,11 @@ export interface UserSharedGameReference {
    * Duplicated here for efficient sorting of user's shared games.
    */
   sharedAt: Timestamp;
+
+  /**
+   * Deterministic hash used to prevent duplicate shares by the same user.
+   */
+  contentHash?: string;
 }
 
 /* -------------------------------------------------------------------------- */

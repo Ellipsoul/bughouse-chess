@@ -57,6 +57,12 @@ import type { SharedContentType, SingleGameData } from "../types/sharedGame";
 import { fromMatchGameData } from "../types/sharedGame";
 import { getSharedGame, reconstructPartnerPairFromMetadata } from "../utils/sharedGamesService";
 import { getShareEligibility } from "../utils/shareEligibility";
+import { useSharedGameHashes } from "../utils/sharedGameHashesStore";
+import {
+  computeShareContentHash,
+  createShareHashInputFromMatchGames,
+  createShareHashInputFromSingleGame,
+} from "../utils/sharedGameHash";
 import { getAutoAdvanceLiveReplayFromLocalStorage } from "../utils/userPreferencesService";
 import {
   isValidChessComGameId,
@@ -210,6 +216,7 @@ export default function GameViewerPage() {
 
   // Full auth state for sharing functionality
   const { status: fullAuthStatus, user, username, isFullyAuthenticated } = useFullAuth();
+  const { hashes: sharedGameHashes, status: sharedGameHashesStatus } = useSharedGameHashes();
 
   // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -806,12 +813,78 @@ export default function GameViewerPage() {
   /**
    * Whether the share button should be enabled.
    */
-  const canShare = shareEligibility.canShare;
+  const hashesLoaded = sharedGameHashesStatus === "loaded";
+  const shareSingleGameHash = (() => {
+    if (!user?.uid || !shareSingleGameData) return null;
+    try {
+      return computeShareContentHash(
+        createShareHashInputFromSingleGame({
+          userId: user.uid,
+          gameData: shareSingleGameData,
+        }),
+      );
+    } catch {
+      return null;
+    }
+  })();
+  const shareMatchHash = (() => {
+    if (!user?.uid || shareContentType === "game" || matchGames.length === 0) return null;
+    try {
+      return computeShareContentHash(
+        createShareHashInputFromMatchGames({
+          userId: user.uid,
+          contentType: shareContentType,
+          matchGames,
+          selectedPair: selectedPairForDisplay,
+        }),
+      );
+    } catch {
+      return null;
+    }
+  })();
+
+  const hasMatchShareScope = shareContentType !== "game" && matchGames.length > 0;
+  const hasSingleShareScope = Boolean(shareSingleGameData);
+  const isSingleDuplicate = hashesLoaded && shareSingleGameHash
+    ? sharedGameHashes.has(shareSingleGameHash)
+    : false;
+  const isMatchDuplicate = hashesLoaded && shareMatchHash
+    ? sharedGameHashes.has(shareMatchHash)
+    : false;
+  const canShareBasedOnHashes = hashesLoaded
+    ? (hasMatchShareScope && !isMatchDuplicate) || (hasSingleShareScope && !isSingleDuplicate)
+    : hasMatchShareScope || hasSingleShareScope;
+
+  const canShare = shareEligibility.canShare && canShareBasedOnHashes;
 
   /**
    * Message explaining why sharing is disabled.
    */
-  const shareDisabledReason = shareEligibility.disabledReason;
+  const shareDisabledReason = (() => {
+    if (!shareEligibility.canShare) {
+      return shareEligibility.disabledReason;
+    }
+
+    if (!hashesLoaded || canShareBasedOnHashes) {
+      return undefined;
+    }
+
+    if (hasMatchShareScope && hasSingleShareScope && isMatchDuplicate && isSingleDuplicate) {
+      return "You have already shared this match and this game.";
+    }
+
+    if (hasMatchShareScope && isMatchDuplicate) {
+      return shareContentType === "partnerGames"
+        ? "You have already shared this partner series."
+        : "You have already shared this match.";
+    }
+
+    if (hasSingleShareScope && isSingleDuplicate) {
+      return "You have already shared this game.";
+    }
+
+    return undefined;
+  })();
 
   /**
    * Whether the current game should auto-start live replay after auto-advance.

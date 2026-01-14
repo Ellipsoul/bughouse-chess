@@ -16,8 +16,11 @@
 // Import commands.js using ES2015 syntax:
 import "./commands";
 
+import React from "react";
 import { mount } from "cypress/react";
 import { registerFirebaseCommands } from "./firebase";
+import { AuthProvider } from "../../app/auth/AuthProvider";
+import { SharedGameHashesProvider } from "../../app/utils/sharedGameHashesStore";
 
 // Augment the Cypress namespace to include type definitions for
 // your custom command.
@@ -31,7 +34,16 @@ declare global {
   }
 }
 
-Cypress.Commands.add("mount", mount);
+Cypress.Commands.add("mount", (component, options) => {
+  return mount(
+    React.createElement(
+      AuthProvider,
+      null,
+      React.createElement(SharedGameHashesProvider, null, component),
+    ),
+    options,
+  );
+});
 
 // Register Firebase Auth and Firestore emulator commands
 registerFirebaseCommands();

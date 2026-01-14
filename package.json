@@ -27,6 +27,7 @@
     "fixtures:record": "tsx scripts/recordChessComFixtures.ts",
     "fixtures:record:match": "tsx scripts/recordMatchFixtures.ts",
     "migration:shared-games-v2": "tsx scripts/migrateSharedGamesSchema.ts",
+    "migration:shared-game-hashes": "tsx scripts/backfillSharedGameHashes.ts",
     "prepare": "husky"
   },
   "dependencies": {

@@ -13,6 +13,12 @@ import { ChessTitleBadge } from "./ChessTitleBadge";
 import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "./MatchNavigation";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
 import type { PartnerPair } from "../types/match";
+import { useSharedGameHashes } from "../utils/sharedGameHashesStore";
+import {
+  computeShareContentHash,
+  createShareHashInputFromMatchGames,
+  createShareHashInputFromSingleGame,
+} from "../utils/sharedGameHash";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -317,6 +323,11 @@ export default function ShareGameModal({
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
   const wasOpenRef = useRef(false);
   const analytics = useFirebaseAnalytics();
+  const {
+    hashes: sharedGameHashes,
+    status: sharedGameHashesStatus,
+    addHash: addSharedGameHash,
+  } = useSharedGameHashes();
 
   /**
    * Initialize the profanity filter.
@@ -331,6 +342,51 @@ export default function ShareGameModal({
   const resolvedContentType: SharedContentType = isMatchContext && shareSeriesEnabled
     ? contentType
     : "game";
+
+  const resolvedContentHash = useMemo(() => {
+    try {
+      if (resolvedContentType === "game" && singleGameData) {
+        return computeShareContentHash(
+          createShareHashInputFromSingleGame({ userId, gameData: singleGameData }),
+        );
+      }
+      if (
+        (resolvedContentType === "match" || resolvedContentType === "partnerGames")
+        && matchGames
+        && matchGames.length > 0
+      ) {
+        return computeShareContentHash(
+          createShareHashInputFromMatchGames({
+            userId,
+            contentType: resolvedContentType,
+            matchGames,
+            selectedPair: selectedPair ?? null,
+          }),
+        );
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [resolvedContentType, singleGameData, matchGames, selectedPair, userId]);
+
+  const hasLoadedHashes = sharedGameHashesStatus === "loaded";
+  const isDuplicateShare = hasLoadedHashes && resolvedContentHash
+    ? sharedGameHashes.has(resolvedContentHash)
+    : false;
+
+  const duplicateShareMessage = (() => {
+    if (!hasLoadedHashes || !isDuplicateShare) {
+      return null;
+    }
+    if (resolvedContentType === "match") {
+      return "You already shared this match. Switch to share a single game instead.";
+    }
+    if (resolvedContentType === "partnerGames") {
+      return "You already shared this partner series. Switch to share a single game instead.";
+    }
+    return "You already shared this game.";
+  })();
 
   /**
    * Returns the user-facing label for the current share scope.
@@ -434,6 +490,11 @@ export default function ShareGameModal({
       return;
     }
 
+    if (isDuplicateShare) {
+      toast.error(duplicateShareMessage ?? "You have already shared this content.");
+      return;
+    }
+
     setIsSharing(true);
 
     try {
@@ -462,6 +523,9 @@ export default function ShareGameModal({
 
       if (result.success) {
         toast.success("Game shared successfully!");
+        if (resolvedContentHash) {
+          addSharedGameHash(resolvedContentHash);
+        }
 
         // Log analytics for successful share
         logAnalyticsEvent(analytics, "game_shared_success", {
@@ -514,6 +578,10 @@ export default function ShareGameModal({
     onSuccess,
     onClose,
     analytics,
+    isDuplicateShare,
+    duplicateShareMessage,
+    resolvedContentHash,
+    addSharedGameHash,
   ]);
 
   if (!open) return null;
@@ -625,6 +693,14 @@ export default function ShareGameModal({
               </button>
             ) : null}
           </div>
+          {duplicateShareMessage ? (
+            <div
+              className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+              role="status"
+            >
+              {duplicateShareMessage}
+            </div>
+          ) : null}
 
           {/* Game Summary */}
           <div
@@ -751,7 +827,7 @@ export default function ShareGameModal({
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-mariner-600 px-3 py-2 text-sm font-semibold text-white hover:bg-mariner-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => void handleShare()}
-              disabled={isSharing || descriptionError !== null}
+              disabled={isSharing || descriptionError !== null || isDuplicateShare}
             >
               {isSharing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {isSharing ? "Sharing..." : "Share"}
