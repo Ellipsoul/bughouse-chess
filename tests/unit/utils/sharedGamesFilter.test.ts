@@ -13,6 +13,8 @@ function createMockGame(overrides: {
   team2Player1?: string;
   team2Player2?: string;
   sharerUsername?: string;
+  sharedAt?: Date;
+  gameDate?: Date;
 }): SharedGameSummary {
   const {
     id = "test-id",
@@ -22,6 +24,8 @@ function createMockGame(overrides: {
     team2Player1 = "Player3",
     team2Player2 = "Player4",
     sharerUsername = "sharer",
+    sharedAt = new Date("2024-01-01T00:00:00Z"),
+    gameDate = new Date("2024-01-02T00:00:00Z"),
   } = overrides;
 
   return {
@@ -30,8 +34,8 @@ function createMockGame(overrides: {
     sharerUserId: "user-id",
     sharerUsername,
     description: "",
-    sharedAt: new Date(),
-    gameDate: new Date(),
+    sharedAt,
+    gameDate,
     metadata: {
       gameCount: 1,
       result: "1 - 0",
@@ -111,6 +115,53 @@ describe("filterSharedGames", () => {
       });
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("Sorting", () => {
+    it("sorts by shared date newest first", () => {
+      const games = [
+        createMockGame({ id: "1", sharedAt: new Date("2024-01-05T00:00:00Z") }),
+        createMockGame({ id: "2", sharedAt: new Date("2024-01-07T00:00:00Z") }),
+        createMockGame({ id: "3", sharedAt: new Date("2024-01-01T00:00:00Z") }),
+      ];
+
+      const result = filterSharedGames(games, {
+        sortBy: "sharedAt",
+        sortDirection: "desc",
+      });
+
+      expect(result.map((game) => game.id)).toEqual(["2", "1", "3"]);
+    });
+
+    it("sorts by shared date oldest first", () => {
+      const games = [
+        createMockGame({ id: "1", sharedAt: new Date("2024-01-05T00:00:00Z") }),
+        createMockGame({ id: "2", sharedAt: new Date("2024-01-07T00:00:00Z") }),
+        createMockGame({ id: "3", sharedAt: new Date("2024-01-01T00:00:00Z") }),
+      ];
+
+      const result = filterSharedGames(games, {
+        sortBy: "sharedAt",
+        sortDirection: "asc",
+      });
+
+      expect(result.map((game) => game.id)).toEqual(["3", "1", "2"]);
+    });
+
+    it("sorts by played date newest first", () => {
+      const games = [
+        createMockGame({ id: "1", gameDate: new Date("2024-03-01T00:00:00Z") }),
+        createMockGame({ id: "2", gameDate: new Date("2024-02-10T00:00:00Z") }),
+        createMockGame({ id: "3", gameDate: new Date("2024-04-15T00:00:00Z") }),
+      ];
+
+      const result = filterSharedGames(games, {
+        sortBy: "gameDate",
+        sortDirection: "desc",
+      });
+
+      expect(result.map((game) => game.id)).toEqual(["3", "1", "2"]);
     });
   });
 

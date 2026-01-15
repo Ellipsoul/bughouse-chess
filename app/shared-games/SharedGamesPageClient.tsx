@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Funnel } from "lucide-react";
+import { ArrowDownUp, ArrowLeft, ClockArrowDown, ClockArrowUp, Funnel } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
 import { useCompactLandscape } from "../utils/useCompactLandscape";
 import { useFullAuth } from "../utils/useFullAuth";
@@ -104,6 +104,8 @@ export default function SharedGamesPageClient({
   const [includeGame, setIncludeGame] = useState(true);
   const [includeMatch, setIncludeMatch] = useState(true);
   const [includePartnerGames, setIncludePartnerGames] = useState(true);
+  const [sortBy, setSortBy] = useState<"sharedAt" | "gameDate">("sharedAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // Filter out deleted games from the games list
   const availableGames = useMemo(() => {
@@ -124,6 +126,8 @@ export default function SharedGamesPageClient({
       includeGame,
       includeMatch,
       includePartnerGames,
+      sortBy,
+      sortDirection,
     });
   }, [
     availableGames,
@@ -135,6 +139,8 @@ export default function SharedGamesPageClient({
     includeGame,
     includeMatch,
     includePartnerGames,
+    sortBy,
+    sortDirection,
   ]);
 
   /**
@@ -199,11 +205,60 @@ export default function SharedGamesPageClient({
 
             {/* Compact filter section */}
             <div className="shrink-0 rounded-md border border-gray-700/50 bg-gray-800/60 p-2 sm:p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Funnel className="h-3 w-3 text-gray-400" aria-hidden="true" />
-                <h2 className="text-xs font-medium text-gray-300">Filter</h2>
-              </div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Funnel className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <h2 className="text-xs font-medium text-gray-300">Filter</h2>
+                </div>
 
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
+                  <ArrowDownUp className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <span className="text-gray-400">Sort</span>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy("sharedAt")}
+                    className={[
+                      "ml-1 rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
+                      sortBy === "sharedAt"
+                        ? "text-gray-100"
+                        : "text-gray-500 hover:text-gray-300",
+                    ].join(" ")}
+                    aria-pressed={sortBy === "sharedAt"}
+                  >
+                    Shared
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))
+                    }
+                    className={[
+                      "rounded-sm border border-gray-600/40 p-0.5 transition-colors",
+                      "text-gray-100",
+                    ].join(" ")}
+                    aria-label={`Sort direction: ${sortDirection === "desc" ? "newest first" : "oldest first"}`}
+                  >
+                    {sortDirection === "desc" ? (
+                      <ClockArrowDown className="h-3 w-3 text-gray-100" aria-hidden="true" />
+                    ) : (
+                      <ClockArrowUp className="h-3 w-3 text-gray-100" aria-hidden="true" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy("gameDate")}
+                    className={[
+                      "rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
+                      sortBy === "gameDate"
+                        ? "text-gray-100"
+                        : "text-gray-500 hover:text-gray-300",
+                    ].join(" ")}
+                    aria-pressed={sortBy === "gameDate"}
+                  >
+                    Played
+                  </button>
+                </div>
+              </div>
               <div className="space-y-1.5">
                 {/* Sharer filter */}
                 <div>

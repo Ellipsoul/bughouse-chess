@@ -51,7 +51,29 @@ export interface SharedGamesFilter {
    * Defaults to true when omitted.
    */
   includePartnerGames?: boolean;
+
+  /**
+   * Sort field for shared games.
+   * Defaults to preserving the incoming order when omitted.
+   */
+  sortBy?: SharedGamesSortField;
+
+  /**
+   * Sort direction for shared games.
+   * Defaults to "desc" when omitted and sortBy is provided.
+   */
+  sortDirection?: SharedGamesSortDirection;
 }
+
+/**
+ * Supported sort fields for shared games.
+ */
+export type SharedGamesSortField = "sharedAt" | "gameDate";
+
+/**
+ * Supported sort directions for shared games.
+ */
+export type SharedGamesSortDirection = "asc" | "desc";
 
 /**
  * Filters shared games based on the provided filter criteria.
@@ -83,6 +105,8 @@ export function filterSharedGames(
     includeGame,
     includeMatch,
     includePartnerGames,
+    sortBy,
+    sortDirection,
   } = filter;
 
   const allowedTypes = new Set<SharedContentType>();
@@ -99,7 +123,7 @@ export function filterSharedGames(
 
   // If no filters are active, return all games
   if (!player1 && !player2 && !player3 && !player4 && !sharer && !hasTypeFilter) {
-    return games;
+    return sortSharedGames(games, sortBy, sortDirection);
   }
 
   // Collect filters by group: Team A (Player 1/Player 2) and Team B (Player 3/Player 4)
@@ -123,7 +147,7 @@ export function filterSharedGames(
   const hasTeamBFilters = teamBFilters.length > 0;
   const allFilters = [...teamAFilters, ...teamBFilters];
 
-  return games.filter((game) => {
+  const filteredGames = games.filter((game) => {
     if (!allowedTypes.has(game.type)) {
       return false;
     }
@@ -257,4 +281,40 @@ export function filterSharedGames(
 
     return canAssignFilters(0, new Set(), null, null);
   });
+
+  return sortSharedGames(filteredGames, sortBy, sortDirection);
+}
+
+/**
+ * Sorts shared games by the requested field and direction.
+ * Preserves original ordering when sorting criteria are not provided.
+ *
+ * @param games - Filtered shared games to sort
+ * @param sortBy - Field to sort by
+ * @param sortDirection - Direction to sort by
+ * @returns Sorted list of shared games
+ */
+function sortSharedGames(
+  games: SharedGameSummary[],
+  sortBy?: SharedGamesSortField,
+  sortDirection?: SharedGamesSortDirection,
+): SharedGameSummary[] {
+  if (!sortBy) {
+    return games;
+  }
+
+  const direction = sortDirection ?? "desc";
+  const directionMultiplier = direction === "asc" ? 1 : -1;
+
+  return games
+    .map((game, index) => ({ game, index }))
+    .sort((a, b) => {
+      const aValue = a.game[sortBy].getTime();
+      const bValue = b.game[sortBy].getTime();
+      if (aValue === bValue) {
+        return a.index - b.index;
+      }
+      return (aValue - bValue) * directionMultiplier;
+    })
+    .map(({ game }) => game);
 }
