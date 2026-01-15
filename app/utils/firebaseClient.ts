@@ -1,6 +1,11 @@
 "use client";
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  type AppCheck,
+} from "firebase/app-check";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import {
   getAuth as firebaseGetAuth,
@@ -29,6 +34,7 @@ import {
  * - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
  * - `NEXT_PUBLIC_FIREBASE_APP_ID`
  * - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` (required for Analytics)
+ * - `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` (required for App Check)
  *
  * These values can be found in your Firebase Console under Project Settings > General > Your apps.
  * The `measurementId` is created automatically when you enable Analytics for your web app.
@@ -71,6 +77,55 @@ export function getFirebaseApp(): FirebaseApp {
 
   const config = getFirebaseConfig();
   return initializeApp(config);
+}
+
+/* -------------------------------------------------------------------------- */
+/* App Check                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Tracks whether App Check has been initialized to avoid duplicate setup. */
+let appCheckInitialized = false;
+
+/** Cached App Check instance (singleton). */
+let cachedAppCheck: AppCheck | null = null;
+
+function getAppCheckSiteKey() {
+  const siteKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
+
+  if (!siteKey) {
+    throw new Error(
+      "Missing Firebase App Check env var. Required: NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY.",
+    );
+  }
+
+  return siteKey;
+}
+
+/**
+ * Initializes Firebase App Check with reCAPTCHA v3.
+ *
+ * App Check should be initialized as early as possible on the client.
+ * Returns `null` when invoked outside the browser environment.
+ */
+export function initializeFirebaseAppCheck(): AppCheck | null {
+  if (appCheckInitialized) {
+    return cachedAppCheck;
+  }
+
+  appCheckInitialized = true;
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const app = getFirebaseApp();
+  const appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(getAppCheckSiteKey()),
+    isTokenAutoRefreshEnabled: true,
+  });
+
+  cachedAppCheck = appCheck;
+  return appCheck;
 }
 
 /**

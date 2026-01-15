@@ -215,7 +215,7 @@ FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccou
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
 ```
 
-**Client-side (Firebase Analytics):**
+**Client-side (Firebase Analytics + App Check):**
 
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
@@ -225,6 +225,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789012"
 NEXT_PUBLIC_FIREBASE_APP_ID="1:123456789012:web:abcdef123456"
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"
+NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY="your-recaptcha-v3-site-key"
 ```
 
 Security recommendation: you can keep Firestore rules fully locked down (deny

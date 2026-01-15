@@ -4,7 +4,10 @@ import { Toaster } from "react-hot-toast";
 import React, { useEffect } from "react";
 import { Tooltip } from "react-tooltip";
 import { APP_TOOLTIP_ID } from "./utils/tooltips";
-import { getFirebaseAnalytics } from "./utils/firebaseClient";
+import {
+  getFirebaseAnalytics,
+  initializeFirebaseAppCheck,
+} from "./utils/firebaseClient";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useUserPreferences } from "./utils/useUserPreferences";
 import { SharedGameHashesProvider } from "./utils/sharedGameHashesStore";
@@ -31,6 +34,14 @@ export default function Providers({
 }) {
   // Initialize Firebase Analytics on mount
   useEffect(() => {
+    try {
+      initializeFirebaseAppCheck();
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Firebase App Check initialization failed:", error);
+      }
+    }
+
     // Initialize Analytics asynchronously (non-blocking)
     void (async () => {
       try {
