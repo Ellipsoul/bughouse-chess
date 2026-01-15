@@ -144,25 +144,6 @@ describe("DeleteConfirmationModal", () => {
       cy.get('[aria-label="Close dialog"]').click({ force: true });
       cy.get("@onCancel").should("have.been.calledOnce");
     });
-
-    // NOTE: Escape key testing is flaky in Cypress component tests.
-    // This behavior is verified manually.
-    it.skip("calls onCancel when escape key is pressed", () => {
-      const onCancel = cy.stub().as("onCancel");
-
-      cy.mount(
-        <DeleteConfirmationModal
-          open={true}
-          title="Delete?"
-          message="Confirm."
-          onConfirm={() => {}}
-          onCancel={onCancel}
-        />,
-      );
-
-      cy.get("body").type("{esc}");
-      cy.get("@onCancel").should("have.been.calledOnce");
-    });
   });
 
   describe("Loading State", () => {
