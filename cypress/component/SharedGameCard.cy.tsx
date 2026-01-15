@@ -122,14 +122,24 @@ describe("SharedGameCard", () => {
       cy.contains("10 games").should("be.visible");
     });
 
-    it("displays formatted date", () => {
+    it("displays formatted played date with label", () => {
       const game = createMockSharedGameSummary({
-        gameDate: new Date("2024-03-25T15:00:00Z"),
+        gameDate: new Date("2024-03-25T12:00:00Z"),
       });
 
       cy.mount(<SharedGameCard game={game} />);
 
-      cy.contains("Mar 25, 2024").should("be.visible");
+      cy.contains("Played: Mar 25, 2024").should("be.visible");
+    });
+
+    it("displays formatted shared date with label", () => {
+      const game = createMockSharedGameSummary({
+        sharedAt: new Date("2024-04-02T12:00:00Z"),
+      });
+
+      cy.mount(<SharedGameCard game={game} />);
+
+      cy.contains("Shared: Apr 2, 2024").should("be.visible");
     });
   });
 

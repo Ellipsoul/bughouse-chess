@@ -279,9 +279,10 @@ export default function SharedGameCard({
           </div>
         )}
 
-        {/* Date */}
-        <div className="mt-2 text-xs text-gray-500">
-          {formatDate(game.gameDate)}
+        {/* Dates */}
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500">
+          <span className="truncate">Shared: {formatDate(game.sharedAt)}</span>
+          <span className="truncate text-right">Played: {formatDate(game.gameDate)}</span>
         </div>
       </div>
 
