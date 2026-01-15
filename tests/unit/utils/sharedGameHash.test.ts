@@ -108,4 +108,18 @@ describe("sharedGameHash", () => {
     expect(hashA).not.toBe(hashB);
     expect(hashA).not.toBe(hashC);
   });
+
+  it("uses a SHA-256 based hash format", () => {
+    const gameData: SingleGameData = {
+      original: createChessGame("5001"),
+      partner: createChessGame("6001"),
+      partnerId: "6001",
+    };
+
+    const hash = computeShareContentHash(
+      createShareHashInputFromSingleGame({ userId: "user-1", gameData }),
+    );
+
+    expect(hash).toMatch(/^bh2_[a-f0-9]{64}$/);
+  });
 });

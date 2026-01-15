@@ -1,3 +1,4 @@
+import { sha256 } from "js-sha256";
 import type { ChessGame } from "../actions";
 import type { MatchGame, PartnerPair } from "../types/match";
 import type { MatchGameData, SharedContentType, SingleGameData } from "../types/sharedGame";
@@ -43,7 +44,7 @@ export interface ShareContentHashInput {
 /* Constants                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const HASH_VERSION = "v1";
+const HASH_VERSION = "v2";
 const HASH_PREFIX = "bh-share";
 
 /* -------------------------------------------------------------------------- */
@@ -88,22 +89,10 @@ function normalizeSelectedPair(
 }
 
 /**
- * Deterministic FNV-1a 32-bit hash (hex string).
- *
- * Uses 32-bit arithmetic for compatibility with older TS targets.
+ * Computes a SHA-256 hex digest for the provided input.
  */
-function fnv1a32(input: string): string {
-  let hash = 0x811c9dc5;
-  const prime = 0x01000193;
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(input);
-
-  for (const byte of bytes) {
-    hash ^= byte;
-    hash = Math.imul(hash, prime);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, "0");
+function sha256Hex(input: string): string {
+  return sha256(input);
 }
 
 function buildCanonicalShareString(input: ShareContentHashInput): string {
@@ -133,6 +122,8 @@ function buildCanonicalShareString(input: ShareContentHashInput): string {
 /**
  * Computes a deterministic hash for a share request.
  *
+ * Uses SHA-256 for stable, collision-resistant deduplication.
+ *
  * @example
  * ```ts
  * const input = createShareHashInputFromSingleGame({ userId, gameData });
@@ -141,7 +132,7 @@ function buildCanonicalShareString(input: ShareContentHashInput): string {
  */
 export function computeShareContentHash(input: ShareContentHashInput): string {
   const canonical = buildCanonicalShareString(input);
-  return `bh1_${fnv1a32(canonical)}`;
+  return `bh2_${sha256Hex(canonical)}`;
 }
 
 /**

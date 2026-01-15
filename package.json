@@ -1,6 +1,6 @@
 {
   "name": "bughouse-chess",
-  "version": "2.4.15",
+  "version": "2.4.16",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -28,6 +28,7 @@
     "fixtures:record:match": "tsx scripts/recordMatchFixtures.ts",
     "migration:shared-games-v2": "tsx scripts/migrateSharedGamesSchema.ts",
     "migration:shared-game-hashes": "tsx scripts/backfillSharedGameHashes.ts",
+    "migration:shared-game-hashes-sha256": "tsx scripts/migrateSharedGameHashesSha256.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
     "jquery": "^3.7.1",
+    "js-sha256": "^0.11.1",
     "lucide-react": "^0.561.0",
     "next": "^16.0.10",
     "react": "^19.2.3",
