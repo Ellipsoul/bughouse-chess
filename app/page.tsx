@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import CenteredLoadingSpinner from "./components/ui/CenteredLoadingSpinner";
 import GameViewerPage from "./components/viewer/GameViewerPage";
 
 /**
@@ -8,9 +9,7 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="p-4 text-gray-300" role="status" aria-live="polite">
-          Loading viewer...
-        </div>
+        <CenteredLoadingSpinner label="Loading viewer..." />
       }
     >
       <GameViewerPage />
