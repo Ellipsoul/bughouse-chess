@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./components/layout/AppShell";
+import { metadataBase } from "./utils/siteMetadata";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,10 +24,70 @@ const firaCode = Fira_Code({
   display: "swap",
 });
 
+const siteTitle = "Relay - Bughouse Analysis";
+const siteDescription = "A minimalistic elegant tool for analyzing and replaying Bughouse Chess matches";
+
 export const metadata: Metadata = {
-  title: "Relay - Bughouse Analysis",
-  description: "A minimalistic elegant tool for analyzing and replaying Bughouse Chess matches",
+  metadataBase,
+  title: {
+    default: siteTitle,
+    template: "%s | Relay",
+  },
+  description: siteDescription,
   applicationName: "Relay",
+  keywords: [
+    "bughouse",
+    "bughouse chess",
+    "analysis board",
+    "chess analysis",
+    "relay",
+    "game replay",
+    "chess viewer",
+    "chess variants",
+  ],
+  category: "Games",
+  creator: "Relay",
+  publisher: "Relay",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: siteTitle,
+    description: siteDescription,
+    siteName: "Relay",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        type: "image/png",
+        alt: "Relay - Bughouse Analysis",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/og-image.png"],
+  },
+  formatDetection: {
+    telephone: false,
+  },
   manifest: "/site.webmanifest",
   icons: {
     icon: [
