@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js";
 import {
   ChevronLeft,
+  MessageSquareText,
   Pause,
   Play,
   RefreshCcw,
@@ -35,7 +36,6 @@ import PromotionPicker from "../board/PromotionPicker";
 import MoveListWithVariations from "../moves/MoveListWithVariations";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
-import SharedGameDescription from "../shared/SharedGameDescription";
 import { BoardCornerMaterial } from "../board/BoardCornerMaterial";
 import type { BoardAnnotations } from "../../utils/boardAnnotations";
 import {
@@ -53,6 +53,7 @@ import {
 } from "../../utils/analysis/liveReplay";
 import { useCompactLandscape } from "../../utils/useCompactLandscape";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
+import { getSharedGameDescriptionTooltip } from "../../utils/sharedGameDescription";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -1044,6 +1045,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     ? "Pause live replay"
     : liveReplayPlayDisabledReason ?? "Play live replay";
 
+  const sharedGameDescriptionTooltip = getSharedGameDescriptionTooltip(sharedGameDescription);
+
   const handleLiveReplayPause = useCallback(() => {
     logAnalyticsEvent(analytics, "live_replay_paused", {
       elapsed_deciseconds: liveReplayElapsedDeciseconds,
@@ -1928,17 +1931,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               </TooltipAnchor>
             </div>
 
-            {/* Shared description: between play/pause and navigation controls */}
-            {sharedGameDescription ? (
-              <div className="min-w-0 px-3">
-                <SharedGameDescription
-                  description={sharedGameDescription}
-                  density={isCompactLandscape ? "compact" : "default"}
-                />
-              </div>
-            ) : (
-              <div aria-hidden="true" />
-            )}
+            {/* Shared description spacer to keep controls centered */}
+            <div aria-hidden="true" />
 
             {/* Center navigation controls */}
             <div
@@ -1980,17 +1974,41 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   <StepForward aria-hidden className={layout.controlIconSizeClass} />
                 </button>
               </TooltipAnchor>
-              <TooltipAnchor content="Jump to end (↓)">
-                <button
-                  onClick={handleEnd}
-                  disabled={!canGoForward || isLiveReplayPlaying}
-                  className={controlButtonBaseClass}
-                  aria-label="Jump to end"
-                  type="button"
-                >
-                  <SkipForward aria-hidden className={layout.controlIconSizeClass} />
-                </button>
-              </TooltipAnchor>
+              <div className="relative inline-flex items-center">
+                <TooltipAnchor content="Jump to end (↓)">
+                  <button
+                    onClick={handleEnd}
+                    disabled={!canGoForward || isLiveReplayPlaying}
+                    className={controlButtonBaseClass}
+                    aria-label="Jump to end"
+                    type="button"
+                  >
+                    <SkipForward aria-hidden className={layout.controlIconSizeClass} />
+                  </button>
+                </TooltipAnchor>
+                {sharedGameDescriptionTooltip ? (
+                  <TooltipAnchor
+                    content={sharedGameDescriptionTooltip}
+                    className="absolute left-full ml-3 top-1/2 -translate-y-1/2 inline-flex"
+                  >
+                    <span
+                      className={[
+                        "inline-flex items-center justify-center text-gray-400 hover:text-gray-200",
+                        "cursor-help",
+                        isCompactLandscape ? "h-6 w-6" : "h-7 w-7",
+                      ].join(" ")}
+                      aria-label="View shared game description"
+                      role="img"
+                      tabIndex={0}
+                    >
+                      <MessageSquareText
+                        className={isCompactLandscape ? "h-3.5 w-3.5" : "h-4 w-4"}
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </TooltipAnchor>
+                ) : null}
+              </div>
             </div>
 
             {/* Spacer to mirror description column width */}
