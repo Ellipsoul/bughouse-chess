@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, Coffee, Settings, UserRound } from "lucide-react";
+import { BookMarked, ChessKnight, HeartPlus, Settings, UserRound } from "lucide-react";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { useAuth } from "../../auth/useAuth";
 import SettingsModal from "../modals/SettingsModal";
@@ -138,7 +138,7 @@ export default function Sidebar() {
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
             ].join(" ")}
           >
-            <Coffee className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+            <HeartPlus className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
           </Link>
         </TooltipAnchor>
 
