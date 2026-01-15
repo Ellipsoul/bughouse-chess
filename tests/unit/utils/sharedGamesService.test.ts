@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { ChessGame } from "../../../app/actions";
@@ -6,6 +6,32 @@ import type { MatchGame } from "../../../app/types/match";
 import { buildMatchMetadata, reconstructPartnerPairFromMetadata } from "../../../app/utils/sharedGamesService";
 import { computeMatchScore, computePartnerPairScore } from "../../../app/components/match/MatchNavigation";
 import { extractPartnerPairs } from "../../../app/types/match";
+
+const firestoreMocks = vi.hoisted(() => ({
+  collection: vi.fn(),
+  query: vi.fn(),
+  orderBy: vi.fn(),
+  where: vi.fn(),
+  getDocs: vi.fn(),
+  documentId: vi.fn(() => "__name__"),
+  doc: vi.fn(),
+  getDoc: vi.fn(),
+  limit: vi.fn(),
+  startAfter: vi.fn(),
+  serverTimestamp: vi.fn(),
+  Timestamp: {
+    fromDate: vi.fn((date: Date) => ({ toDate: () => date })),
+    now: vi.fn(() => ({ toDate: () => new Date(0) })),
+  },
+  writeBatch: vi.fn(),
+}));
+
+vi.mock("firebase/firestore", () => firestoreMocks);
+vi.mock("../../../app/utils/firebaseClient", () => ({
+  getFirestoreDb: () => ({ __mockDb: true }),
+}));
+
+import { getUserSharedGames } from "../../../app/utils/sharedGamesService";
 
 // Load fixtures
 function loadFixture(filename: string): ChessGame {
@@ -476,6 +502,95 @@ describe("sharedGamesService", () => {
       expect(reconstructed.usernames[0] <= reconstructed.usernames[1]).toBe(true);
       expect(reconstructed.usernames[0]).toBe(reconstructed.usernames[0].toLowerCase());
       expect(reconstructed.usernames[1]).toBe(reconstructed.usernames[1].toLowerCase());
+    });
+  });
+
+  describe("getUserSharedGames", () => {
+    const userId = "user-123";
+
+    beforeEach(() => {
+      firestoreMocks.getDocs.mockReset();
+      firestoreMocks.collection.mockReset();
+      firestoreMocks.query.mockReset();
+      firestoreMocks.orderBy.mockReset();
+      firestoreMocks.where.mockReset();
+      firestoreMocks.documentId.mockClear();
+    });
+
+    function createSnapshot(docs: Array<{ id: string; data: () => unknown }>) {
+      return {
+        docs,
+        empty: docs.length === 0,
+        size: docs.length,
+      };
+    }
+
+    function createSharedGameDoc(id: string) {
+      const timestamp = { toDate: () => new Date("2020-01-01T00:00:00.000Z") };
+      return {
+        id,
+        schemaVersion: 2,
+        type: "game" as const,
+        sharerUserId: "user-123",
+        sharerUsername: "player",
+        description: "",
+        sharedAt: timestamp,
+        gameDate: timestamp,
+        metadata: {
+          gameCount: 1,
+          result: "1 - 0",
+          team1: {
+            player1: { username: "a" },
+            player2: { username: "b" },
+          },
+          team2: {
+            player1: { username: "c" },
+            player2: { username: "d" },
+          },
+        },
+      };
+    }
+
+    it("preserves the shared game ordering from the user index", async () => {
+      const sharedIds = ["c", "a", "b"];
+      const userSharedDocs = sharedIds.map((id) => ({ id, data: () => ({}) }));
+      const sharedGameDocs = [
+        { id: "a", data: () => createSharedGameDoc("a") },
+        { id: "b", data: () => createSharedGameDoc("b") },
+        { id: "c", data: () => createSharedGameDoc("c") },
+      ];
+
+      firestoreMocks.getDocs
+        .mockResolvedValueOnce(createSnapshot(userSharedDocs))
+        .mockResolvedValueOnce(createSnapshot(sharedGameDocs));
+
+      const results = await getUserSharedGames(userId);
+
+      expect(results.map((game) => game.id)).toEqual(sharedIds);
+    });
+
+    it("batches shared game lookups using documentId IN queries", async () => {
+      const sharedIds = Array.from({ length: 12 }, (_, i) => `shared-${i}`);
+      const userSharedDocs = sharedIds.map((id) => ({ id, data: () => ({}) }));
+
+      const firstChunkDocs = sharedIds
+        .slice(0, 10)
+        .map((id) => ({ id, data: () => createSharedGameDoc(id) }));
+      const secondChunkDocs = sharedIds
+        .slice(10)
+        .map((id) => ({ id, data: () => createSharedGameDoc(id) }));
+
+      firestoreMocks.getDocs
+        .mockResolvedValueOnce(createSnapshot(userSharedDocs))
+        .mockResolvedValueOnce(createSnapshot(firstChunkDocs))
+        .mockResolvedValueOnce(createSnapshot(secondChunkDocs));
+
+      const results = await getUserSharedGames(userId);
+
+      expect(results).toHaveLength(sharedIds.length);
+      expect(firestoreMocks.getDocs).toHaveBeenCalledTimes(3);
+      expect(firestoreMocks.where).toHaveBeenCalledWith("__name__", "in", sharedIds.slice(0, 10));
+      expect(firestoreMocks.where).toHaveBeenCalledWith("__name__", "in", sharedIds.slice(10));
     });
   });
 });

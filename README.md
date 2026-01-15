@@ -231,6 +231,15 @@ NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY="your-recaptcha-v3-site-key"
 Security recommendation: you can keep Firestore rules fully locked down (deny
 all). The server uses Firebase Admin SDK and bypasses rules.
 
+#### Firestore indexes (programmatic configuration)
+
+Relay keeps Firestore index definitions in `firestore.indexes.json` so indexes
+can be deployed alongside rules with the Firebase CLI:
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
 #### Firebase Authentication (optional, for user sign-in)
 
 Relay supports **Google sign-in** via Firebase Authentication. When enabled,

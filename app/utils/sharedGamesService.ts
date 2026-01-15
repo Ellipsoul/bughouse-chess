@@ -13,6 +13,7 @@ import {
   Timestamp,
   writeBatch,
   where,
+  documentId,
 } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "./firebaseClient";
@@ -53,6 +54,7 @@ import {
 const SHARED_GAMES_COLLECTION = "sharedGames";
 const USERS_COLLECTION = "users";
 const USER_SHARED_GAMES_SUBCOLLECTION = "sharedGames";
+const IN_QUERY_BATCH_SIZE = 10;
 
 /* -------------------------------------------------------------------------- */
 /* Helper Functions                                                           */
@@ -100,6 +102,26 @@ function createPlayerForMetadata(
     return { username, chessTitle };
   }
   return { username };
+}
+
+/**
+ * Splits an array into evenly sized chunks.
+ *
+ * @param items - Items to chunk
+ * @param chunkSize - Maximum size of each chunk
+ * @returns Array of chunked arrays
+ */
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) {
+    throw new Error("chunkSize must be greater than zero");
+  }
+
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+
+  return chunks;
 }
 
 /**
@@ -785,18 +807,22 @@ export async function getUserSharedGames(userId: string): Promise<SharedGameSumm
 
     const sharedIds = snapshot.docs.map((doc) => doc.id);
 
-    const games: SharedGameSummary[] = [];
+    const sharedGamesRef = collection(db, SHARED_GAMES_COLLECTION);
+    const summariesById = new Map<string, SharedGameSummary>();
 
-    for (const sharedId of sharedIds) {
-      const docRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
+    for (const chunk of chunkArray(sharedIds, IN_QUERY_BATCH_SIZE)) {
+      const q = query(sharedGamesRef, where(documentId(), "in", chunk));
+      const chunkSnapshot = await getDocs(q);
+
+      chunkSnapshot.docs.forEach((docSnap) => {
         const data = docSnap.data() as SharedGameDocument;
-        games.push(toSharedGameSummary(data));
-      }
+        summariesById.set(docSnap.id, toSharedGameSummary(data));
+      });
     }
 
-    return games;
+    return sharedIds
+      .map((sharedId) => summariesById.get(sharedId))
+      .filter((summary): summary is SharedGameSummary => Boolean(summary));
   } catch (err) {
     console.error("[sharedGamesService] getUserSharedGames failed:", err);
     throw new Error("Failed to fetch user's shared games");
