@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import { ArrowDownUp, ArrowLeft, ClockArrowDown, ClockArrowUp, Funnel } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
@@ -10,7 +16,20 @@ import type { SharedGameSummary } from "../types/sharedGame";
 import { filterSharedGames } from "../utils/sharedGamesFilter";
 import SharedGameCard from "../components/shared/SharedGameCard";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
-import { useEffect } from "react";
+
+/* -------------------------------------------------------------------------- */
+/* Constants                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Local storage key for the shared games results visibility preference.
+ */
+const SHARED_GAMES_RESULTS_VISIBILITY_KEY = "bughouse:shared-games:show-results";
+
+/**
+ * Event name used to notify same-tab listeners of local storage updates.
+ */
+const SHARED_GAMES_RESULTS_STORAGE_EVENT = "shared-games-results-change";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -106,6 +125,46 @@ export default function SharedGamesPageClient({
   const [includePartnerGames, setIncludePartnerGames] = useState(true);
   const [sortBy, setSortBy] = useState<"sharedAt" | "gameDate">("sharedAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const showResults = useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") {
+        return () => undefined;
+      }
+
+      const handleStorageChange = () => onStoreChange();
+      window.addEventListener("storage", handleStorageChange);
+      window.addEventListener(SHARED_GAMES_RESULTS_STORAGE_EVENT, handleStorageChange);
+
+      return () => {
+        window.removeEventListener("storage", handleStorageChange);
+        window.removeEventListener(SHARED_GAMES_RESULTS_STORAGE_EVENT, handleStorageChange);
+      };
+    },
+    () => {
+      if (typeof window === "undefined") {
+        return true;
+      }
+
+      const storedPreference = window.localStorage.getItem(
+        SHARED_GAMES_RESULTS_VISIBILITY_KEY,
+      );
+      return storedPreference === null ? true : storedPreference === "true";
+    },
+    () => true,
+  );
+
+  const handleToggleShowResults = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextValue = !showResults;
+    window.localStorage.setItem(
+      SHARED_GAMES_RESULTS_VISIBILITY_KEY,
+      String(nextValue),
+    );
+    window.dispatchEvent(new Event(SHARED_GAMES_RESULTS_STORAGE_EVENT));
+  }, [showResults]);
 
   // Filter out deleted games from the games list
   const availableGames = useMemo(() => {
@@ -203,162 +262,164 @@ export default function SharedGamesPageClient({
               )}
             </div>
 
-            {/* Compact filter section */}
-            <div className="shrink-0 rounded-md border border-gray-700/50 bg-gray-800/60 p-2 sm:p-2.5">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <Funnel className="h-3 w-3 text-gray-400" aria-hidden="true" />
-                  <h2 className="text-xs font-medium text-gray-300">Filter</h2>
-                </div>
+            <div className="w-full sm:w-auto shrink-0 flex flex-col items-stretch sm:items-end gap-2">
+              {/* Compact filter section */}
+              <div className="w-full rounded-md border border-gray-700/50 bg-gray-800/60 p-2 sm:w-auto sm:p-2.5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Funnel className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                    <h2 className="text-xs font-medium text-gray-300">Filter</h2>
+                  </div>
 
-                <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
-                  <ArrowDownUp className="h-3 w-3 text-gray-400" aria-hidden="true" />
-                  <span className="text-gray-400">Sort</span>
-                  <button
-                    type="button"
-                    onClick={() => setSortBy("sharedAt")}
-                    className={[
-                      "ml-1 rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
-                      sortBy === "sharedAt"
-                        ? "text-gray-100"
-                        : "text-gray-500 hover:text-gray-300",
-                    ].join(" ")}
-                    aria-pressed={sortBy === "sharedAt"}
-                  >
-                    Shared
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))
-                    }
-                    className={[
-                      "rounded-sm border border-gray-600/40 p-0.5 transition-colors",
-                      "text-gray-100",
-                    ].join(" ")}
-                    aria-label={`Sort direction: ${sortDirection === "desc" ? "newest first" : "oldest first"}`}
-                  >
-                    {sortDirection === "desc" ? (
-                      <ClockArrowDown className="h-3 w-3 text-gray-100" aria-hidden="true" />
-                    ) : (
-                      <ClockArrowUp className="h-3 w-3 text-gray-100" aria-hidden="true" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortBy("gameDate")}
-                    className={[
-                      "rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
-                      sortBy === "gameDate"
-                        ? "text-gray-100"
-                        : "text-gray-500 hover:text-gray-300",
-                    ].join(" ")}
-                    aria-pressed={sortBy === "gameDate"}
-                  >
-                    Played
-                  </button>
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
+                    <ArrowDownUp className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                    <span className="text-gray-400">Sort</span>
+                    <button
+                      type="button"
+                      onClick={() => setSortBy("sharedAt")}
+                      className={[
+                        "ml-1 rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
+                        sortBy === "sharedAt"
+                          ? "text-gray-100"
+                          : "text-gray-500 hover:text-gray-300",
+                      ].join(" ")}
+                      aria-pressed={sortBy === "sharedAt"}
+                    >
+                      Shared
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))
+                      }
+                      className={[
+                        "rounded-sm border border-gray-600/40 p-0.5 transition-colors",
+                        "text-gray-100",
+                      ].join(" ")}
+                      aria-label={`Sort direction: ${sortDirection === "desc" ? "newest first" : "oldest first"}`}
+                    >
+                      {sortDirection === "desc" ? (
+                        <ClockArrowDown className="h-3 w-3 text-gray-100" aria-hidden="true" />
+                      ) : (
+                        <ClockArrowUp className="h-3 w-3 text-gray-100" aria-hidden="true" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSortBy("gameDate")}
+                      className={[
+                        "rounded-sm border border-gray-600/40 px-1 py-0.5 transition-colors",
+                        sortBy === "gameDate"
+                          ? "text-gray-100"
+                          : "text-gray-500 hover:text-gray-300",
+                      ].join(" ")}
+                      aria-pressed={sortBy === "gameDate"}
+                    >
+                      Played
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                {/* Sharer filter */}
-                <div>
-                  <input
-                    id="filter-sharer"
-                    type="text"
-                    value={filterSharer}
-                    onChange={(e) => setFilterSharer(e.target.value)}
-                    placeholder="Sharer"
-                    className="w-full rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
-                  />
-                </div>
-
-                {/* Player filters in compact grid */}
-                <div className="space-y-1">
-                  {/* Team 1 */}
-                  <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-1.5">
+                  {/* Sharer filter */}
+                  <div>
                     <input
-                      id="filter-player1"
+                      id="filter-sharer"
                       type="text"
-                      value={filterPlayer1}
-                      onChange={(e) => setFilterPlayer1(e.target.value)}
-                      placeholder="Player 1"
-                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
-                    />
-                    <input
-                      id="filter-player2"
-                      type="text"
-                      value={filterPlayer2}
-                      onChange={(e) => setFilterPlayer2(e.target.value)}
-                      placeholder="Player 2"
-                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                      value={filterSharer}
+                      onChange={(e) => setFilterSharer(e.target.value)}
+                      placeholder="Sharer"
+                      className="w-full rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                     />
                   </div>
 
-                  {/* VS separator */}
-                  <div className="flex items-center justify-center text-[10px] text-gray-500">
-                    vs
-                  </div>
+                  {/* Player filters in compact grid */}
+                  <div className="space-y-1">
+                    {/* Team 1 */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input
+                        id="filter-player1"
+                        type="text"
+                        value={filterPlayer1}
+                        onChange={(e) => setFilterPlayer1(e.target.value)}
+                        placeholder="Player 1"
+                        className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                      />
+                      <input
+                        id="filter-player2"
+                        type="text"
+                        value={filterPlayer2}
+                        onChange={(e) => setFilterPlayer2(e.target.value)}
+                        placeholder="Player 2"
+                        className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
+                      />
+                    </div>
 
-                  {/* Team 2 */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <input
-                      id="filter-player3"
-                      type="text"
-                      value={filterPlayer3}
-                      onChange={(e) => setFilterPlayer3(e.target.value)}
-                      placeholder="Player 3"
-                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
-                    />
-                    <input
-                      id="filter-player4"
-                      type="text"
-                      value={filterPlayer4}
-                      onChange={(e) => setFilterPlayer4(e.target.value)}
-                      placeholder="Player 4"
-                      className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
-                    />
-                  </div>
+                    {/* VS separator */}
+                    <div className="flex items-center justify-center text-[10px] text-gray-500">
+                      vs
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-4 pt-1.5">
-                    <label
-                      htmlFor="filter-type-game"
-                      className="flex items-center gap-1 text-[10px] text-gray-300"
-                    >
+                    {/* Team 2 */}
+                    <div className="grid grid-cols-2 gap-1.5">
                       <input
-                        id="filter-type-game"
-                        type="checkbox"
-                        checked={includeGame}
-                        onChange={(e) => setIncludeGame(e.target.checked)}
-                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                        id="filter-player3"
+                        type="text"
+                        value={filterPlayer3}
+                        onChange={(e) => setFilterPlayer3(e.target.value)}
+                        placeholder="Player 3"
+                        className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                       />
-                      Game
-                    </label>
-                    <label
-                      htmlFor="filter-type-match"
-                      className="flex items-center gap-1 text-[10px] text-gray-300"
-                    >
                       <input
-                        id="filter-type-match"
-                        type="checkbox"
-                        checked={includeMatch}
-                        onChange={(e) => setIncludeMatch(e.target.checked)}
-                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                        id="filter-player4"
+                        type="text"
+                        value={filterPlayer4}
+                        onChange={(e) => setFilterPlayer4(e.target.value)}
+                        placeholder="Player 4"
+                        className="rounded border border-gray-600 bg-gray-800/80 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:border-mariner-500 focus:outline-none focus:ring-1 focus:ring-mariner-500"
                       />
-                      Match
-                    </label>
-                    <label
-                      htmlFor="filter-type-partner"
-                      className="flex items-center gap-1 text-[10px] text-gray-300"
-                    >
-                      <input
-                        id="filter-type-partner"
-                        type="checkbox"
-                        checked={includePartnerGames}
-                        onChange={(e) => setIncludePartnerGames(e.target.checked)}
-                        className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
-                      />
-                      Partner games
-                    </label>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 pt-1.5">
+                      <label
+                        htmlFor="filter-type-game"
+                        className="flex items-center gap-1 text-[10px] text-gray-300"
+                      >
+                        <input
+                          id="filter-type-game"
+                          type="checkbox"
+                          checked={includeGame}
+                          onChange={(e) => setIncludeGame(e.target.checked)}
+                          className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                        />
+                        Game
+                      </label>
+                      <label
+                        htmlFor="filter-type-match"
+                        className="flex items-center gap-1 text-[10px] text-gray-300"
+                      >
+                        <input
+                          id="filter-type-match"
+                          type="checkbox"
+                          checked={includeMatch}
+                          onChange={(e) => setIncludeMatch(e.target.checked)}
+                          className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                        />
+                        Match
+                      </label>
+                      <label
+                        htmlFor="filter-type-partner"
+                        className="flex items-center gap-1 text-[10px] text-gray-300"
+                      >
+                        <input
+                          id="filter-type-partner"
+                          type="checkbox"
+                          checked={includePartnerGames}
+                          onChange={(e) => setIncludePartnerGames(e.target.checked)}
+                          className="h-3 w-3 rounded border border-gray-600 bg-gray-800/80 text-mariner-500 focus:ring-1 focus:ring-mariner-500"
+                        />
+                        Partner games
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -373,8 +434,30 @@ export default function SharedGamesPageClient({
           {hasFilteredResults && (
             <>
               {/* Results count */}
-              <div className="mb-4 text-sm text-gray-400">
-                Showing {filteredGames.length} of {availableGames.length} games and matches
+              <div className="mb-4 flex flex-col gap-2 text-sm text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  Showing {filteredGames.length} of {availableGames.length} games and matches
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-md border border-gray-700/40 bg-gray-800/50 px-2 py-1.5 text-xs text-gray-300 sm:justify-end">
+                  <span className="text-gray-400">Show Results</span>
+                  <button
+                    type="button"
+                    onClick={handleToggleShowResults}
+                    className={[
+                      "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                      showResults ? "bg-mariner-500" : "bg-gray-600",
+                    ].join(" ")}
+                    aria-pressed={showResults}
+                    aria-label={showResults ? "Hide results" : "Show results"}
+                  >
+                    <span
+                      className={[
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                        showResults ? "translate-x-4" : "translate-x-1",
+                      ].join(" ")}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Games grid */}
@@ -385,6 +468,7 @@ export default function SharedGamesPageClient({
                     game={game}
                     currentUserId={user?.uid ?? null}
                     onDeleted={handleGameDeleted}
+                    showResults={showResults}
                   />
                 ))}
               </div>

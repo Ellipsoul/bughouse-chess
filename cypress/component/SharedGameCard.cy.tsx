@@ -141,6 +141,15 @@ describe("SharedGameCard", () => {
 
       cy.contains("Shared: Apr 2, 2024").should("be.visible");
     });
+
+    it("hides results when showResults is false", () => {
+      const game = createMockSharedGameSummary();
+
+      cy.mount(<SharedGameCard game={game} showResults={false} />);
+
+      cy.contains("Hidden").should("be.visible");
+      cy.contains("1 - 0").should("not.exist");
+    });
   });
 
   describe("Delete Button Visibility", () => {

@@ -30,6 +30,11 @@ export interface SharedGameCardProps {
    * Parent should remove this card from the list.
    */
   onDeleted?: (sharedId: string) => void;
+
+  /**
+   * Whether to show the game or match result on the card.
+   */
+  showResults?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -116,6 +121,7 @@ export default function SharedGameCard({
   game,
   currentUserId,
   onDeleted,
+  showResults = true,
 }: SharedGameCardProps) {
   const router = useRouter();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -241,7 +247,11 @@ export default function SharedGameCard({
 
           {/* Result */}
           <div className="shrink-0 text-center px-2">
-            <span className="text-lg font-bold text-gray-100">{result}</span>
+            {showResults ? (
+              <span className="text-lg font-bold text-gray-100">{result}</span>
+            ) : (
+              <span className="text-sm font-semibold text-gray-400">Hidden</span>
+            )}
           </div>
 
           {/* Team 2 */}
