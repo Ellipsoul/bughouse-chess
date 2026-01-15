@@ -64,6 +64,7 @@ import {
   createShareHashInputFromSingleGame,
 } from "../../utils/sharedGameHash";
 import { getAutoAdvanceLiveReplayFromLocalStorage } from "../../utils/userPreferencesService";
+import { scheduleLiveReplayAutoAdvance } from "../../utils/liveReplayAutoAdvance";
 import {
   isValidChessComGameId,
   sanitizeChessComGameIdInput,
@@ -176,6 +177,7 @@ export default function GameViewerPage() {
   const prefetchSeqRef = useRef(0);
   const prefetchDebounceTimeoutRef = useRef<number | null>(null);
   const didPrefetchSeededSampleRef = useRef(false);
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingLoadRequest, setPendingLoadRequest] = useState<PendingLoadGameRequest | null>(
     null,
   );
@@ -661,10 +663,20 @@ export default function GameViewerPage() {
   }, []);
 
   /**
+   * Clear any pending auto-advance timer to avoid stale navigation.
+   */
+  const clearAutoAdvanceTimeout = useCallback(() => {
+    if (autoAdvanceTimeoutRef.current === null) return;
+    window.clearTimeout(autoAdvanceTimeoutRef.current);
+    autoAdvanceTimeoutRef.current = null;
+  }, []);
+
+  /**
    * Navigates to the previous game in the match.
    */
   const handlePreviousGame = useCallback(() => {
     if (matchCurrentIndex <= 0 || matchGames.length === 0) return;
+    clearAutoAdvanceTimeout();
 
     const newIndex = matchCurrentIndex - 1;
     const targetGame = matchGames[newIndex];
@@ -683,13 +695,14 @@ export default function GameViewerPage() {
       partnerId: targetGame.partnerGameId,
     });
     setAutoStartLiveReplayGameId(null);
-  }, [matchCurrentIndex, matchGames, analytics]);
+  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout]);
 
   /**
    * Navigates to the next game in the match.
    */
   const handleNextGame = useCallback(() => {
     if (matchCurrentIndex >= matchGames.length - 1) return;
+    clearAutoAdvanceTimeout();
 
     const newIndex = matchCurrentIndex + 1;
     const targetGame = matchGames[newIndex];
@@ -708,13 +721,14 @@ export default function GameViewerPage() {
       partnerId: targetGame.partnerGameId,
     });
     setAutoStartLiveReplayGameId(null);
-  }, [matchCurrentIndex, matchGames, analytics]);
+  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout]);
 
   /**
    * Navigates to a specific game in the match by index.
    */
   const handleSelectGame = useCallback((index: number) => {
     if (index < 0 || index >= matchGames.length) return;
+    clearAutoAdvanceTimeout();
 
     const targetGame = matchGames[index];
 
@@ -732,41 +746,52 @@ export default function GameViewerPage() {
       partnerId: targetGame.partnerGameId,
     });
     setAutoStartLiveReplayGameId(null);
-  }, [matchGames, analytics, matchCurrentIndex]);
+  }, [matchGames, analytics, matchCurrentIndex, clearAutoAdvanceTimeout]);
 
   /**
    * Auto-advance to the next match game when a live replay finishes, if enabled.
    */
   const handleLiveReplayCompleted = useCallback(() => {
-    const autoAdvancePreference = getAutoAdvanceLiveReplayFromLocalStorage();
-    if (!autoAdvancePreference) return;
-    if (matchGames.length === 0) return;
-    if (matchCurrentIndex >= matchGames.length - 1) {
-      toast("Reached the end of this match.", { id: "live-replay-auto-advance-end", duration: 2600 });
-      return;
-    }
+    clearAutoAdvanceTimeout();
+    const autoAdvancePreference = getAutoAdvanceLiveReplayFromLocalStorage() ?? false;
 
-    const newIndex = matchCurrentIndex + 1;
-    const targetGame = matchGames[newIndex];
+    autoAdvanceTimeoutRef.current = scheduleLiveReplayAutoAdvance({
+      autoAdvanceEnabled: autoAdvancePreference,
+      matchGames,
+      matchCurrentIndex,
+      onScheduled: (_targetGame, newIndex, delayMs) => {
+        const delaySeconds = Math.round(delayMs / 1000);
+        toast(
+          `Game finished. Auto-advancing to game ${newIndex + 1} of ${matchGames.length} in ${delaySeconds} seconds.`,
+          {
+            id: "live-replay-auto-advance-next",
+            duration: delayMs + 600,
+          },
+        );
+      },
+      onMatchEnd: () => {
+        toast("Reached the end of this match.", {
+          id: "live-replay-auto-advance-end",
+          duration: 2600,
+        });
+      },
+      onAdvance: (targetGame, newIndex) => {
+        logAnalyticsEvent(analytics, "live_replay_auto_advance", {
+          from_index: matchCurrentIndex,
+          to_index: newIndex,
+          total_games: matchGames.length,
+        });
 
-    logAnalyticsEvent(analytics, "live_replay_auto_advance", {
-      from_index: matchCurrentIndex,
-      to_index: newIndex,
-      total_games: matchGames.length,
+        setMatchCurrentIndex(newIndex);
+        setGameData({
+          original: targetGame.original,
+          partner: targetGame.partner,
+          partnerId: targetGame.partnerGameId,
+        });
+        setAutoStartLiveReplayGameId(targetGame.original.game.id?.toString() ?? null);
+      },
     });
-
-    setMatchCurrentIndex(newIndex);
-    setGameData({
-      original: targetGame.original,
-      partner: targetGame.partner,
-      partnerId: targetGame.partnerGameId,
-    });
-    setAutoStartLiveReplayGameId(targetGame.original.game.id?.toString() ?? null);
-    toast(`Auto-advanced to game ${newIndex + 1} of ${matchGames.length}.`, {
-      id: "live-replay-auto-advance-next",
-      duration: 2600,
-    });
-  }, [matchCurrentIndex, matchGames, analytics]);
+  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout]);
 
   /**
    * Compute the board orientation for the currently displayed game.
@@ -816,6 +841,12 @@ export default function GameViewerPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      clearAutoAdvanceTimeout();
+    };
+  }, [clearAutoAdvanceTimeout]);
 
   /**
    * Determines the content type for sharing based on current state.
