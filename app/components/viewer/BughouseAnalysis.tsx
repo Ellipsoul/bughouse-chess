@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { observer } from "mobx-react-lite";
 import { Chess, type Square } from "chess.js";
 import {
   ChevronLeft,
@@ -20,7 +21,7 @@ import { processGameData } from "../../utils/moveOrdering";
 import { deriveBughouseConclusionSummary } from "../../utils/gameConclusion";
 import type { BughouseMove } from "../../types/bughouse";
 import type { BughousePlayer } from "../../types/bughouse";
-import type { AnalysisNode } from "../../types/analysis";
+import type { AnalysisNode, BughouseBoardId, BughouseSide } from "../../types/analysis";
 import { buildBughouseClockTimeline } from "../../utils/analysis/buildBughouseClockTimeline";
 import { buildPerBoardMoveDurationsDeciseconds } from "../../utils/analysis/buildPerBoardMoveDurationsDeciseconds";
 import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/clockAdvantage";
@@ -54,6 +55,12 @@ import {
 import { useCompactLandscape } from "../../utils/useCompactLandscape";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
 import { getSharedGameDescriptionTooltip } from "../../utils/sharedGameDescription";
+import { useViewerOrientationStore } from "../../stores/viewerOrientationStore";
+import {
+  getBoardOrder,
+  getDisplayBoardLabel,
+  getPlayersForBoard,
+} from "../../utils/boardOrderMapping";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -158,6 +165,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const controlsContainerRef = useRef<HTMLDivElement>(null);
   const isCompactLandscape = useCompactLandscape();
   const analytics = useFirebaseAnalytics();
+  const orientationStore = useViewerOrientationStore();
+  const isBoardOrderSwapped = orientationStore.isBoardOrderSwapped;
+  const handleToggleBoardOrder = useCallback(() => {
+    orientationStore.toggleBoardOrder();
+  }, [orientationStore]);
+  const { leftBoardId, rightBoardId } = getBoardOrder(isBoardOrderSwapped);
   const {
     state,
     currentPosition,
@@ -472,6 +485,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
     const shouldShowGamesLoadedInline = Boolean(showGamesLoadedInline && gamesLoadedLabel);
 
+    const displaySourceBoard = getDisplayBoardLabel(
+      summary.sourceBoard === "B" ? "B" : "A",
+      isBoardOrderSwapped,
+    );
+
     return (
       <div className="px-3 py-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -479,7 +497,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             Game result
           </div>
           <div className="text-[10px] text-gray-500">
-            Source: Board {summary.sourceBoard}
+            Source: Board {displaySourceBoard}
           </div>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
@@ -496,7 +514,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         </div>
       </div>
     );
-  }, [gameData, gamesLoadedLabel, mainlineMoveCount, processedGame, showGamesLoadedInline]);
+  }, [
+    gameData,
+    gamesLoadedLabel,
+    isBoardOrderSwapped,
+    mainlineMoveCount,
+    processedGame,
+    showGamesLoadedInline,
+  ]);
 
   const moveListFooter = useMemo(() => {
     if (gameConclusionFooter) return gameConclusionFooter;
@@ -638,6 +663,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         return;
       }
 
+      // Swapping left/right board order.
+      if (event.key.toLowerCase() === "s") {
+        if (handleToggleBoardOrder) {
+          event.preventDefault();
+          handleToggleBoardOrder();
+          return;
+        }
+      }
+
       // Live replay intentionally disables all keyboard navigation so playback cannot be
       // interrupted by accidental key presses.
       if (isLiveReplayPlaying) {
@@ -723,6 +757,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     closeVariationSelector,
     cancelPendingPromotion,
     commitPromotion,
+    handleToggleBoardOrder,
     isLiveReplayPlaying,
     moveVariationSelectorIndex,
     navBack,
@@ -1637,6 +1672,222 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     ],
   );
 
+  const getTeamForBoardSide = useCallback(
+    (boardId: BughouseBoardId, side: BughouseSide): "AWhite_BBlack" | "ABlack_BWhite" => {
+      if (boardId === "A") {
+        return side === "white" ? "AWhite_BBlack" : "ABlack_BWhite";
+      }
+      return side === "white" ? "ABlack_BWhite" : "AWhite_BBlack";
+    },
+    [],
+  );
+
+  const getBoardDisplayConfig = useCallback(
+    (boardId: BughouseBoardId) => {
+      const isBoardA = boardId === "A";
+      const topSide: BughouseSide = isBoardA
+        ? isBoardsFlipped
+          ? "white"
+          : "black"
+        : isBoardsFlipped
+          ? "black"
+          : "white";
+      const bottomSide: BughouseSide = topSide === "white" ? "black" : "white";
+      const flip = isBoardA ? isBoardsFlipped : !isBoardsFlipped;
+      const reserves = isBoardA ? currentPosition.reserves.A : currentPosition.reserves.B;
+      const captureMaterial = isBoardA
+        ? currentPosition.captureMaterial.A
+        : currentPosition.captureMaterial.B;
+      const fen = isBoardA ? currentPosition.fenA : currentPosition.fenB;
+      const promotedSquares = isBoardA
+        ? currentPosition.promotedSquares.A
+        : currentPosition.promotedSquares.B;
+      const lastMove = isBoardA ? lastMoveHighlightsByBoard.A : lastMoveHighlightsByBoard.B;
+      const clocks = isBoardA ? clockSnapshot?.A : clockSnapshot?.B;
+      const sideToMove = isBoardA ? sideToMoveA : sideToMoveB;
+      const bottomReserveColor: BughouseSide = isBoardA
+        ? isBoardsFlipped
+          ? "black"
+          : "white"
+        : isBoardsFlipped
+          ? "white"
+          : "black";
+
+      return {
+        topSide,
+        bottomSide,
+        flip,
+        reserves,
+        captureMaterial,
+        fen,
+        promotedSquares,
+        lastMove,
+        clocks,
+        sideToMove,
+        bottomReserveColor,
+      };
+    },
+    [
+      clockSnapshot,
+      currentPosition.captureMaterial,
+      currentPosition.fenA,
+      currentPosition.fenB,
+      currentPosition.promotedSquares.A,
+      currentPosition.promotedSquares.B,
+      currentPosition.reserves.A,
+      currentPosition.reserves.B,
+      isBoardsFlipped,
+      lastMoveHighlightsByBoard.A,
+      lastMoveHighlightsByBoard.B,
+      sideToMoveA,
+      sideToMoveB,
+    ],
+  );
+
+  const renderReserveColumn = useCallback(
+    (boardId: BughouseBoardId) => {
+      const boardConfig = getBoardDisplayConfig(boardId);
+      return (
+        <div
+          className="flex flex-col justify-start w-16 min-w-10 h-full"
+          data-role="reserve-column"
+          data-board-id={boardId}
+        >
+          <PieceReserveVertical
+            whiteReserves={boardConfig.reserves.white}
+            blackReserves={boardConfig.reserves.black}
+            bottomColor={boardConfig.bottomReserveColor}
+            height={reserveHeight}
+            density={isCompactLandscape ? "compact" : "default"}
+            disabled={isLiveReplayPlaying}
+            onPieceClick={(payload) => handleReservePieceClick(boardId, payload)}
+            onPieceDragStart={(payload) => handleReservePieceDragStart(boardId, payload)}
+            onPieceDragEnd={handleReservePieceDragEnd}
+            selected={
+              state.pendingDrop?.board === boardId
+                ? { color: state.pendingDrop.side, piece: state.pendingDrop.piece }
+                : null
+            }
+          />
+        </div>
+      );
+    },
+    [
+      getBoardDisplayConfig,
+      handleReservePieceClick,
+      handleReservePieceDragEnd,
+      handleReservePieceDragStart,
+      isCompactLandscape,
+      isLiveReplayPlaying,
+      reserveHeight,
+      state.pendingDrop,
+    ],
+  );
+
+  const renderBoardColumn = useCallback(
+    (boardId: BughouseBoardId, columnSide: "left" | "right") => {
+      const boardConfig = getBoardDisplayConfig(boardId);
+      const boardPlayers = getPlayersForBoard(players, boardId);
+      const cornerSide = columnSide === "left" ? "left" : "right";
+      const topCorner = `top-${cornerSide}` as const;
+      const bottomCorner = `bottom-${cornerSide}` as const;
+
+      return (
+        <div
+          className={[
+            "flex flex-col items-center justify-between h-full",
+            isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
+          ].join(" ")}
+          data-role="board-column"
+          data-board-id={boardId}
+        >
+          {renderPlayerBar(
+            boardPlayers[boardConfig.topSide],
+            boardConfig.clocks?.[boardConfig.topSide],
+            getTeamForBoardSide(boardId, boardConfig.topSide),
+            {
+              isToMove: boardConfig.sideToMove === boardConfig.topSide,
+              clocksFrozen: areClocksFrozen,
+              cornerMaterial: {
+                value: boardConfig.captureMaterial[boardConfig.topSide],
+                corner: topCorner,
+              },
+            },
+          )}
+          <ChessBoard
+            fen={boardConfig.fen}
+            boardName={boardId}
+            size={boardSize}
+            flip={boardConfig.flip}
+            annotations={boardId === "A" ? boardAAnnotations : boardBAnnotations}
+            onAnnotationsChange={
+              boardId === "A"
+                ? handleBoardAAnnotationsChange
+                : handleBoardBAnnotationsChange
+            }
+            promotedSquares={boardConfig.promotedSquares}
+            lastMoveFromSquare={boardConfig.lastMove?.from ?? null}
+            lastMoveToSquare={boardConfig.lastMove?.to ?? null}
+            dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === boardId)}
+            dragSourceSquare={
+              dragLegalMoveHighlight?.board === boardId &&
+              dragLegalMoveHighlight.fenAtDragStart === boardConfig.fen
+                ? dragLegalMoveHighlight.from
+                : null
+            }
+            dragLegalTargets={
+              dragLegalMoveHighlight?.board === boardId &&
+              dragLegalMoveHighlight.fenAtDragStart === boardConfig.fen
+                ? dragLegalMoveHighlight.targets
+                : []
+            }
+            draggable={!isLiveReplayPlaying}
+            interactionsEnabled={!isLiveReplayPlaying}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onAttemptMove={handleAttemptMove}
+            onSquareClick={handleSquareClick}
+            onAttemptReserveDrop={handleAttemptReserveDrop}
+          />
+          {renderPlayerBar(
+            boardPlayers[boardConfig.bottomSide],
+            boardConfig.clocks?.[boardConfig.bottomSide],
+            getTeamForBoardSide(boardId, boardConfig.bottomSide),
+            {
+              isToMove: boardConfig.sideToMove === boardConfig.bottomSide,
+              clocksFrozen: areClocksFrozen,
+              cornerMaterial: {
+                value: boardConfig.captureMaterial[boardConfig.bottomSide],
+                corner: bottomCorner,
+              },
+            },
+          )}
+        </div>
+      );
+    },
+    [
+      areClocksFrozen,
+      boardAAnnotations,
+      boardBAnnotations,
+      boardSize,
+      getBoardDisplayConfig,
+      getTeamForBoardSide,
+      handleBoardAAnnotationsChange,
+      handleBoardBAnnotationsChange,
+      handleDragEnd,
+      handleDragStart,
+      handleAttemptMove,
+      handleAttemptReserveDrop,
+      handleSquareClick,
+      isCompactLandscape,
+      isLiveReplayPlaying,
+      players,
+      renderPlayerBar,
+      state.pendingDrop,
+      dragLegalMoveHighlight,
+    ],
+  );
+
   return (
     <div
       ref={analysisContainerRef}
@@ -1709,198 +1960,12 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               isCompactLandscape ? "gap-2" : "gap-4",
             ].join(" ")}
             style={{ height: playAreaHeight }}
+            data-testid="boards-container"
           >
-            {/* Left Reserves (Board A) */}
-            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
-              <PieceReserveVertical
-                whiteReserves={currentPosition.reserves.A.white}
-                blackReserves={currentPosition.reserves.A.black}
-                bottomColor={isBoardsFlipped ? "black" : "white"}
-                height={reserveHeight}
-                density={isCompactLandscape ? "compact" : "default"}
-                disabled={isLiveReplayPlaying}
-                onPieceClick={(payload) => handleReservePieceClick("A", payload)}
-                onPieceDragStart={(payload) => handleReservePieceDragStart("A", payload)}
-                onPieceDragEnd={handleReservePieceDragEnd}
-                selected={
-                  state.pendingDrop?.board === "A"
-                    ? { color: state.pendingDrop.side, piece: state.pendingDrop.piece }
-                    : null
-                }
-              />
-            </div>
-
-            {/* Board A */}
-            <div
-              className={[
-                "flex flex-col items-center justify-between h-full",
-                isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
-              ].join(" ")}
-            >
-              {isBoardsFlipped
-                ? renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
-                    isToMove: sideToMoveA === "white",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "white" : "black"],
-                      corner: "top-left",
-                    },
-                  })
-                : renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
-                    isToMove: sideToMoveA === "black",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "white" : "black"],
-                      corner: "top-left",
-                    },
-                  })}
-              <ChessBoard
-                fen={currentPosition.fenA}
-                boardName="A"
-                size={boardSize}
-                flip={isBoardsFlipped}
-                annotations={boardAAnnotations}
-                onAnnotationsChange={handleBoardAAnnotationsChange}
-                promotedSquares={currentPosition.promotedSquares.A}
-                lastMoveFromSquare={
-                  lastMoveHighlightsByBoard.A?.from ?? null
-                }
-                lastMoveToSquare={
-                  lastMoveHighlightsByBoard.A?.to ?? null
-                }
-                dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "A")}
-                dragSourceSquare={
-                  dragLegalMoveHighlight?.board === "A" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenA
-                    ? dragLegalMoveHighlight.from
-                    : null
-                }
-                dragLegalTargets={
-                  dragLegalMoveHighlight?.board === "A" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenA
-                    ? dragLegalMoveHighlight.targets
-                    : []
-                }
-                draggable={!isLiveReplayPlaying}
-                interactionsEnabled={!isLiveReplayPlaying}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onAttemptMove={handleAttemptMove}
-                onSquareClick={handleSquareClick}
-                onAttemptReserveDrop={handleAttemptReserveDrop}
-              />
-              {isBoardsFlipped
-                ? renderPlayerBar(players.aBlack, clockSnapshot?.A.black, "ABlack_BWhite", {
-                    isToMove: sideToMoveA === "black",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "black" : "white"],
-                      corner: "bottom-left",
-                    },
-                  })
-                : renderPlayerBar(players.aWhite, clockSnapshot?.A.white, "AWhite_BBlack", {
-                    isToMove: sideToMoveA === "white",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.A[isBoardsFlipped ? "black" : "white"],
-                      corner: "bottom-left",
-                    },
-                  })}
-            </div>
-
-            {/* Board B */}
-            <div
-              className={[
-                "flex flex-col items-center justify-between h-full",
-                isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
-              ].join(" ")}
-            >
-              {isBoardsFlipped
-                ? renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
-                    isToMove: sideToMoveB === "black",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "black" : "white"],
-                      corner: "top-right",
-                    },
-                  })
-                : renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
-                    isToMove: sideToMoveB === "white",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "black" : "white"],
-                      corner: "top-right",
-                    },
-                  })}
-              <ChessBoard
-                fen={currentPosition.fenB}
-                boardName="B"
-                size={boardSize}
-                flip={!isBoardsFlipped}
-                annotations={boardBAnnotations}
-                onAnnotationsChange={handleBoardBAnnotationsChange}
-                promotedSquares={currentPosition.promotedSquares.B}
-                lastMoveFromSquare={
-                  lastMoveHighlightsByBoard.B?.from ?? null
-                }
-                lastMoveToSquare={
-                  lastMoveHighlightsByBoard.B?.to ?? null
-                }
-                dropCursorActive={Boolean(state.pendingDrop && state.pendingDrop.board === "B")}
-                dragSourceSquare={
-                  dragLegalMoveHighlight?.board === "B" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenB
-                    ? dragLegalMoveHighlight.from
-                    : null
-                }
-                dragLegalTargets={
-                  dragLegalMoveHighlight?.board === "B" && dragLegalMoveHighlight.fenAtDragStart === currentPosition.fenB
-                    ? dragLegalMoveHighlight.targets
-                    : []
-                }
-                draggable={!isLiveReplayPlaying}
-                interactionsEnabled={!isLiveReplayPlaying}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onAttemptMove={handleAttemptMove}
-                onSquareClick={handleSquareClick}
-                onAttemptReserveDrop={handleAttemptReserveDrop}
-              />
-              {isBoardsFlipped
-                ? renderPlayerBar(players.bWhite, clockSnapshot?.B.white, "ABlack_BWhite", {
-                    isToMove: sideToMoveB === "white",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "white" : "black"],
-                      corner: "bottom-right",
-                    },
-                  })
-                : renderPlayerBar(players.bBlack, clockSnapshot?.B.black, "AWhite_BBlack", {
-                    isToMove: sideToMoveB === "black",
-                    clocksFrozen: areClocksFrozen,
-                    cornerMaterial: {
-                      value: currentPosition.captureMaterial.B[isBoardsFlipped ? "white" : "black"],
-                      corner: "bottom-right",
-                    },
-                  })}
-            </div>
-
-            {/* Right Reserves (Board B) */}
-            <div className="flex flex-col justify-start w-16 min-w-10 h-full">
-              <PieceReserveVertical
-                whiteReserves={currentPosition.reserves.B.white}
-                blackReserves={currentPosition.reserves.B.black}
-                bottomColor={isBoardsFlipped ? "white" : "black"}
-                height={reserveHeight}
-                density={isCompactLandscape ? "compact" : "default"}
-                disabled={isLiveReplayPlaying}
-                onPieceClick={(payload) => handleReservePieceClick("B", payload)}
-                onPieceDragStart={(payload) => handleReservePieceDragStart("B", payload)}
-                onPieceDragEnd={handleReservePieceDragEnd}
-                selected={
-                  state.pendingDrop?.board === "B"
-                    ? { color: state.pendingDrop.side, piece: state.pendingDrop.piece }
-                    : null
-                }
-              />
-            </div>
+            {renderReserveColumn(leftBoardId)}
+            {renderBoardColumn(leftBoardId, "left")}
+            {renderBoardColumn(rightBoardId, "right")}
+            {renderReserveColumn(rightBoardId)}
           </div>
 
           {/* Board Controls */}
@@ -2060,6 +2125,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             cursorNodeId={state.cursorNodeId}
             selectedNodeId={state.selectedNodeId}
             players={players}
+            isBoardOrderSwapped={isBoardOrderSwapped}
+            onToggleBoardOrder={handleToggleBoardOrder}
             combinedMoves={combinedMovesForMoveTimes}
             combinedMoveDurations={combinedMoveDurationsForMoveTimes}
             footer={moveListFooter}
@@ -2075,4 +2142,4 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   );
 };
 
-export default BughouseAnalysis;
+export default observer(BughouseAnalysis);

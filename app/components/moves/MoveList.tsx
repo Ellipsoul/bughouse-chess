@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { ArrowLeftRight } from "lucide-react";
 import { BughouseMove } from "../../types/bughouse";
 import { BughousePlayer } from "../../types/bughouse";
+import {
+  getBoardOrder,
+  getMoveListColumnIndex,
+  getPlayersForBoard,
+} from "../../utils/boardOrderMapping";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
 
 interface MoveListProps {
   moves: BughouseMove[];
@@ -18,6 +25,14 @@ interface MoveListProps {
     bWhite: BughousePlayer;
     bBlack: BughousePlayer;
   };
+  /**
+   * Whether the logical boards are swapped left/right for display.
+   */
+  isBoardOrderSwapped?: boolean;
+  /**
+   * Called when the user toggles the left/right board order.
+   */
+  onToggleBoardOrder?: () => void;
   onMoveClick: (index: number) => void;
 }
 
@@ -29,11 +44,17 @@ const MoveList: React.FC<MoveListProps> = ({
   currentMoveIndex,
   moveDurations: providedMoveDurations,
   players,
+  isBoardOrderSwapped = false,
+  onToggleBoardOrder,
   onMoveClick,
 }) => {
   const activeMoveRef = useRef<HTMLTableRowElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLTableSectionElement>(null);
+  const { leftBoardId, rightBoardId } = getBoardOrder(isBoardOrderSwapped);
+  const leftBoardPlayers = getPlayersForBoard(players, leftBoardId);
+  const rightBoardPlayers = getPlayersForBoard(players, rightBoardId);
+  const canToggleBoardOrder = Boolean(onToggleBoardOrder);
 
   // Pre-compute per-move durations (deciseconds) so we can show how long each move took.
   // If callers provide durations explicitly (recommended), we use those instead.
@@ -122,9 +143,28 @@ const MoveList: React.FC<MoveListProps> = ({
         <table className="w-full text-sm border-collapse table-fixed">
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
-            <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
-              <th colSpan={2} className="bg-gray-200 text-gray-600">
+            <tr className="h-7 text-[10px] uppercase tracking-wider font-medium relative">
+              <th colSpan={2} className="bg-gray-200 text-gray-600 relative">
                 Left Board
+                {canToggleBoardOrder ? (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-20">
+                    <button
+                      type="button"
+                      onClick={onToggleBoardOrder}
+                      aria-label="Swap left and right boards (s)"
+                      aria-pressed={isBoardOrderSwapped}
+                      data-testid="swap-board-order"
+                      data-tooltip-id={APP_TOOLTIP_ID}
+                      data-tooltip-content="Swap left and right boards (s)"
+                      className={[
+                        "inline-flex items-center justify-center rounded text-gray-700 transition-colors",
+                        "h-5 w-5 bg-gray-300 hover:bg-gray-400",
+                      ].join(" ")}
+                    >
+                      <ArrowLeftRight aria-hidden className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </th>
               <th colSpan={2} className="bg-gray-200 text-gray-600">
                 Right Board
@@ -133,16 +173,16 @@ const MoveList: React.FC<MoveListProps> = ({
             {/* Row 2: Player Names */}
             <tr className="h-7 text-[8px] font-semibold">
               <th className="bg-white text-black px-1 w-1/4">
-                {renderPlayerHeader(players.aWhite)}
+                {renderPlayerHeader(leftBoardPlayers.white)}
               </th>
               <th className="bg-black text-white px-1 w-1/4">
-                {renderPlayerHeader(players.aBlack)}
+                {renderPlayerHeader(leftBoardPlayers.black)}
               </th>
               <th className="bg-white text-black px-1 w-1/4">
-                {renderPlayerHeader(players.bWhite)}
+                {renderPlayerHeader(rightBoardPlayers.white)}
               </th>
               <th className="bg-black text-white px-1 w-1/4">
-                {renderPlayerHeader(players.bBlack)}
+                {renderPlayerHeader(rightBoardPlayers.black)}
               </th>
             </tr>
           </thead>
@@ -151,12 +191,11 @@ const MoveList: React.FC<MoveListProps> = ({
               const isCurrent = index === currentMoveIndex;
               // Determine column index based on board and side
               // 0: A White, 1: A Black, 2: B White, 3: B Black
-              let colIndex = 0;
-              if (move.board === 'A') {
-                colIndex = move.side === 'white' ? 0 : 1;
-              } else {
-                colIndex = move.side === 'white' ? 2 : 3;
-              }
+              const colIndex = getMoveListColumnIndex({
+                boardId: move.board,
+                side: move.side,
+                isBoardOrderSwapped,
+              });
 
               return (
                 <tr
@@ -168,35 +207,90 @@ const MoveList: React.FC<MoveListProps> = ({
                     ${isCurrent ? "bg-amber-200/15 hover:bg-amber-200/20" : "hover:bg-gray-700/50"}
                   `}
                 >
-                  {[0, 1, 2, 3].map((col) => {
-                    let borderClass = "";
-                    if (col === 0) borderClass = "border-r border-dashed border-gray-600/50";
-                    else if (col === 1) borderClass = "border-r-4 border-gray-600/50";
-                    else if (col === 2) borderClass = "border-r border-dashed border-gray-600/50";
-
-                    return (
-                      <td
-                        key={col}
-                        className={`
-                          relative p-1 text-center h-8 w-1/4
-                          ${col === colIndex ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
-                          ${borderClass}
-                        `}
-                      >
-                        {col === colIndex ? (
-                          <>
-                            <span className="block leading-4">{move.move}</span>
-                            <span
-                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
-                              title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
-                            >
-                              {formatMoveTime(moveDurations[index])}
-                            </span>
-                          </>
-                        ) : ""}
-                      </td>
-                    );
-                  })}
+                  {/* Left Board - White */}
+                  <td
+                    className={`
+                      relative p-1 text-center h-8 border-r border-dashed border-gray-600/50
+                      ${colIndex === 0 ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
+                    `}
+                  >
+                    {colIndex === 0 ? (
+                      <>
+                        <span className="block leading-4">{move.move}</span>
+                        <span
+                          className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                          title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
+                        >
+                          {formatMoveTime(moveDurations[index])}
+                        </span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </td>
+                  {/* Left Board - Black */}
+                  <td
+                    className={`
+                      relative p-1 text-center h-8 border-r-4 border-gray-600/50
+                      ${colIndex === 1 ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
+                    `}
+                  >
+                    {colIndex === 1 ? (
+                      <>
+                        <span className="block leading-4">{move.move}</span>
+                        <span
+                          className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                          title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
+                        >
+                          {formatMoveTime(moveDurations[index])}
+                        </span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </td>
+                  {/* Right Board - White */}
+                  <td
+                    className={`
+                      relative p-1 text-center h-8 border-r border-dashed border-gray-600/50
+                      ${colIndex === 2 ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
+                    `}
+                  >
+                    {colIndex === 2 ? (
+                      <>
+                        <span className="block leading-4">{move.move}</span>
+                        <span
+                          className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                          title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
+                        >
+                          {formatMoveTime(moveDurations[index])}
+                        </span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </td>
+                  {/* Right Board - Black */}
+                  <td
+                    className={`
+                      relative p-1 text-center h-8
+                      ${colIndex === 3 ? (isCurrent ? "text-amber-200 font-bold" : "text-gray-300") : ""}
+                    `}
+                  >
+                    {colIndex === 3 ? (
+                      <>
+                        <span className="block leading-4">{move.move}</span>
+                        <span
+                          className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                          title={`Time since previous move on this board: ${formatMoveTime(moveDurations[index])}`}
+                        >
+                          {formatMoveTime(moveDurations[index])}
+                        </span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </td>
                 </tr>
               );
             })}

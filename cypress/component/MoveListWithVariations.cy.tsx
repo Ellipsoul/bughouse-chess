@@ -1,3 +1,4 @@
+import { useState } from "react";
 import MoveListWithVariations from "../../app/components/moves/MoveListWithVariations";
 import type { AnalysisTree } from "../../app/types/analysis";
 import type { BughouseMove } from "../../app/types/bughouse";
@@ -175,5 +176,24 @@ describe("MoveListWithVariations", () => {
     cy.contains("Player2").should("exist");
     cy.contains("Player3").should("exist");
     cy.contains("Player4").should("exist");
+  });
+
+  it("swaps board labels when toggled", () => {
+    const defaultProps = createDefaultProps();
+    const Wrapper = () => {
+      const [swapped, setSwapped] = useState(false);
+      return (
+        <MoveListWithVariations
+          {...defaultProps}
+          isBoardOrderSwapped={swapped}
+          onToggleBoardOrder={() => setSwapped((prev) => !prev)}
+        />
+      );
+    };
+
+    cy.mount(<Wrapper />);
+    cy.contains("A1").should("exist");
+    cy.get("[data-testid='swap-board-order']").click();
+    cy.contains("B1").should("exist");
   });
 });

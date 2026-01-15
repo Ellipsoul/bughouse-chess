@@ -1,9 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftRight } from "lucide-react";
 import type { BughouseMove, BughousePlayer } from "../../types/bughouse";
 import type { AnalysisNode, AnalysisTree } from "../../types/analysis";
 import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
+import {
+  getBoardOrder,
+  getDisplayBoardLabel,
+  getMoveListColumnIndex,
+  getPlayersForBoard,
+} from "../../utils/boardOrderMapping";
+import { APP_TOOLTIP_ID } from "../../utils/tooltips";
 
 interface MoveListWithVariationsProps {
   tree: AnalysisTree;
@@ -15,6 +23,14 @@ interface MoveListWithVariationsProps {
     bWhite: BughousePlayer;
     bBlack: BughousePlayer;
   };
+  /**
+   * Whether the logical boards are swapped left/right for display.
+   */
+  isBoardOrderSwapped?: boolean;
+  /**
+   * Called when the user toggles the left/right board order.
+   */
+  onToggleBoardOrder?: () => void;
   /**
    * Combined moves from the loaded game, used to calculate and display move times.
    * If not provided, move times will not be displayed.
@@ -81,6 +97,8 @@ export default function MoveListWithVariations({
   cursorNodeId,
   selectedNodeId,
   players,
+  isBoardOrderSwapped = false,
+  onToggleBoardOrder,
   combinedMoves,
   combinedMoveDurations,
   footer,
@@ -98,6 +116,10 @@ export default function MoveListWithVariations({
   } | null>(null);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const { leftBoardId, rightBoardId } = getBoardOrder(isBoardOrderSwapped);
+  const leftBoardPlayers = getPlayersForBoard(players, leftBoardId);
+  const rightBoardPlayers = getPlayersForBoard(players, rightBoardId);
+  const canToggleBoardOrder = Boolean(onToggleBoardOrder);
 
   const canPromoteNode = useCallback(
     (nodeId: string) => {
@@ -147,10 +169,11 @@ export default function MoveListWithVariations({
       const side = child.incomingMove.side;
       const nextPlyOnBoard = board === "A" ? (plyA += 1) : (plyB += 1);
       const fullmoveNumber = Math.floor((nextPlyOnBoard - 1) / 2) + 1;
+      const displayBoard = getDisplayBoardLabel(board, isBoardOrderSwapped);
       const moveNumberLabel =
         side === "white"
-          ? `${board}${fullmoveNumber}`
-          : `${board}${fullmoveNumber}'`;
+          ? `${displayBoard}${fullmoveNumber}`
+          : `${displayBoard}${fullmoveNumber}'`;
 
       rows.push({
         nodeId: childId,
@@ -165,7 +188,7 @@ export default function MoveListWithVariations({
     }
 
     return rows;
-  }, [tree.nodesById, tree.rootId]);
+  }, [isBoardOrderSwapped, tree.nodesById, tree.rootId]);
 
   const activeElementRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -330,9 +353,10 @@ export default function MoveListWithVariations({
 
       const isSelected = nodeId === selectedNodeId;
       const isCursor = nodeId === cursorNodeId;
+      const displayBoard = getDisplayBoardLabel(move.board, isBoardOrderSwapped);
       const leadingLabel = Object.prototype.hasOwnProperty.call(options, "leadingLabel")
         ? options.leadingLabel
-        : move.board;
+        : displayBoard;
 
       return (
         <span
@@ -368,7 +392,7 @@ export default function MoveListWithVariations({
               onSelectNode(nodeId);
             }
           }}
-          title={`${move.board} ${move.san}`}
+          title={`${displayBoard} ${move.san}`}
         >
           {leadingLabel ? (
             <span className="text-[10px] font-bold text-gray-400">{leadingLabel}</span>
@@ -377,7 +401,15 @@ export default function MoveListWithVariations({
         </span>
       );
     },
-    [cursorNodeId, disabled, onSelectNode, selectedNodeId, setActiveElementRef, tree.nodesById],
+    [
+      cursorNodeId,
+      disabled,
+      isBoardOrderSwapped,
+      onSelectNode,
+      selectedNodeId,
+      setActiveElementRef,
+      tree.nodesById,
+    ],
   );
 
   /**
@@ -445,11 +477,14 @@ export default function MoveListWithVariations({
       const fullmoveNumber = Math.floor((plyOnBoard - 1) / 2) + 1;
       // For variation text blocks we prefer traditional PGN-like numbering for black moves.
       // (The mainline gutter uses a different style.)
+      const displayBoard = getDisplayBoardLabel(mv.board, isBoardOrderSwapped);
       const label =
-        mv.side === "white" ? `${mv.board}${fullmoveNumber}` : `...${mv.board}${fullmoveNumber}`;
+        mv.side === "white"
+          ? `${displayBoard}${fullmoveNumber}`
+          : `...${displayBoard}${fullmoveNumber}`;
       return { board: mv.board, side: mv.side, plyOnBoard, label };
     },
-    [getBoardPlyCountsAtNode, tree.nodesById],
+    [getBoardPlyCountsAtNode, isBoardOrderSwapped, tree.nodesById],
   );
 
   const getVariationTokenLeadingLabel = useCallback(
@@ -765,10 +800,29 @@ export default function MoveListWithVariations({
           </colgroup>
           <thead ref={headerRef} className="sticky top-0 z-10 shadow-md">
             {/* Row 1: Board Labels */}
-            <tr className="h-7 text-[10px] uppercase tracking-wider font-medium">
+            <tr className="h-7 text-[10px] uppercase tracking-wider font-medium relative">
               <th className="bg-gray-200 text-gray-600 w-10" />
-              <th colSpan={2} className="bg-gray-200 text-gray-600">
+              <th colSpan={2} className="bg-gray-200 text-gray-600 relative">
                 Left Board
+                {canToggleBoardOrder ? (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-20">
+                    <button
+                      type="button"
+                      onClick={onToggleBoardOrder}
+                      aria-label="Swap left and right boards (s)"
+                      aria-pressed={isBoardOrderSwapped}
+                      data-testid="swap-board-order"
+                      data-tooltip-id={APP_TOOLTIP_ID}
+                      data-tooltip-content="Swap left and right boards (s)"
+                      className={[
+                        "inline-flex items-center justify-center rounded text-gray-700 transition-colors",
+                        "h-5 w-5 bg-gray-300 hover:bg-gray-400",
+                      ].join(" ")}
+                    >
+                      <ArrowLeftRight aria-hidden className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </th>
               <th colSpan={2} className="bg-gray-200 text-gray-600">
                 Right Board
@@ -777,17 +831,17 @@ export default function MoveListWithVariations({
             {/* Row 2: Player Names */}
             <tr className="h-7 text-[8px] font-semibold">
               <th className="bg-gray-200 text-gray-600 px-1 w-10" />
-              <th className="bg-white text-black px-1 w-1/4">
-                {renderPlayerHeader(players.aWhite)}
+              <th className="bg-white text-black px-1">
+                {renderPlayerHeader(leftBoardPlayers.white)}
               </th>
-              <th className="bg-black text-white px-1 w-1/4">
-                {renderPlayerHeader(players.aBlack)}
+              <th className="bg-black text-white px-1">
+                {renderPlayerHeader(leftBoardPlayers.black)}
               </th>
-              <th className="bg-white text-black px-1 w-1/4">
-                {renderPlayerHeader(players.bWhite)}
+              <th className="bg-white text-black px-1">
+                {renderPlayerHeader(rightBoardPlayers.white)}
               </th>
-              <th className="bg-black text-white px-1 w-1/4">
-                {renderPlayerHeader(players.bBlack)}
+              <th className="bg-black text-white px-1">
+                {renderPlayerHeader(rightBoardPlayers.black)}
               </th>
             </tr>
           </thead>
@@ -798,15 +852,11 @@ export default function MoveListWithVariations({
               const isCursor = row.nodeId === cursorNodeId;
               const isSelected = row.nodeId === selectedNodeId;
 
-              // 0: A White, 1: A Black, 2: B White, 3: B Black
-              const colIndex =
-                move.board === "A"
-                  ? move.side === "white"
-                    ? 0
-                    : 1
-                  : move.side === "white"
-                    ? 2
-                    : 3;
+              const colIndex = getMoveListColumnIndex({
+                boardId: move.board,
+                side: move.side,
+                isBoardOrderSwapped,
+              });
 
               const hasVariations = row.alternativeChildIds.length > 0;
 
@@ -845,50 +895,127 @@ export default function MoveListWithVariations({
                         "p-1 text-center align-middle bg-gray-900/35 text-[10px] font-mono text-gray-400",
                         "border-r border-gray-700/40",
                       ].join(" ")}
-                      title={`Move number on board ${move.board}`}
+                      title={`Move number on board ${getDisplayBoardLabel(move.board, isBoardOrderSwapped)}`}
                     >
                       {row.moveNumberLabel}
                     </td>
 
-                    {[0, 1, 2, 3].map((col) => {
-                      let borderClass = "";
-                      if (col === 0) borderClass = "border-r border-dashed border-gray-600/50";
-                      else if (col === 1) borderClass = "border-r-4 border-gray-600/50";
-                      else if (col === 2) borderClass = "border-r border-dashed border-gray-600/50";
-
-                      const moveDuration =
-                        mainlineMoveDurations?.get(row.nodeId);
-                      return (
-                        <td
-                          key={col}
-                          className={[
-                            "relative p-1 text-center h-8",
-                            col === colIndex
-                              ? isCursor
-                                ? "text-amber-200 font-bold"
-                                : "text-gray-300"
-                              : "",
-                            borderClass,
-                          ].join(" ")}
-                        >
-                          {col === colIndex ? (
-                            <>
-                              <span className="block leading-4">{move.san}</span>
-                              {mainlineMoveDurations !== undefined && (
-                                <span
-                                  className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
-                                  title={`Time since previous move on this board: ${formatMoveTime(moveDuration)}`}
-                                >
-                                  {formatMoveTime(moveDuration)}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            ""
+                    {/* Left Board - White */}
+                    <td
+                      className={[
+                        "relative p-1 text-center h-8 border-r border-dashed border-gray-600/50",
+                        colIndex === 0
+                          ? isCursor
+                            ? "text-amber-200 font-bold"
+                            : "text-gray-300"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {colIndex === 0 ? (
+                        <>
+                          <span className="block leading-4">{move.san}</span>
+                          {mainlineMoveDurations !== undefined && (
+                            <span
+                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                              title={`Time since previous move on this board: ${formatMoveTime(
+                                mainlineMoveDurations.get(row.nodeId),
+                              )}`}
+                            >
+                              {formatMoveTime(mainlineMoveDurations.get(row.nodeId))}
+                            </span>
                           )}
-                        </td>
-                      );
-                    })}
+                        </>
+                      ) : (
+                        ""
+                      )}
+                    </td>
+                    {/* Left Board - Black */}
+                    <td
+                      className={[
+                        "relative p-1 text-center h-8 border-r-4 border-gray-600/50",
+                        colIndex === 1
+                          ? isCursor
+                            ? "text-amber-200 font-bold"
+                            : "text-gray-300"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {colIndex === 1 ? (
+                        <>
+                          <span className="block leading-4">{move.san}</span>
+                          {mainlineMoveDurations !== undefined && (
+                            <span
+                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                              title={`Time since previous move on this board: ${formatMoveTime(
+                                mainlineMoveDurations.get(row.nodeId),
+                              )}`}
+                            >
+                              {formatMoveTime(mainlineMoveDurations.get(row.nodeId))}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        ""
+                      )}
+                    </td>
+                    {/* Right Board - White */}
+                    <td
+                      className={[
+                        "relative p-1 text-center h-8 border-r border-dashed border-gray-600/50",
+                        colIndex === 2
+                          ? isCursor
+                            ? "text-amber-200 font-bold"
+                            : "text-gray-300"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {colIndex === 2 ? (
+                        <>
+                          <span className="block leading-4">{move.san}</span>
+                          {mainlineMoveDurations !== undefined && (
+                            <span
+                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                              title={`Time since previous move on this board: ${formatMoveTime(
+                                mainlineMoveDurations.get(row.nodeId),
+                              )}`}
+                            >
+                              {formatMoveTime(mainlineMoveDurations.get(row.nodeId))}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        ""
+                      )}
+                    </td>
+                    {/* Right Board - Black */}
+                    <td
+                      className={[
+                        "relative p-1 text-center h-8",
+                        colIndex === 3
+                          ? isCursor
+                            ? "text-amber-200 font-bold"
+                            : "text-gray-300"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {colIndex === 3 ? (
+                        <>
+                          <span className="block leading-4">{move.san}</span>
+                          {mainlineMoveDurations !== undefined && (
+                            <span
+                              className="absolute bottom-0.5 right-1 text-[9px] text-gray-400 font-mono leading-none"
+                              title={`Time since previous move on this board: ${formatMoveTime(
+                                mainlineMoveDurations.get(row.nodeId),
+                              )}`}
+                            >
+                              {formatMoveTime(mainlineMoveDurations.get(row.nodeId))}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        ""
+                      )}
+                    </td>
                   </tr>
 
                   {hasVariations && (

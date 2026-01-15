@@ -1,4 +1,8 @@
 import BughouseAnalysis from "../../app/components/viewer/BughouseAnalysis";
+import {
+  ViewerOrientationStore,
+  ViewerOrientationStoreProvider,
+} from "../../app/stores/viewerOrientationStore";
 import type { ChessGame } from "../../app/actions";
 
 import originalFixture from "../../tests/fixtures/chesscom/160064848971.json";
@@ -9,13 +13,16 @@ describe("BughouseAnalysis live replay controls", () => {
   const partner = partnerFixture as unknown as ChessGame;
 
   it("hides Stop, enables prev/next seek during playback, and keeps jump-to-start/end disabled", () => {
+    const orientationStore = new ViewerOrientationStore(0);
     cy.mount(
       <div className="h-[900px] w-[1400px] bg-gray-900">
-        <BughouseAnalysis
-          gameData={{ original, partner }}
-          isLoading={false}
-          showGamesLoadedInline={false}
-        />
+        <ViewerOrientationStoreProvider store={orientationStore}>
+          <BughouseAnalysis
+            gameData={{ original, partner }}
+            isLoading={false}
+            showGamesLoadedInline={false}
+          />
+        </ViewerOrientationStoreProvider>
       </div>,
     );
 

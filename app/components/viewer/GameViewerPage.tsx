@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -58,6 +59,7 @@ import { fromMatchGameData } from "../../types/sharedGame";
 import { getSharedGame, reconstructPartnerPairFromMetadata } from "../../utils/sharedGamesService";
 import { getShareEligibility } from "../../utils/shareEligibility";
 import { useSharedGameHashes } from "../../utils/sharedGameHashesStore";
+import { ViewerOrientationStore, ViewerOrientationStoreProvider } from "../../stores/viewerOrientationStore";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
@@ -161,6 +163,7 @@ export default function GameViewerPage() {
       partnerId: string | null;
     } | null
   >(null);
+  const [viewerSessionId, setViewerSessionId] = useState(0);
   const [sharedGameDescription, setSharedGameDescription] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
@@ -180,6 +183,10 @@ export default function GameViewerPage() {
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingLoadRequest, setPendingLoadRequest] = useState<PendingLoadGameRequest | null>(
     null,
+  );
+  const viewerOrientationStore = useMemo(
+    () => new ViewerOrientationStore(viewerSessionId),
+    [viewerSessionId],
   );
 
   // Match replay state
@@ -321,6 +328,7 @@ export default function GameViewerPage() {
     setAnalysisIsDirty(false);
     setIsDiscoveryModalOpen(false);
     setIsShareModalOpen(false);
+    setViewerSessionId((prev) => prev + 1);
 
     setGameId(getRandomSampleGameId());
     lastAutoLoadedIdRef.current = null;
@@ -396,6 +404,7 @@ export default function GameViewerPage() {
               partner_id: data.partnerId ?? "none",
             });
 
+            setViewerSessionId((prev) => prev + 1);
             setGameData(data);
             setAutoStartLiveReplayGameId(null);
             setGameId(clearInput ? "" : trimmedId);
@@ -1166,6 +1175,7 @@ export default function GameViewerPage() {
 
       loadSharedGamePromise
         .then((sharedGame) => {
+          setViewerSessionId((prev) => prev + 1);
           const { gameData: storedData, type } = sharedGame;
           setSharedGameDescription(sharedGame.description?.trim() || null);
 
@@ -1442,22 +1452,24 @@ export default function GameViewerPage() {
             Use `key` to force remount when game changes (e.g., navigating between match games).
             This cleanly resets all internal state including live replay timers/RAF loops.
           */}
-          <BughouseAnalysis
-            key={loadedGameId ?? "no-game"}
-            gameData={gameData}
-            isLoading={isPending}
-            boardsFlipped={effectiveBoardsFlipped}
-            onBoardsFlippedChange={handleBoardsFlippedChange}
-            onAnalysisDirtyChange={setAnalysisIsDirty}
-            gamesLoadedLabel={gamesLoadedLabel}
-            showGamesLoadedInline={!isDesktopLayout}
-            onShareClick={handleShareClick}
-            canShare={canShare}
-            shareDisabledReason={shareDisabledReason}
-            sharedGameDescription={sharedGameDescription}
-            onLiveReplayCompleted={handleLiveReplayCompleted}
-            autoStartLiveReplay={shouldAutoStartLiveReplay}
-          />
+          <ViewerOrientationStoreProvider store={viewerOrientationStore}>
+            <BughouseAnalysis
+              key={loadedGameId ?? "no-game"}
+              gameData={gameData}
+              isLoading={isPending}
+              boardsFlipped={effectiveBoardsFlipped}
+              onBoardsFlippedChange={handleBoardsFlippedChange}
+              onAnalysisDirtyChange={setAnalysisIsDirty}
+              gamesLoadedLabel={gamesLoadedLabel}
+              showGamesLoadedInline={!isDesktopLayout}
+              onShareClick={handleShareClick}
+              canShare={canShare}
+              shareDisabledReason={shareDisabledReason}
+              sharedGameDescription={sharedGameDescription}
+              onLiveReplayCompleted={handleLiveReplayCompleted}
+              autoStartLiveReplay={shouldAutoStartLiveReplay}
+            />
+          </ViewerOrientationStoreProvider>
         </div>
       </main>
 
