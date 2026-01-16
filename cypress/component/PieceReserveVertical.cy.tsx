@@ -33,7 +33,7 @@ describe("PieceReserveVertical", () => {
     cy.mount(<PieceReserveVertical {...defaultProps} onPieceClick={onPieceClick} />);
 
     // Pieces with count 0 should not be clickable
-    cy.get('[alt*="white b"]').parent().should("have.class", "opacity-30");
+    cy.get('[alt*="white b"]').parent().should("have.class", "opacity-10");
   });
 
   it("highlights selected piece", () => {

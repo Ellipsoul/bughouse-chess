@@ -168,7 +168,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
           key={`${slot.color}-${slot.piece}-${index}`}
           className={[
             "relative flex items-center justify-center rounded",
-            slot.count > 0 ? "opacity-100" : "opacity-30",
+            slot.count > 0 ? "opacity-100" : "opacity-10",
             !disabled && onPieceClick && slot.count > 0 ? "cursor-pointer hover:bg-gray-700/50" : "",
             selected?.color === slot.color && selected?.piece === slot.piece
               ? "ring-2 ring-amber-200/60 bg-gray-700/40"
