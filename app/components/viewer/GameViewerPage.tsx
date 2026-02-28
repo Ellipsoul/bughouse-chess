@@ -336,6 +336,10 @@ export default function GameViewerPage() {
         return;
       }
 
+      // This URL update is initiated by in-app state (not external navigation),
+      // so pre-mark this game as auto-loaded to avoid duplicate auto-load fetches.
+      lastAutoLoadedIdRef.current = params.gameId;
+
       const nextUrl = buildGameViewerUrl({
         pathname: window.location.pathname,
         currentSearchParams: new URLSearchParams(searchParams.toString()),
@@ -387,8 +391,10 @@ export default function GameViewerPage() {
     setViewerSessionId((prev) => prev + 1);
 
     setGameId(getRandomSampleGameId());
-    lastAutoLoadedIdRef.current = null;
-    lastAutoLoadedSharedIdRef.current = null;
+    // Preserve current query IDs while replacing URL so auto-load effects do not
+    // re-trigger on stale search params during the transition back to `/`.
+    lastAutoLoadedIdRef.current = autoLoadGameId ?? null;
+    lastAutoLoadedSharedIdRef.current = sharedId ?? null;
 
     if (autoLoadGameId || sharedId) {
       router.replace("/", { scroll: false });

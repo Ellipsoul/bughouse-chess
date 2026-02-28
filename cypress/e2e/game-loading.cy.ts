@@ -11,6 +11,12 @@ describe("Game Loading", () => {
    */
   const SINGLE_GAME_ID = "160064848971";
   const SECOND_GAME_ID = "160064848973";
+  const toInterceptCalls = (calls: unknown): Array<{ request: { url: string } }> =>
+    calls as unknown as Array<{ request: { url: string } }>;
+  const countCallsForGameId = (
+    calls: Array<{ request: { url: string } }>,
+    gameId: string,
+  ) => calls.filter((call) => call.request.url.endsWith(`/${gameId}`)).length;
 
   beforeEach(() => {
     // Mock Chess.com API calls with fixtures for all tests
@@ -84,6 +90,51 @@ describe("Game Loading", () => {
       cy.location("search").should("include", `gameId=${SECOND_GAME_ID}`);
       cy.location("search").should("not.include", "ply=");
     });
+
+    it("does not refetch the newly loaded game due to URL-sync auto-load", () => {
+      let secondGameCallCountBeforeLoad = 0;
+
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
+
+      cy.get('button[aria-label^="Copy share link for game"]', {
+        timeout: 20000,
+      }).should("exist");
+
+      cy.get('input[type="text"]')
+        .first()
+        .clear()
+        .type(SECOND_GAME_ID);
+
+      // Capture requests for the target game before explicit load submit
+      // (covers prefetch path when it resolves in time).
+      cy.wait(600);
+      cy.get("@chesscomApi.all").then((calls) => {
+        secondGameCallCountBeforeLoad = countCallsForGameId(
+          toInterceptCalls(calls),
+          SECOND_GAME_ID,
+        );
+      });
+      cy.contains("button", "Load Game").click();
+
+      cy.get("body").then(($body) => {
+        const dialogOpen = $body.find('[aria-label="Confirm loading new game"]').length > 0;
+        if (dialogOpen) {
+          cy.contains("button", "Confirm").click();
+        }
+      });
+
+      cy.get(`button[aria-label="Copy share link for game ${SECOND_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+
+      // The newly loaded game should only be fetched once. If URL sync re-triggers
+      // the auto-load effect, this adds an extra request for the same game.
+      cy.wait(800);
+      cy.get("@chesscomApi.all").then((calls) => {
+        const secondGameCalls = countCallsForGameId(toInterceptCalls(calls), SECOND_GAME_ID);
+        expect(secondGameCalls - secondGameCallCountBeforeLoad).to.be.lte(1);
+      });
+    });
   });
 
   describe("URL Move Position", () => {
@@ -127,6 +178,7 @@ describe("Game Loading", () => {
 
   describe("Viewer Reset", () => {
     it("resets the viewer state without a full reload", () => {
+      let callCountBeforeReset = 0;
       cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
 
       cy.get('button[aria-label^="Copy share link for game"]', {
@@ -137,7 +189,17 @@ describe("Game Loading", () => {
         (win as Window & { __logoResetMarker?: string }).__logoResetMarker = "alive";
       });
 
+      cy.get("@chesscomApi.all").then((calls) => {
+        callCountBeforeReset = countCallsForGameId(
+          toInterceptCalls(calls),
+          SINGLE_GAME_ID,
+        );
+      });
+
       cy.get('a[aria-label="Go to home page"]').click();
+
+      cy.location("pathname").should("eq", "/");
+      cy.location("search").should("eq", "");
 
       cy.window()
         .its("__logoResetMarker")
@@ -146,6 +208,16 @@ describe("Game Loading", () => {
       cy.get('button[aria-label^="Copy share link for game"]').should(
         "not.exist",
       );
+
+      // Reset should not re-trigger loading of the previous game ID.
+      cy.wait(800);
+      cy.get("@chesscomApi.all").then((calls) => {
+        const callCountAfterReset = countCallsForGameId(
+          toInterceptCalls(calls),
+          SINGLE_GAME_ID,
+        );
+        expect(callCountAfterReset).to.equal(callCountBeforeReset);
+      });
     });
   });
 
