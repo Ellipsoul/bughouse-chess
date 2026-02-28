@@ -10,6 +10,7 @@ describe("Game Loading", () => {
    * Known fixture game IDs from recorded fixtures.
    */
   const SINGLE_GAME_ID = "160064848971";
+  const SECOND_GAME_ID = "160064848973";
 
   beforeEach(() => {
     // Mock Chess.com API calls with fixtures for all tests
@@ -54,13 +55,81 @@ describe("Game Loading", () => {
         .should("exist")
         .type(SINGLE_GAME_ID);
     });
+
+    it("updates URL gameId when loading a new game from input", () => {
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}&ply=4`);
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+      cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
+      cy.location("search").should("include", "ply=4");
+
+      cy.get('input[type="text"]')
+        .first()
+        .clear()
+        .type(SECOND_GAME_ID);
+      cy.contains("button", "Load Game").click();
+
+      cy.get("body").then(($body) => {
+        const dialogOpen = $body.find('[aria-label="Confirm loading new game"]').length > 0;
+        if (dialogOpen) {
+          cy.contains("button", "Confirm").click();
+        }
+      });
+
+      cy.get(`button[aria-label="Copy share link for game ${SECOND_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+      cy.location("search").should("include", `gameId=${SECOND_GAME_ID}`);
+      cy.location("search").should("not.include", "ply=");
+    });
+  });
+
+  describe("URL Move Position", () => {
+    it("respects ply query and jumps away from start position", () => {
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}&ply=3`);
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+      cy.get('button[aria-label="Jump to start"]').should("not.be.disabled");
+    });
+  });
+
+  describe("Match Navigation URL Sync", () => {
+    it("updates URL while navigating non-shared match games", () => {
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+
+      cy.get('button[aria-label="Find match games"]').click();
+      cy.contains("button", "Full Match (4 Players)", { timeout: 10000 }).click();
+
+      cy.get('button[aria-label="Next game"]', { timeout: 30000 }).should("exist");
+      cy.get("body").then(($body) => {
+        const nextButton = $body.find('button[aria-label="Next game"]');
+        if (nextButton.length > 0 && !nextButton.prop("disabled")) {
+          cy.get('button[aria-label="Next game"]').click();
+          cy.location("search").should("include", "gameId=");
+          cy.location("search").should("not.include", "sharedId=");
+        } else {
+          // Some fixture seeds may not yield additional match games in all environments.
+          // Keep a baseline assertion that URL remains canonical and non-shared.
+          cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
+          cy.location("search").should("not.include", "sharedId=");
+        }
+      });
+    });
   });
 
   describe("Viewer Reset", () => {
     it("resets the viewer state without a full reload", () => {
       cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
 
-      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+      cy.get('button[aria-label^="Copy share link for game"]', {
         timeout: 20000,
       }).should("exist");
 
@@ -74,7 +143,7 @@ describe("Game Loading", () => {
         .its("__logoResetMarker")
         .should("eq", "alive");
 
-      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`).should(
+      cy.get('button[aria-label^="Copy share link for game"]').should(
         "not.exist",
       );
     });

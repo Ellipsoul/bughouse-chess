@@ -71,6 +71,11 @@ import {
   isValidChessComGameId,
   sanitizeChessComGameIdInput,
 } from "../../utils/discovery/chessComGameIdInput";
+import {
+  buildGameViewerUrl,
+  parsePlyFromSearchParams,
+  shouldSyncGameViewerUrl,
+} from "../../utils/discovery/gameViewerUrlState";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -141,6 +146,10 @@ export default function GameViewerPage() {
   const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
   const sharedId = searchParams.get("sharedId");
   const autoLoadGameId = queryGameId?.trim();
+  const initialGlobalPly = useMemo(
+    () => parsePlyFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
   /**
    * Randomly select a sample game ID from available fixtures to provide variety
    * for users visiting without a specific game ID.
@@ -292,6 +301,53 @@ export default function GameViewerPage() {
     toast.success("Game URL copied to clipboard!");
   }, [SHARE_BASE_URL, copyToClipboard, loadedGameId]);
 
+  const handleCopyShareLinkFromPly = useCallback(async (ply: number) => {
+    if (!loadedGameId) {
+      toast.error("No game loaded to share yet");
+      return;
+    }
+
+    if (!Number.isFinite(ply) || ply < 0) {
+      toast.error("Invalid move position for sharing");
+      return;
+    }
+
+    const url = new URL(SHARE_BASE_URL);
+    url.searchParams.set("gameId", loadedGameId);
+    url.searchParams.set("ply", String(Math.floor(ply)));
+
+    const ok = await copyToClipboard(url.toString());
+    if (!ok) {
+      toast.error("Failed to copy link");
+      return;
+    }
+
+    toast.success(`Game URL from move ${Math.floor(ply)} copied to clipboard!`);
+  }, [SHARE_BASE_URL, copyToClipboard, loadedGameId]);
+
+  const syncUrlForLoadedGame = useCallback(
+    (params: {
+      action: "newGameLoad" | "matchNavigation";
+      gameId: string;
+      clearSharedId?: boolean;
+      ply?: number | null;
+    }) => {
+      if (!shouldSyncGameViewerUrl({ action: params.action, sharedId })) {
+        return;
+      }
+
+      const nextUrl = buildGameViewerUrl({
+        pathname: window.location.pathname,
+        currentSearchParams: new URLSearchParams(searchParams.toString()),
+        gameId: params.gameId,
+        ply: params.ply ?? null,
+        clearSharedId: params.clearSharedId ?? false,
+      });
+      router.replace(nextUrl, { scroll: false });
+    },
+    [router, searchParams, sharedId],
+  );
+
   /**
    * Resets the viewer to the initial "blank" state without a full page refresh.
    * This mirrors the behavior of a hard reload while keeping client-side routing intact.
@@ -431,13 +487,12 @@ export default function GameViewerPage() {
             setBaselineBottomPairKey(null);
             setUserFlipPreference(false);
             setStandaloneBoardsFlipped(false);
-            // Remove sharedId from URL when loading a new game (enables sharing)
-            if (sharedId) {
-              const newSearchParams = new URLSearchParams(searchParams.toString());
-              newSearchParams.delete("sharedId");
-              const newUrl = `${window.location.pathname}${newSearchParams.toString() ? `?${newSearchParams.toString()}` : ""}`;
-              router.replace(newUrl, { scroll: false });
-            }
+            syncUrlForLoadedGame({
+              action: "newGameLoad",
+              gameId: trimmedId,
+              clearSharedId: true,
+              ply: null,
+            });
           })
           .catch((err: unknown) => {
             // Log analytics for game load error
@@ -453,7 +508,7 @@ export default function GameViewerPage() {
           });
       });
     },
-    [prefetched, startTransition, router, sharedId, searchParams, analytics],
+    [prefetched, startTransition, analytics, syncUrlForLoadedGame],
   );
 
   /**
@@ -703,8 +758,16 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    const targetGameId = targetGame.original.game.id?.toString();
+    if (targetGameId) {
+      syncUrlForLoadedGame({
+        action: "matchNavigation",
+        gameId: targetGameId,
+        ply: null,
+      });
+    }
     setAutoStartLiveReplayGameId(null);
-  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout]);
+  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout, syncUrlForLoadedGame]);
 
   /**
    * Navigates to the next game in the match.
@@ -729,8 +792,16 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    const targetGameId = targetGame.original.game.id?.toString();
+    if (targetGameId) {
+      syncUrlForLoadedGame({
+        action: "matchNavigation",
+        gameId: targetGameId,
+        ply: null,
+      });
+    }
     setAutoStartLiveReplayGameId(null);
-  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout]);
+  }, [matchCurrentIndex, matchGames, analytics, clearAutoAdvanceTimeout, syncUrlForLoadedGame]);
 
   /**
    * Navigates to a specific game in the match by index.
@@ -754,8 +825,16 @@ export default function GameViewerPage() {
       partner: targetGame.partner,
       partnerId: targetGame.partnerGameId,
     });
+    const targetGameId = targetGame.original.game.id?.toString();
+    if (targetGameId) {
+      syncUrlForLoadedGame({
+        action: "matchNavigation",
+        gameId: targetGameId,
+        ply: null,
+      });
+    }
     setAutoStartLiveReplayGameId(null);
-  }, [matchGames, analytics, matchCurrentIndex, clearAutoAdvanceTimeout]);
+  }, [matchGames, analytics, matchCurrentIndex, clearAutoAdvanceTimeout, syncUrlForLoadedGame]);
 
   /**
    * Auto-advance to the next match game when a live replay finishes, if enabled.
@@ -1456,6 +1535,7 @@ export default function GameViewerPage() {
             <BughouseAnalysis
               key={loadedGameId ?? "no-game"}
               gameData={gameData}
+              initialGlobalPly={initialGlobalPly}
               isLoading={isPending}
               boardsFlipped={effectiveBoardsFlipped}
               onBoardsFlippedChange={handleBoardsFlippedChange}
@@ -1463,7 +1543,9 @@ export default function GameViewerPage() {
               gamesLoadedLabel={gamesLoadedLabel}
               showGamesLoadedInline={!isDesktopLayout}
               onShareClick={handleShareClick}
+              onShareGameFromPly={(ply) => void handleCopyShareLinkFromPly(ply)}
               canShare={canShare}
+              canShareFromMove={Boolean(loadedGameId)}
               shareDisabledReason={shareDisabledReason}
               sharedGameDescription={sharedGameDescription}
               onLiveReplayCompleted={handleLiveReplayCompleted}

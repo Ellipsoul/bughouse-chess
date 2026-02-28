@@ -134,6 +134,7 @@ describe("MoveListWithVariations", () => {
     // Context menu should appear
     cy.contains("Delete after here").should("exist");
     cy.contains("Promote variation").should("exist");
+    cy.contains("Share game from this move").should("exist");
   });
 
   it("enables/disables context menu actions correctly", () => {
@@ -167,6 +168,37 @@ describe("MoveListWithVariations", () => {
     cy.contains("Delete after here").click().then(() => {
       expect(onTruncate).to.have.been.calledWith("move1");
     });
+  });
+
+  it("calls onShareGameFromNode from context menu", () => {
+    const defaultProps = createDefaultProps();
+    const onShareGameFromNode = cy.stub().as("onShareGameFromNode");
+    cy.mount(
+      <MoveListWithVariations
+        {...defaultProps}
+        onShareGameFromNode={onShareGameFromNode}
+        canShareGameFromNode={() => true}
+      />,
+    );
+
+    cy.contains("e4").rightclick();
+    cy.contains("Share game from this move").click().then(() => {
+      expect(onShareGameFromNode).to.have.been.calledWith("move1");
+    });
+  });
+
+  it("disables share-from-move action when node is not eligible", () => {
+    const defaultProps = createDefaultProps();
+    cy.mount(
+      <MoveListWithVariations
+        {...defaultProps}
+        onShareGameFromNode={cy.stub()}
+        canShareGameFromNode={() => false}
+      />,
+    );
+
+    cy.contains("e4").rightclick();
+    cy.contains("Share game from this move").should("be.disabled");
   });
 
   it("shows player names in header", () => {

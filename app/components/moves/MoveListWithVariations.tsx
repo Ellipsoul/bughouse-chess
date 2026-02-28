@@ -66,6 +66,14 @@ interface MoveListWithVariationsProps {
    * This removes the selected move itself.
    */
   onTruncateFromNodeInclusive: (nodeId: string) => void;
+  /**
+   * Optional callback for creating a share URL pinned to the selected move.
+   */
+  onShareGameFromNode?: (nodeId: string) => void;
+  /**
+   * Optional predicate to enable/disable "share from move" per node.
+   */
+  canShareGameFromNode?: (nodeId: string) => boolean;
 }
 
 type MainlineRow = {
@@ -107,6 +115,8 @@ export default function MoveListWithVariations({
   onPromoteVariationOneLevel,
   onTruncateAfterNode,
   onTruncateFromNodeInclusive,
+  onShareGameFromNode,
+  canShareGameFromNode,
 }: MoveListWithVariationsProps) {
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
@@ -713,12 +723,15 @@ export default function MoveListWithVariations({
   const menuCanPromote = menu ? canPromoteNode(menu.nodeId) : false;
   const menuCanTruncate = menu ? canTruncateNode(menu.nodeId) : false;
   const menuCanTruncateInclusive = menu ? canTruncateNodeInclusive(menu.nodeId) : false;
+  const menuCanShareFromNode = menu && canShareGameFromNode
+    ? canShareGameFromNode(menu.nodeId)
+    : false;
 
   // Basic viewport clamping so the menu doesn't render off-screen.
   const menuPosition = useMemo(() => {
     if (!menu) return null;
     const width = 210;
-    const height = 136;
+    const height = 172;
     const margin = 8;
     const safeWindow =
       typeof window !== "undefined" ? window : { innerWidth: 1200, innerHeight: 800 };
@@ -786,6 +799,23 @@ export default function MoveListWithVariations({
               }}
             >
               Promote variation
+            </button>
+            <button
+              type="button"
+              className={[
+                "w-full text-left px-3 py-2 text-sm border-t border-gray-800",
+                menuCanShareFromNode && onShareGameFromNode
+                  ? "text-gray-200 hover:bg-gray-800/70"
+                  : "text-gray-600 cursor-not-allowed",
+              ].join(" ")}
+              disabled={!menuCanShareFromNode || !onShareGameFromNode}
+              onClick={() => {
+                if (!onShareGameFromNode) return;
+                onShareGameFromNode(menu.nodeId);
+                closeContextMenu();
+              }}
+            >
+              Share game from this move
             </button>
           </div>
         )}

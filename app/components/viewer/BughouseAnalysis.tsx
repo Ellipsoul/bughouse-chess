@@ -61,12 +61,18 @@ import {
   getDisplayBoardLabel,
   getPlayersForBoard,
 } from "../../utils/board/boardOrderMapping";
+import { clampPlyToMainlineBounds } from "../../utils/discovery/gameViewerUrlState";
 
 interface BughouseAnalysisProps {
   gameData?: {
     original: ChessGame;
     partner: ChessGame | null;
   } | null;
+  /**
+   * Optional 0-based global ply parsed from URL.
+   * When provided, the viewer will jump to this mainline position after loading.
+   */
+  initialGlobalPly?: number | null;
   isLoading?: boolean;
   /**
    * Optional externally-controlled board orientation.
@@ -105,10 +111,19 @@ interface BughouseAnalysisProps {
    */
   onShareClick?: () => void;
   /**
+   * Called when the user chooses "Share game from this move" in the move list context menu.
+   * Receives a 0-based global ply on the loaded mainline.
+   */
+  onShareGameFromPly?: (ply: number) => void;
+  /**
    * Whether the share button should be enabled.
    * Typically true when a game is loaded AND user is fully authenticated.
    */
   canShare?: boolean;
+  /**
+   * Whether "Share game from this move" should be enabled in the move list context menu.
+   */
+  canShareFromMove?: boolean;
   /**
    * Tooltip message explaining why sharing is disabled (when canShare is false).
    */
@@ -147,6 +162,7 @@ const PLACEHOLDER_PLAYERS: {
  */
 const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   gameData,
+  initialGlobalPly,
   isLoading,
   boardsFlipped,
   onBoardsFlippedChange,
@@ -154,7 +170,9 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   showGamesLoadedInline,
   onAnalysisDirtyChange,
   onShareClick,
+  onShareGameFromPly,
   canShare,
+  canShareFromMove,
   shareDisabledReason,
   sharedGameDescription,
   onLiveReplayCompleted,
@@ -239,6 +257,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
   const [localBoardsFlipped, setLocalBoardsFlipped] = useState(false);
   const isBoardsFlipped = boardsFlipped ?? localBoardsFlipped;
+  const lastAppliedInitialPlyKeyRef = useRef<string | null>(null);
+  const pendingInitialPlyRef = useRef<{ gameId: string; ply: number } | null>(null);
 
   /**
    * Persist user board drawings (circles/arrows) per *board position* (FEN) per board.
@@ -614,6 +634,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   useEffect(() => {
     if (!processedGame) {
       lastLoadedGameIdRef.current = null;
+      lastAppliedInitialPlyKeyRef.current = null;
+      pendingInitialPlyRef.current = null;
       return;
     }
 
@@ -626,8 +648,50 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     const result = loadGameMainline(processedGame.combinedMoves);
     if (!result.ok) {
       toast.error(result.message);
+      pendingInitialPlyRef.current = null;
+      return;
     }
-  }, [gameData, loadGameMainline, processedGame]);
+
+    if (typeof initialGlobalPly === "number" && Number.isFinite(initialGlobalPly)) {
+      const clampedPly = clampPlyToMainlineBounds(
+        initialGlobalPly,
+        processedGame.combinedMoves.length,
+      );
+      const applyKey = `${gameId}:${clampedPly}`;
+      if (lastAppliedInitialPlyKeyRef.current !== applyKey) {
+        pendingInitialPlyRef.current = { gameId, ply: clampedPly };
+      } else {
+        pendingInitialPlyRef.current = null;
+      }
+    } else {
+      pendingInitialPlyRef.current = null;
+    }
+  }, [gameData, initialGlobalPly, loadGameMainline, processedGame]);
+
+  useEffect(() => {
+    const pendingInitialPly = pendingInitialPlyRef.current;
+    if (!pendingInitialPly) return;
+    const activeGameId = gameData?.original?.game?.id?.toString() ?? null;
+    if (!activeGameId || activeGameId !== pendingInitialPly.gameId) return;
+
+    let targetNodeId = state.tree.rootId;
+    let reachedRequestedPly = true;
+    for (let i = 0; i < pendingInitialPly.ply; i += 1) {
+      const nextNodeId = state.tree.nodesById[targetNodeId]?.mainChildId ?? null;
+      if (!nextNodeId) {
+        reachedRequestedPly = false;
+        break;
+      }
+      targetNodeId = nextNodeId;
+    }
+
+    // Tree replacement from `loadGameMainline` is async; wait until requested ply exists.
+    if (!reachedRequestedPly) return;
+
+    selectNode(targetNodeId);
+    lastAppliedInitialPlyKeyRef.current = `${pendingInitialPly.gameId}:${pendingInitialPly.ply}`;
+    pendingInitialPlyRef.current = null;
+  }, [gameData, selectNode, state.tree.nodesById, state.tree.rootId]);
 
   // Keyboard navigation: left/right move through the currently selected line,
   // opening the branch selector when needed. Up/down jump to start/end.
@@ -915,6 +979,26 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     }
     return ids;
   }, [state.tree.nodesById, state.tree.rootId]);
+
+  const mainlinePlyByNodeId = useMemo(() => {
+    const map = new Map<string, number>();
+    mainlineNodeIdsByGlobalPly.forEach((nodeId, ply) => {
+      map.set(nodeId, ply);
+    });
+    return map;
+  }, [mainlineNodeIdsByGlobalPly]);
+
+  const handleShareGameFromNode = useCallback((nodeId: string) => {
+    if (!onShareGameFromPly || !canShareFromMove) return;
+    const ply = mainlinePlyByNodeId.get(nodeId);
+    if (typeof ply !== "number" || !Number.isFinite(ply) || ply < 0) return;
+    onShareGameFromPly(ply);
+  }, [canShareFromMove, mainlinePlyByNodeId, onShareGameFromPly]);
+
+  const canShareGameFromNode = useCallback((nodeId: string) => {
+    if (!onShareGameFromPly || !canShareFromMove) return false;
+    return mainlinePlyByNodeId.has(nodeId);
+  }, [canShareFromMove, mainlinePlyByNodeId, onShareGameFromPly]);
 
   /**
    * Seek the live replay playhead (and cursor) to a specific global ply while keeping playback running.
@@ -2135,6 +2219,8 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             onPromoteVariationOneLevel={promoteVariationOneLevel}
             onTruncateAfterNode={truncateAfterNode}
             onTruncateFromNodeInclusive={truncateFromNodeInclusive}
+            onShareGameFromNode={handleShareGameFromNode}
+            canShareGameFromNode={canShareGameFromNode}
           />
         </div>
       </div>
