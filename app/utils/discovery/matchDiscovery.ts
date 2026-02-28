@@ -34,7 +34,7 @@ const MAX_TIME_GAP_SECONDS = 3600;
  * Delay between API requests in milliseconds.
  * Set to 0.5 seconds  to respect Chess.com's rate limits.
  */
-const API_REQUEST_DELAY_MS = 250;
+const API_REQUEST_DELAY_MS = 100;
 
 /**
  * Extracts the game ID from a Chess.com game URL.

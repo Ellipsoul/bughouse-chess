@@ -148,7 +148,7 @@ async function searchPlayerArchive(
 ) {
   const MAX_TIME_GAP_SECONDS = 3600;
   const CONSECUTIVE_NON_MATCH_THRESHOLD = 3;
-  const API_DELAY_MS = 250;
+  const API_DELAY_MS = 100;
 
   const foundGames = [];
   let consecutiveNonMatches = 0;
