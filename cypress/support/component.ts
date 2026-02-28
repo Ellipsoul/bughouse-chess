@@ -20,7 +20,7 @@ import React from "react";
 import { mount } from "cypress/react";
 import { registerFirebaseCommands } from "./firebase";
 import { AuthProvider } from "../../app/auth/AuthProvider";
-import { SharedGameHashesProvider } from "../../app/utils/sharedGameHashesStore";
+import { SharedGameHashesProvider } from "../../app/utils/shared-games/sharedGameHashesStore";
 
 // Augment the Cypress namespace to include type definitions for
 // your custom command.

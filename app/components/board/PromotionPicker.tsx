@@ -3,7 +3,7 @@
 import Image from "next/image";
 import React, { useEffect, useMemo, useState } from "react";
 import type { BughousePromotionPiece } from "../../types/analysis";
-import { APP_TOOLTIP_ID } from "../../utils/tooltips";
+import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 import type { BughouseBoardId } from "../../types/analysis";
 import type { Square } from "chess.js";
 

@@ -1,4 +1,4 @@
-import type { BughouseMove } from "../../types/bughouse";
+import type { BughouseMove } from "@/app/types/bughouse";
 
 /**
  * Build per-move durations (deciseconds) where each duration is measured **within the move's board**:

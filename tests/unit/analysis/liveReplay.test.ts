@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createInitialPositionSnapshot, validateAndApplyMoveFromNotation } from "../../../app/utils/analysis/applyMove";
+import { createInitialPositionSnapshot, validateAndApplyMoveFromNotation } from "@/app/utils/analysis/applyMove";
 import type { AnalysisNode, AnalysisTree } from "../../../app/types/analysis";
 import type { BughouseMove, ProcessedGameData } from "../../../app/types/bughouse";
-import { buildBughouseClockTimeline } from "../../../app/utils/analysis/buildBughouseClockTimeline";
+import { buildBughouseClockTimeline } from "@/app/utils/analysis/buildBughouseClockTimeline";
 import {
   buildBughouseBoardMoveCountsByGlobalPly,
   buildMonotonicMoveTimestampsDeciseconds,
   getLiveReplayElapsedDecisecondsAtGlobalPly,
   getBughouseClockSnapshotAtElapsedDeciseconds,
   isPristineLoadedMainline,
-} from "../../../app/utils/analysis/liveReplay";
+} from "@/app/utils/analysis/liveReplay";
 
 function buildProcessedGame(params: {
   initialTime: number;

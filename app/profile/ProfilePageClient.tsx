@@ -6,10 +6,10 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, LogOut, Pencil, UserRound } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/useAuth";
-import { useCompactLandscape } from "../utils/useCompactLandscape";
+import { useCompactLandscape } from "../utils/platform/useCompactLandscape";
 import { UsernameReservationModal } from "../components/modals/UsernameReservationModal";
-import { getUsernameForUser } from "../utils/usernameService";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+import { getUsernameForUser } from "../utils/preferences/usernameService";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/platform/useFirebaseAnalytics";
 
 /**
  * Client-side profile page UI.

@@ -4,7 +4,7 @@ import {
   createEmptyCaptureMaterialLedger,
   formatSignedCaptureMaterial,
   getBughouseCaptureValueForPiece,
-} from "../../../app/utils/analysis/captureMaterial";
+} from "@/app/utils/analysis/captureMaterial";
 
 describe("captureMaterial", () => {
   it("maps pieces to bughouse capture values", () => {

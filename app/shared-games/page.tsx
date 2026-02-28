@@ -1,5 +1,5 @@
 import SharedGamesPageClient from "./SharedGamesPageClient";
-import { getAllSharedGames } from "../utils/sharedGamesService.server";
+import { getAllSharedGames } from "../utils/shared-games/sharedGamesService.server";
 
 /**
  * Shared games browsing page.

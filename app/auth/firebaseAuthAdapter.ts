@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
-import { getFirebaseAuth } from "../utils/firebaseClient";
+import { getFirebaseAuth } from "../utils/platform/firebaseClient";
 import type { AuthAdapter, AuthUser } from "./types";
 
 // Re-export for backwards compatibility

@@ -7,19 +7,19 @@ import MoveList from "../moves/MoveList";
 import PieceReserveVertical from "../board/PieceReserveVertical";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { BoardCornerMaterial } from "../board/BoardCornerMaterial";
-import { processGameData } from "../../utils/moveOrdering";
-import { BughouseReplayController } from "../../utils/replayController";
+import { processGameData } from "../../utils/board/moveOrdering";
+import { BughouseReplayController } from "../../utils/replay/replayController";
 import { BughouseGameState, BughousePlayer } from "../../types/bughouse";
 import { ChessGame } from "../../actions";
-import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/clockAdvantage";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/board/clockAdvantage";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
-import type { BoardAnnotations } from "../../utils/boardAnnotations";
+import type { BoardAnnotations } from "../../utils/board/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
   getAnnotationsForFen,
   setAnnotationsForFen,
   toFenKey,
-} from "../../utils/boardAnnotationPersistence";
+} from "../../utils/board/boardAnnotationPersistence";
 
 interface BughouseReplayProps {
   gameData: {

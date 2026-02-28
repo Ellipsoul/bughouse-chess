@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BughousePositionSnapshot } from "../../../app/types/analysis";
-import { createEmptyReserves, validateAndApplyBughouseHalfMove } from "../../../app/utils/analysis/applyMove";
-import { createEmptyCaptureMaterialLedger } from "../../../app/utils/analysis/captureMaterial";
+import { createEmptyReserves, validateAndApplyBughouseHalfMove } from "@/app/utils/analysis/applyMove";
+import { createEmptyCaptureMaterialLedger } from "@/app/utils/analysis/captureMaterial";
 
 describe("validateAndApplyBughouseHalfMove - captureMaterial", () => {
   it("tracks a regular capture (pawn = 1.5)", () => {

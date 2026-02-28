@@ -1,5 +1,5 @@
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from "chess.js";
-import type { PieceReserves } from "../../types/bughouse";
+import type { PieceReserves } from "@/app/types/bughouse";
 import type {
   AttemptedBughouseHalfMove,
   BughouseBoardId,
@@ -8,14 +8,14 @@ import type {
   BughousePositionSnapshot,
   BughousePromotionPiece,
   BughouseSide,
-} from "../../types/analysis";
-import { validateAndConvertMove } from "../moveConverter";
-import { getBughouseCheckSuffix, isBughouseCheckmate, normalizeSanSuffixForBughouse } from "../bughouseCheckmate";
+} from "@/app/types/analysis";
+import { validateAndConvertMove } from "@/app/utils/board/moveConverter";
+import { getBughouseCheckSuffix, isBughouseCheckmate, normalizeSanSuffixForBughouse } from "@/app/utils/board/bughouseCheckmate";
 import {
   applyCaptureToLedger,
   cloneCaptureMaterialLedger,
   createEmptyCaptureMaterialLedger,
-} from "./captureMaterial";
+} from "@/app/utils/analysis/captureMaterial";
 
 type ValidationOk = { type: "ok"; move: BughouseHalfMove; next: BughousePositionSnapshot };
 type ValidationError = { type: "error"; message: string };

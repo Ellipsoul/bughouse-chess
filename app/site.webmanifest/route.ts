@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { shouldLockLandscapeForPhone } from "../utils/pwa/shouldLockLandscapeForPhone";
+import { shouldLockLandscapeForPhone } from "../utils/platform/pwa/shouldLockLandscapeForPhone";
 
 /**
  * Dynamic Web App Manifest.

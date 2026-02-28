@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPerBoardMoveDurationsDeciseconds } from "../../../app/utils/analysis/buildPerBoardMoveDurationsDeciseconds";
+import { buildPerBoardMoveDurationsDeciseconds } from "@/app/utils/analysis/buildPerBoardMoveDurationsDeciseconds";
 import type { BughouseMove } from "../../../app/types/bughouse";
 
 describe("buildPerBoardMoveDurationsDeciseconds", () => {

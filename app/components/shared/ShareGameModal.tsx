@@ -8,17 +8,17 @@ import { revalidateSharedGamesPage, type ChessGame } from "../../actions";
 import type { MatchGame } from "../../types/match";
 import type { SharedContentType, SingleGameData } from "../../types/sharedGame";
 import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../../types/sharedGame";
-import { shareGame, shareMatch } from "../../utils/sharedGamesService";
+import { shareGame, shareMatch } from "../../utils/shared-games/sharedGamesService";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
 import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../match/MatchNavigation";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/platform/useFirebaseAnalytics";
 import type { PartnerPair } from "../../types/match";
-import { useSharedGameHashes } from "../../utils/sharedGameHashesStore";
+import { useSharedGameHashes } from "../../utils/shared-games/sharedGameHashesStore";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "../../utils/sharedGameHash";
+} from "../../utils/shared-games/sharedGameHash";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */

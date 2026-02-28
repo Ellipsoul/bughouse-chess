@@ -10,12 +10,12 @@ import React, {
 import Link from "next/link";
 import { ArrowDownUp, ArrowLeft, ClockArrowDown, ClockArrowUp, Funnel } from "lucide-react";
 import { useAuth } from "../auth/useAuth";
-import { useCompactLandscape } from "../utils/useCompactLandscape";
-import { useFullAuth } from "../utils/useFullAuth";
+import { useCompactLandscape } from "../utils/platform/useCompactLandscape";
+import { useFullAuth } from "../utils/platform/useFullAuth";
 import type { SharedGameSummary } from "../types/sharedGame";
-import { filterSharedGames } from "../utils/sharedGamesFilter";
+import { filterSharedGames } from "../utils/shared-games/sharedGamesFilter";
 import SharedGameCard from "../components/shared/SharedGameCard";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/useFirebaseAnalytics";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../utils/platform/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */

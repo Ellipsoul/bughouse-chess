@@ -1,5 +1,5 @@
-import type { BughouseCaptureMaterialLedger } from "../../types/bughouse";
-import type { BughouseBoardId, BughousePieceType, BughouseSide } from "../../types/analysis";
+import type { BughouseCaptureMaterialLedger } from "@/app/types/bughouse";
+import type { BughouseBoardId, BughousePieceType, BughouseSide } from "@/app/types/analysis";
 
 const BUGHOUSE_CAPTURE_VALUE_BY_PIECE: Record<BughousePieceType, number> = {
   p: 1.5,

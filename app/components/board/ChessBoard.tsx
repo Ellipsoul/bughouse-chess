@@ -12,7 +12,7 @@ import {
   isSquare,
   toggleArrowInList,
   toggleSquareInList,
-} from "../../utils/boardAnnotations";
+} from "../../utils/board/boardAnnotations";
 
 interface ChessBoardInstance {
   destroy: () => void;

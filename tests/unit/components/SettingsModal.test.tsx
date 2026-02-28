@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import SettingsModal from "../../../app/components/modals/SettingsModal";
-import * as userPreferencesService from "../../../app/utils/userPreferencesService";
+import * as userPreferencesService from "@/app/utils/preferences/userPreferencesService";
 import toast from "react-hot-toast";
 
 // Mock react-color
@@ -32,7 +32,7 @@ vi.mock("react-hot-toast", () => ({
 }));
 
 // Mock userPreferencesService
-vi.mock("../../../app/utils/userPreferencesService", () => ({
+vi.mock("@/app/utils/preferences/userPreferencesService", () => ({
   getBoardAnnotationColorFromLocalStorage: vi.fn(),
   saveBoardAnnotationColorToLocalStorage: vi.fn(),
   removeBoardAnnotationColorFromLocalStorage: vi.fn(),

@@ -1,5 +1,5 @@
-import type { AnalysisTree } from "../../types/analysis";
-import type { BughouseClocksSnapshotByBoard, BughouseMove } from "../../types/bughouse";
+import type { AnalysisTree } from "@/app/types/analysis";
+import type { BughouseClocksSnapshotByBoard, BughouseMove } from "@/app/types/bughouse";
 
 export interface BughouseBoardMoveCounts {
   A: number;

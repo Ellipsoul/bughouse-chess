@@ -18,21 +18,21 @@ import {
   findPartnerGameId,
 } from "../../actions";
 import BughouseAnalysis from "./BughouseAnalysis";
-import { APP_TOOLTIP_ID } from "../../utils/tooltips";
+import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 import Link from "next/link";
 import { Share } from "lucide-react";
-import { getNonBughouseGameErrorMessage } from "../../utils/chesscomGameValidation";
+import { getNonBughouseGameErrorMessage } from "../../utils/discovery/chesscomGameValidation";
 import {
   GameLoadCounterFloating,
   useGameLoadCounterLabel,
 } from "../badges/GameLoadCounterBadge";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
-import { getRandomSampleGameId } from "../../utils/sampleGameIds";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/platform/useFirebaseAnalytics";
+import { getRandomSampleGameId } from "../../utils/shared-games/sampleGameIds";
 import ConfirmLoadNewGameModal from "../modals/ConfirmLoadNewGameModal";
 import {
   setSkipLoadGameOverrideConfirm,
   shouldSkipLoadGameOverrideConfirm,
-} from "../../utils/loadGameOverrideConfirmPreference";
+} from "../../utils/preferences/loadGameOverrideConfirmPreference";
 import MatchNavigation from "../match/MatchNavigation";
 import MatchDiscoveryModeModal, {
   type DiscoveryModeSelection,
@@ -43,34 +43,34 @@ import {
   discoverMatchGames,
   createMatchGameFromLoaded,
   DiscoveryCancellation,
-} from "../../utils/matchDiscovery";
-import { useCompactLandscape } from "../../utils/useCompactLandscape";
-import type { PairKey } from "../../utils/matchBoardOrientation";
+} from "../../utils/discovery/matchDiscovery";
+import { useCompactLandscape } from "../../utils/platform/useCompactLandscape";
+import type { PairKey } from "../../utils/board/matchBoardOrientation";
 import {
   computeBaseFlip,
   computeEffectiveFlip,
   getBottomPairKeyForGame,
-} from "../../utils/matchBoardOrientation";
-import { getSharedMatchBaselineBottomPairKey } from "../../utils/sharedGameOrientation";
-import { useFullAuth, getFullAuthRequirementMessage } from "../../utils/useFullAuth";
+} from "../../utils/board/matchBoardOrientation";
+import { getSharedMatchBaselineBottomPairKey } from "../../utils/shared-games/sharedGameOrientation";
+import { useFullAuth, getFullAuthRequirementMessage } from "../../utils/platform/useFullAuth";
 import ShareGameModal from "../shared/ShareGameModal";
 import type { SharedContentType, SingleGameData } from "../../types/sharedGame";
 import { fromMatchGameData } from "../../types/sharedGame";
-import { getSharedGame, reconstructPartnerPairFromMetadata } from "../../utils/sharedGamesService";
-import { getShareEligibility } from "../../utils/shareEligibility";
-import { useSharedGameHashes } from "../../utils/sharedGameHashesStore";
+import { getSharedGame, reconstructPartnerPairFromMetadata } from "../../utils/shared-games/sharedGamesService";
+import { getShareEligibility } from "../../utils/shared-games/shareEligibility";
+import { useSharedGameHashes } from "../../utils/shared-games/sharedGameHashesStore";
 import { ViewerOrientationStore, ViewerOrientationStoreProvider } from "../../stores/viewerOrientationStore";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "../../utils/sharedGameHash";
-import { getAutoAdvanceLiveReplayFromLocalStorage } from "../../utils/userPreferencesService";
-import { scheduleLiveReplayAutoAdvance } from "../../utils/liveReplayAutoAdvance";
+} from "../../utils/shared-games/sharedGameHash";
+import { getAutoAdvanceLiveReplayFromLocalStorage } from "../../utils/preferences/userPreferencesService";
+import { scheduleLiveReplayAutoAdvance } from "../../utils/replay/liveReplayAutoAdvance";
 import {
   isValidChessComGameId,
   sanitizeChessComGameIdInput,
-} from "../../utils/chessComGameIdInput";
+} from "../../utils/discovery/chessComGameIdInput";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);

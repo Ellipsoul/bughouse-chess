@@ -30,7 +30,7 @@ import {
   computeShareContentHash,
   createShareHashInputFromMatchData,
   createShareHashInputFromSingleGame,
-} from "../app/utils/sharedGameHash";
+} from "../app/utils/shared-games/sharedGameHash";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */

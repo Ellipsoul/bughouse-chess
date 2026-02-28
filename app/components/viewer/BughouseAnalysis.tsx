@@ -17,14 +17,14 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { ChessGame } from "../../actions";
-import { processGameData } from "../../utils/moveOrdering";
-import { deriveBughouseConclusionSummary } from "../../utils/gameConclusion";
+import { processGameData } from "../../utils/board/moveOrdering";
+import { deriveBughouseConclusionSummary } from "../../utils/board/gameConclusion";
 import type { BughouseMove } from "../../types/bughouse";
 import type { BughousePlayer } from "../../types/bughouse";
 import type { AnalysisNode, BughouseBoardId, BughouseSide } from "../../types/analysis";
 import { buildBughouseClockTimeline } from "../../utils/analysis/buildBughouseClockTimeline";
 import { buildPerBoardMoveDurationsDeciseconds } from "../../utils/analysis/buildPerBoardMoveDurationsDeciseconds";
-import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/clockAdvantage";
+import { getClockTintClasses, getTeamTimeDiffDeciseconds } from "../../utils/board/clockAdvantage";
 import {
   createInitialPositionSnapshot,
   validateAndApplyMoveFromNotation,
@@ -38,13 +38,13 @@ import MoveListWithVariations from "../moves/MoveListWithVariations";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { BoardCornerMaterial } from "../board/BoardCornerMaterial";
-import type { BoardAnnotations } from "../../utils/boardAnnotations";
+import type { BoardAnnotations } from "../../utils/board/boardAnnotations";
 import {
   createEmptyBoardAnnotationsByFen,
   getAnnotationsForFen,
   setAnnotationsForFen,
   toFenKey,
-} from "../../utils/boardAnnotationPersistence";
+} from "../../utils/board/boardAnnotationPersistence";
 import {
   buildBughouseBoardMoveCountsByGlobalPly,
   buildMonotonicMoveTimestampsDeciseconds,
@@ -52,15 +52,15 @@ import {
   getLiveReplayElapsedDecisecondsAtGlobalPly,
   isPristineLoadedMainline,
 } from "../../utils/analysis/liveReplay";
-import { useCompactLandscape } from "../../utils/useCompactLandscape";
-import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/useFirebaseAnalytics";
-import { getSharedGameDescriptionTooltip } from "../../utils/sharedGameDescription";
+import { useCompactLandscape } from "../../utils/platform/useCompactLandscape";
+import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/platform/useFirebaseAnalytics";
+import { getSharedGameDescriptionTooltip } from "../../utils/shared-games/sharedGameDescription";
 import { useViewerOrientationStore } from "../../stores/viewerOrientationStore";
 import {
   getBoardOrder,
   getDisplayBoardLabel,
   getPlayersForBoard,
-} from "../../utils/boardOrderMapping";
+} from "../../utils/board/boardOrderMapping";
 
 interface BughouseAnalysisProps {
   gameData?: {

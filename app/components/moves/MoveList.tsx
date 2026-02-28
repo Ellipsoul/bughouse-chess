@@ -6,8 +6,8 @@ import {
   getBoardOrder,
   getMoveListColumnIndex,
   getPlayersForBoard,
-} from "../../utils/boardOrderMapping";
-import { APP_TOOLTIP_ID } from "../../utils/tooltips";
+} from "../../utils/board/boardOrderMapping";
+import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 
 interface MoveListProps {
   moves: BughouseMove[];

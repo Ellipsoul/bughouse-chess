@@ -2,7 +2,7 @@ import type {
   BoardClocks,
   BughouseClocksSnapshotByBoard,
   ProcessedGameData,
-} from "../../types/bughouse";
+} from "@/app/types/bughouse";
 
 /**
  * Metadata about the derived bughouse clock timeline.

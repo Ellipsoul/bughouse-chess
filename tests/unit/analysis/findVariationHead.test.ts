@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { findContainingVariationHeadNodeId } from "../../../app/utils/analysis/findVariationHead";
-import { createEmptyCaptureMaterialLedger } from "../../../app/utils/analysis/captureMaterial";
+import { findContainingVariationHeadNodeId } from "@/app/utils/analysis/findVariationHead";
+import { createEmptyCaptureMaterialLedger } from "@/app/utils/analysis/captureMaterial";
 import type { AnalysisTree } from "../../../app/types/analysis";
 
 describe("findContainingVariationHeadNodeId", () => {

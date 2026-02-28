@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import admin from "firebase-admin";
-import { getAdminFirestore } from "../../../utils/firebaseAdmin";
+import { getAdminFirestore } from "../../../utils/platform/firebaseAdmin";
 
 const METRICS_DOC_PATH = "metrics/global";
 

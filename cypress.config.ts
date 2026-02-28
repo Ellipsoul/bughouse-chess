@@ -51,7 +51,9 @@ export default defineConfig({
         },
         resolve: {
           alias: {
-            "@": path.resolve(__dirname, "./app"),
+            // Keep alias parity with tsconfig/vitest where "@/*" maps to repo root.
+            // This allows imports like "@/app/..." to resolve consistently in Cypress.
+            "@": path.resolve(__dirname, "./"),
             "next/image": path.resolve(__dirname, "./cypress/support/mocks/next-image.tsx"),
             "next/link": path.resolve(__dirname, "./cypress/support/mocks/next-link.tsx"),
             "next/navigation": path.resolve(__dirname, "./cypress/support/mocks/next-navigation.tsx"),

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import type { SharedGameSummary } from "../../types/sharedGame";
-import { deleteSharedGame } from "../../utils/sharedGamesService";
+import { deleteSharedGame } from "../../utils/shared-games/sharedGamesService";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
 import DeleteConfirmationModal from "../modals/DeleteConfirmationModal";
 

@@ -7,13 +7,13 @@ import type { ChessGame } from "../../../app/actions";
 import type { MatchGame, PartnerPair } from "../../../app/types/match";
 import type { SingleGameData } from "../../../app/types/sharedGame";
 import ShareGameModal from "../../../app/components/shared/ShareGameModal";
-import { shareGame, shareMatch } from "../../../app/utils/sharedGamesService";
+import { shareGame, shareMatch } from "@/app/utils/shared-games/sharedGamesService";
 import { revalidateSharedGamesPage } from "../../../app/actions";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "../../../app/utils/sharedGameHash";
+} from "@/app/utils/shared-games/sharedGameHash";
 import React from "react";
 
 const sharedGameHashesState = vi.hoisted(() => ({
@@ -22,7 +22,7 @@ const sharedGameHashesState = vi.hoisted(() => ({
   addHash: vi.fn(),
 }));
 
-vi.mock("../../../app/utils/sharedGamesService", () => ({
+vi.mock("@/app/utils/shared-games/sharedGamesService", () => ({
   shareGame: vi.fn(),
   shareMatch: vi.fn(),
 }));
@@ -31,7 +31,7 @@ vi.mock("../../../app/actions", () => ({
   revalidateSharedGamesPage: vi.fn(),
 }));
 
-vi.mock("../../../app/utils/useFirebaseAnalytics", () => ({
+vi.mock("@/app/utils/platform/useFirebaseAnalytics", () => ({
   useFirebaseAnalytics: () => ({ logEvent: vi.fn() }),
   logAnalyticsEvent: vi.fn(),
 }));
@@ -43,7 +43,7 @@ vi.mock("react-hot-toast", () => ({
   },
 }));
 
-vi.mock("../../../app/utils/sharedGameHashesStore", () => ({
+vi.mock("@/app/utils/shared-games/sharedGameHashesStore", () => ({
   useSharedGameHashes: () => ({
     hashes: sharedGameHashesState.hashes,
     status: sharedGameHashesState.status,

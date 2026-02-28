@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "./utils/siteMetadata";
+import { siteUrl } from "./utils/platform/siteMetadata";
 
 /**
  * Robots policy for public crawling and sitemap discovery.

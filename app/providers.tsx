@@ -3,14 +3,14 @@
 import { Toaster } from "react-hot-toast";
 import React, { useEffect } from "react";
 import { Tooltip } from "react-tooltip";
-import { APP_TOOLTIP_ID } from "./utils/tooltips";
+import { APP_TOOLTIP_ID } from "./utils/platform/tooltips";
 import {
   getFirebaseAnalytics,
   initializeFirebaseAppCheck,
-} from "./utils/firebaseClient";
+} from "./utils/platform/firebaseClient";
 import { AuthProvider } from "./auth/AuthProvider";
-import { useUserPreferences } from "./utils/useUserPreferences";
-import { SharedGameHashesProvider } from "./utils/sharedGameHashesStore";
+import { useUserPreferences } from "./utils/preferences/useUserPreferences";
+import { SharedGameHashesProvider } from "./utils/shared-games/sharedGameHashesStore";
 
 /**
  * Component that loads user preferences after auth is initialized.

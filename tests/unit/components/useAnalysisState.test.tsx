@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAnalysisState, reorderSimultaneousCheckmateMove } from "../../../app/components/moves/useAnalysisState";
-import { processGameData } from "../../../app/utils/moveOrdering";
+import { processGameData } from "@/app/utils/board/moveOrdering";
 import type { BughouseMove } from "../../../app/types/bughouse";
 import type { ChessGame } from "../../../app/actions";
 import { readFileSync } from "fs";

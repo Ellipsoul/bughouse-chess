@@ -7,8 +7,8 @@ import {
   isBughouseOverByCheckmate,
   validateAndApplyBughouseHalfMove,
   validateAndApplyMoveFromNotation,
-} from "../../../app/utils/analysis/applyMove";
-import { createEmptyCaptureMaterialLedger } from "../../../app/utils/analysis/captureMaterial";
+} from "@/app/utils/analysis/applyMove";
+import { createEmptyCaptureMaterialLedger } from "@/app/utils/analysis/captureMaterial";
 import type { BughousePositionSnapshot } from "../../../app/types/analysis";
 
 describe("createInitialPositionSnapshot", () => {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   hasRecordedGameLoadThisSession,
   markRecordedGameLoadThisSession,
-} from "../../utils/metrics/gameLoadSession";
+} from "../../utils/platform/metrics/gameLoadSession";
 
 type MetricsResponse = {
   gamesLoaded: number;

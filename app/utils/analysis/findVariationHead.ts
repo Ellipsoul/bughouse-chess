@@ -1,4 +1,4 @@
-import type { AnalysisNode } from "../../types/analysis";
+import type { AnalysisNode } from "@/app/types/analysis";
 
 /**
  * Find the "variation head" that contains `nodeId`.

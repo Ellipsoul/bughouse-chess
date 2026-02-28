@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./components/layout/AppShell";
-import { metadataBase } from "./utils/siteMetadata";
+import { metadataBase } from "./utils/platform/siteMetadata";
 
 const inter = Inter({
   subsets: ["latin"],

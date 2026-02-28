@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBughouseClockTimeline } from "../../../app/utils/analysis/buildBughouseClockTimeline";
+import { buildBughouseClockTimeline } from "@/app/utils/analysis/buildBughouseClockTimeline";
 import type { ProcessedGameData } from "../../../app/types/bughouse";
 
 describe("buildBughouseClockTimeline", () => {
