@@ -55,6 +55,39 @@ const SHARED_GAMES_COLLECTION = "sharedGames";
 const USERS_COLLECTION = "users";
 const USER_SHARED_GAMES_SUBCOLLECTION = "sharedGames";
 const IN_QUERY_BATCH_SIZE = 10;
+const MATCH_UPLOAD_BATCH_SIZE = 100;
+
+/**
+ * Progress payload emitted while match games are uploaded in chunks.
+ */
+export interface ShareMatchBatchProgress {
+  /**
+   * Number of game documents uploaded so far.
+   */
+  uploadedGames: number;
+  /**
+   * Total number of game documents to upload.
+   */
+  totalGames: number;
+  /**
+   * Number of completed game-upload batches.
+   */
+  completedBatches: number;
+  /**
+   * Total number of game-upload batches.
+   */
+  totalBatches: number;
+}
+
+/**
+ * Optional behaviors for match sharing.
+ */
+export interface ShareMatchOptions {
+  /**
+   * Called after each successful game-upload batch commit.
+   */
+  onBatchProgress?: (progress: ShareMatchBatchProgress) => void;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helper Functions                                                           */
@@ -512,6 +545,7 @@ export async function shareGame(
  * @param type - Type of shared content ("match" or "partnerGames")
  * @param description - Optional description (max 100 characters)
  * @param selectedPair - The selected partner pair for partner games mode
+ * @param options - Optional match upload hooks (e.g., batch progress callback)
  * @returns ShareResult indicating success or failure
  */
 export async function shareMatch(
@@ -521,6 +555,7 @@ export async function shareMatch(
   type: "match" | "partnerGames" = "match",
   description: string = "",
   selectedPair?: PartnerPair | null,
+  options: ShareMatchOptions = {},
 ): Promise<ShareResult> {
   try {
     if (matchGames.length === 0) {
@@ -574,14 +609,12 @@ export async function shareMatch(
     // Convert match games to storage format
     const matchGameDataArray = convertToMatchGameData(matchGames);
 
-    // Use a batch write to ensure atomicity
-    // Note: Firestore batches are limited to 500 operations
-    // For very large matches, we may need multiple batches
-    const batch = writeBatch(db);
+    // Initial batch writes core docs before uploading game chunks.
+    const setupBatch = writeBatch(db);
 
     // Main document
     const sharedGameDocRef = doc(db, SHARED_GAMES_COLLECTION, sharedId);
-    batch.set(sharedGameDocRef, sharedGameDoc);
+    setupBatch.set(sharedGameDocRef, sharedGameDoc);
 
     // User reference
     const userSharedGameDocRef = doc(
@@ -591,27 +624,59 @@ export async function shareMatch(
       USER_SHARED_GAMES_SUBCOLLECTION,
       sharedId,
     );
-    batch.set(userSharedGameDocRef, userSharedGameRef);
+    setupBatch.set(userSharedGameDocRef, userSharedGameRef);
 
-    // Each game in subcollection
-    for (let i = 0; i < matchGameDataArray.length; i++) {
-      const gameSubDoc: SharedGameSubDocument = {
-        index: i,
-        type: "match",
-        data: matchGameDataArray[i]!,
-      };
+    await setupBatch.commit();
 
-      const gameDocRef = doc(
-        db,
-        SHARED_GAMES_COLLECTION,
-        sharedId,
-        SHARED_GAMES_SUBCOLLECTION,
-        String(i),
-      );
-      batch.set(gameDocRef, gameSubDoc);
+    const gameChunks = chunkArray(matchGameDataArray, MATCH_UPLOAD_BATCH_SIZE);
+    const totalGames = matchGameDataArray.length;
+    const totalBatches = gameChunks.length;
+    let uploadedGames = 0;
+
+    for (let chunkIndex = 0; chunkIndex < gameChunks.length; chunkIndex++) {
+      const chunk = gameChunks[chunkIndex]!;
+      const gameBatch = writeBatch(db);
+      const startGameIndex = chunkIndex * MATCH_UPLOAD_BATCH_SIZE;
+
+      for (let i = 0; i < chunk.length; i++) {
+        const gameIndex = startGameIndex + i;
+        const gameSubDoc: SharedGameSubDocument = {
+          index: gameIndex,
+          type: "match",
+          data: chunk[i]!,
+        };
+
+        const gameDocRef = doc(
+          db,
+          SHARED_GAMES_COLLECTION,
+          sharedId,
+          SHARED_GAMES_SUBCOLLECTION,
+          String(gameIndex),
+        );
+        gameBatch.set(gameDocRef, gameSubDoc);
+      }
+
+      try {
+        await gameBatch.commit();
+      } catch (err) {
+        console.error("[sharedGamesService] shareMatch game chunk upload failed:", err);
+        const contextMessage = uploadedGames > 0
+          ? `Uploaded ${uploadedGames}/${totalGames} games before upload failed.`
+          : "Failed to upload match games.";
+        const errorMessage = err instanceof Error && err.message
+          ? `${contextMessage} ${err.message}`
+          : contextMessage;
+        return { success: false, error: errorMessage };
+      }
+
+      uploadedGames += chunk.length;
+      options.onBatchProgress?.({
+        uploadedGames,
+        totalGames,
+        completedBatches: chunkIndex + 1,
+        totalBatches,
+      });
     }
-
-    await batch.commit();
 
     return { success: true, sharedId };
   } catch (err) {

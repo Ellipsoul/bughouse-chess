@@ -408,7 +408,7 @@ export default function GameViewerPage() {
   );
 
   const performLoadGame = useCallback(
-    (trimmedId: string, clearInput: boolean) => {
+    (trimmedId: string, clearInput: boolean, urlPlyForSync: number | null = null) => {
       startTransition(() => {
         const prefetchedReadyForId =
           prefetched.status === "ready" && prefetched.sanitizedId === trimmedId
@@ -491,7 +491,7 @@ export default function GameViewerPage() {
               action: "newGameLoad",
               gameId: trimmedId,
               clearSharedId: true,
-              ply: null,
+              ply: urlPlyForSync,
             });
           })
           .catch((err: unknown) => {
@@ -517,9 +517,13 @@ export default function GameViewerPage() {
   const loadGame = useCallback(
     async (
       requestedGameId: string,
-      options: { skipConfirm?: boolean; clearInput?: boolean } = {},
+      options: {
+        skipConfirm?: boolean;
+        clearInput?: boolean;
+        urlPlyForSync?: number | null;
+      } = {},
     ) => {
-      const { skipConfirm = false, clearInput = true } = options;
+      const { skipConfirm = false, clearInput = true, urlPlyForSync = null } = options;
       const trimmedId = sanitizeChessComGameIdInput(requestedGameId);
 
       if (!trimmedId) {
@@ -549,7 +553,7 @@ export default function GameViewerPage() {
         return;
       }
 
-      performLoadGame(trimmedId, clearInput);
+      performLoadGame(trimmedId, clearInput, urlPlyForSync);
     },
     [analysisIsDirty, loadedGameId, performLoadGame],
   );
@@ -1209,13 +1213,18 @@ export default function GameViewerPage() {
 
     lastAutoLoadedIdRef.current = autoLoadGameId;
     const timeoutId = window.setTimeout(() => {
-      void loadGame(autoLoadGameId, { skipConfirm: true, clearInput: true });
+      void loadGame(autoLoadGameId, {
+        skipConfirm: true,
+        clearInput: true,
+        // Preserve deep-link position for URL-triggered initial loads.
+        urlPlyForSync: initialGlobalPly,
+      });
     }, 0);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [autoLoadGameId, loadGame]);
+  }, [autoLoadGameId, initialGlobalPly, loadGame]);
 
   /**
    * Effect to load shared games from Firestore.

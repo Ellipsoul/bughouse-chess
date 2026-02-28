@@ -496,6 +496,7 @@ export default function ShareGameModal({
     }
 
     setIsSharing(true);
+    let progressToastId: string | undefined;
 
     try {
       let result;
@@ -507,6 +508,12 @@ export default function ShareGameModal({
         && matchGames
         && matchGames.length > 0
       ) {
+        const label = resolvedContentType === "partnerGames" ? "partner series" : "match";
+        progressToastId = `share-upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        toast.loading(`Uploading ${label}: 0/${matchGames.length} games`, {
+          id: progressToastId,
+        });
+
         result = await shareMatch(
           userId,
           username,
@@ -514,6 +521,16 @@ export default function ShareGameModal({
           resolvedContentType,
           description,
           selectedPair ?? null,
+          {
+            onBatchProgress: ({ uploadedGames, totalGames, completedBatches, totalBatches }) => {
+              toast.loading(
+                `Uploading ${label}: ${uploadedGames}/${totalGames} games (batch ${completedBatches}/${totalBatches})`,
+                {
+                  id: progressToastId,
+                },
+              );
+            },
+          },
         );
       } else {
         toast.error("No valid content to share");
@@ -522,7 +539,11 @@ export default function ShareGameModal({
       }
 
       if (result.success) {
-        toast.success("Game shared successfully!");
+        if (progressToastId) {
+          toast.success("Game shared successfully!", { id: progressToastId });
+        } else {
+          toast.success("Game shared successfully!");
+        }
         if (resolvedContentHash) {
           addSharedGameHash(resolvedContentHash);
         }
@@ -551,7 +572,11 @@ export default function ShareGameModal({
           content_type: resolvedContentType,
           error: result.error,
         });
-        toast.error(result.error);
+        if (progressToastId) {
+          toast.error(result.error, { id: progressToastId });
+        } else {
+          toast.error(result.error);
+        }
       }
     } catch (err) {
       console.error("[ShareGameModal] Share failed:", err);
@@ -562,7 +587,11 @@ export default function ShareGameModal({
         content_type: resolvedContentType,
         error: message,
       });
-      toast.error(message);
+      if (progressToastId) {
+        toast.error(message, { id: progressToastId });
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsSharing(false);
     }

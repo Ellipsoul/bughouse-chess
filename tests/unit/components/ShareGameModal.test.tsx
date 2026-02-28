@@ -15,6 +15,7 @@ import {
   createShareHashInputFromSingleGame,
 } from "@/app/utils/shared-games/sharedGameHash";
 import React from "react";
+import toast from "react-hot-toast";
 
 const sharedGameHashesState = vi.hoisted(() => ({
   hashes: new Set<string>(),
@@ -38,6 +39,7 @@ vi.mock("@/app/utils/platform/useFirebaseAnalytics", () => ({
 
 vi.mock("react-hot-toast", () => ({
   default: {
+    loading: vi.fn(),
     success: vi.fn(),
     error: vi.fn(),
   },
@@ -102,6 +104,16 @@ function toSingleGameData(matchGame: MatchGame): SingleGameData {
   };
 }
 
+function createLargeMatchGames(seedGame: MatchGame, gameCount: number): MatchGame[] {
+  return Array.from({ length: gameCount }, (_, index) => ({
+    gameId: `game-${index}`,
+    partnerGameId: `partner-${index}`,
+    original: seedGame.original,
+    partner: seedGame.partner,
+    endTime: seedGame.endTime + index,
+  }));
+}
+
 describe("ShareGameModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,6 +172,9 @@ describe("ShareGameModal", () => {
         "match",
         "",
         null,
+        expect.objectContaining({
+          onBatchProgress: expect.any(Function),
+        }),
       );
     });
     expect(shareGame).not.toHaveBeenCalled();
@@ -235,8 +250,112 @@ describe("ShareGameModal", () => {
         "partnerGames",
         "",
         selectedPair,
+        expect.objectContaining({
+          onBatchProgress: expect.any(Function),
+        }),
       );
     });
+  });
+
+  it("updates a single toast with batch upload progress for long matches", async () => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const seedGames = loadMatchGames(index.games);
+    const largeMatch = createLargeMatchGames(seedGames[0]!, 250);
+
+    vi.mocked(shareMatch).mockImplementation(async (_userId, _username, _games, _type, _description, _selectedPair, options) => {
+      options?.onBatchProgress?.({
+        uploadedGames: 100,
+        totalGames: 250,
+        completedBatches: 1,
+        totalBatches: 3,
+      });
+      options?.onBatchProgress?.({
+        uploadedGames: 200,
+        totalGames: 250,
+        completedBatches: 2,
+        totalBatches: 3,
+      });
+      options?.onBatchProgress?.({
+        uploadedGames: 250,
+        totalGames: 250,
+        completedBatches: 3,
+        totalBatches: 3,
+      });
+      return { success: true, sharedId: "shared-match-long" };
+    });
+
+    render(
+      <ShareGameModal
+        open={true}
+        userId="user-123"
+        username="ellipsoul"
+        singleGameData={toSingleGameData(largeMatch[0]!)}
+        matchGames={largeMatch}
+        contentType="match"
+        selectedPair={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+
+    await waitFor(() => {
+      expect(toast.loading).toHaveBeenCalledWith(
+        expect.stringContaining("Uploading match: 0/250 games"),
+        expect.objectContaining({ id: expect.any(String) }),
+      );
+    });
+    expect(toast.loading).toHaveBeenCalledWith(
+      "Uploading match: 100/250 games (batch 1/3)",
+      expect.objectContaining({ id: expect.any(String) }),
+    );
+    expect(toast.loading).toHaveBeenCalledWith(
+      "Uploading match: 250/250 games (batch 3/3)",
+      expect.objectContaining({ id: expect.any(String) }),
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      "Game shared successfully!",
+      expect.objectContaining({ id: expect.any(String) }),
+    );
+  });
+
+  it("reuses the progress toast id when batched upload fails partially", async () => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const seedGames = loadMatchGames(index.games);
+    const largeMatch = createLargeMatchGames(seedGames[0]!, 220);
+
+    vi.mocked(shareMatch).mockImplementation(async (_userId, _username, _games, _type, _description, _selectedPair, options) => {
+      options?.onBatchProgress?.({
+        uploadedGames: 100,
+        totalGames: 220,
+        completedBatches: 1,
+        totalBatches: 3,
+      });
+      return { success: false, error: "Uploaded 100/220 games before upload failed." };
+    });
+
+    render(
+      <ShareGameModal
+        open={true}
+        userId="user-123"
+        username="ellipsoul"
+        singleGameData={toSingleGameData(largeMatch[0]!)}
+        matchGames={largeMatch}
+        contentType="match"
+        selectedPair={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Uploaded 100/220 games before upload failed.",
+        expect.objectContaining({ id: expect.any(String) }),
+      );
+    });
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("disables sharing when the current match is already shared", () => {

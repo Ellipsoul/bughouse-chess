@@ -3,7 +3,11 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { ChessGame } from "@/app/actions";
 import type { MatchGame } from "@/app/types/match";
-import { buildMatchMetadata, reconstructPartnerPairFromMetadata } from "@/app/utils/shared-games/sharedGamesService";
+import {
+  buildMatchMetadata,
+  reconstructPartnerPairFromMetadata,
+  shareMatch,
+} from "@/app/utils/shared-games/sharedGamesService";
 import { computeMatchScore, computePartnerPairScore } from "@/app/components/match/MatchNavigation";
 import { extractPartnerPairs } from "@/app/types/match";
 
@@ -20,6 +24,7 @@ const firestoreMocks = vi.hoisted(() => ({
   startAfter: vi.fn(),
   serverTimestamp: vi.fn(),
   Timestamp: {
+    fromMillis: vi.fn((ms: number) => ({ toDate: () => new Date(ms) })),
     fromDate: vi.fn((date: Date) => ({ toDate: () => date })),
     now: vi.fn(() => ({ toDate: () => new Date(0) })),
   },
@@ -108,7 +113,131 @@ function createMatchGameWithSwappedColors(
   };
 }
 
+/**
+ * Helper to create a synthetic match with an arbitrary number of games.
+ * Uses stable fixture data while varying IDs so batching behavior can be tested.
+ */
+function createLargeMatchGames(
+  gameCount: number,
+  originalGame: ChessGame,
+  partnerGame: ChessGame,
+): MatchGame[] {
+  return Array.from({ length: gameCount }, (_, index) => ({
+    gameId: `game-${index}`,
+    partnerGameId: `partner-${index}`,
+    original: originalGame,
+    partner: partnerGame,
+    endTime: (originalGame.game.endTime ?? 0) + index,
+  }));
+}
+
 describe("sharedGamesService", () => {
+  describe("shareMatch", () => {
+    let originalGame: ChessGame;
+    let partnerGame: ChessGame;
+
+    beforeEach(() => {
+      originalGame = loadFixture("160319845633.json");
+      partnerGame = loadFixture("160319845635.json");
+      firestoreMocks.getDocs.mockReset();
+      firestoreMocks.writeBatch.mockReset();
+      firestoreMocks.serverTimestamp.mockReturnValue({ __serverTimestamp: true });
+    });
+
+    it("uploads long matches in 100-game batches and reports progress", async () => {
+      const matchGames = createLargeMatchGames(250, originalGame, partnerGame);
+      const onBatchProgress = vi.fn();
+
+      firestoreMocks.getDocs.mockResolvedValueOnce({ empty: true });
+
+      const setupBatch = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      const chunkBatch1 = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      const chunkBatch2 = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      const chunkBatch3 = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+
+      firestoreMocks.writeBatch
+        .mockReturnValueOnce(setupBatch)
+        .mockReturnValueOnce(chunkBatch1)
+        .mockReturnValueOnce(chunkBatch2)
+        .mockReturnValueOnce(chunkBatch3);
+
+      const result = await shareMatch(
+        "user-123",
+        "ellipsoul",
+        matchGames,
+        "match",
+        "",
+        null,
+        { onBatchProgress },
+      );
+
+      expect(result).toEqual({ success: true, sharedId: expect.any(String) });
+      expect(firestoreMocks.writeBatch).toHaveBeenCalledTimes(4);
+      expect(setupBatch.set).toHaveBeenCalledTimes(2);
+      expect(chunkBatch1.set).toHaveBeenCalledTimes(100);
+      expect(chunkBatch2.set).toHaveBeenCalledTimes(100);
+      expect(chunkBatch3.set).toHaveBeenCalledTimes(50);
+      expect(onBatchProgress).toHaveBeenNthCalledWith(1, {
+        uploadedGames: 100,
+        totalGames: 250,
+        completedBatches: 1,
+        totalBatches: 3,
+      });
+      expect(onBatchProgress).toHaveBeenNthCalledWith(2, {
+        uploadedGames: 200,
+        totalGames: 250,
+        completedBatches: 2,
+        totalBatches: 3,
+      });
+      expect(onBatchProgress).toHaveBeenNthCalledWith(3, {
+        uploadedGames: 250,
+        totalGames: 250,
+        completedBatches: 3,
+        totalBatches: 3,
+      });
+    });
+
+    it("returns partial progress context when a later batch fails", async () => {
+      const matchGames = createLargeMatchGames(220, originalGame, partnerGame);
+      const onBatchProgress = vi.fn();
+
+      firestoreMocks.getDocs.mockResolvedValueOnce({ empty: true });
+
+      const setupBatch = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      const chunkBatch1 = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+      const chunkBatch2 = { set: vi.fn(), commit: vi.fn().mockRejectedValue(new Error("Payload too large")) };
+
+      firestoreMocks.writeBatch
+        .mockReturnValueOnce(setupBatch)
+        .mockReturnValueOnce(chunkBatch1)
+        .mockReturnValueOnce(chunkBatch2);
+
+      const result = await shareMatch(
+        "user-123",
+        "ellipsoul",
+        matchGames,
+        "match",
+        "",
+        null,
+        { onBatchProgress },
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Uploaded 100/220 games before upload failed.");
+        expect(result.error).toContain("Payload too large");
+      }
+      expect(firestoreMocks.writeBatch).toHaveBeenCalledTimes(3);
+      expect(onBatchProgress).toHaveBeenCalledTimes(1);
+      expect(onBatchProgress).toHaveBeenCalledWith({
+        uploadedGames: 100,
+        totalGames: 220,
+        completedBatches: 1,
+        totalBatches: 3,
+      });
+    });
+  });
+
   describe("buildMatchMetadata", () => {
     let originalGame: ChessGame;
     let partnerGame: ChessGame;
