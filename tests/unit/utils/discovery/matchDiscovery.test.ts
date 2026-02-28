@@ -18,7 +18,9 @@ import {
   extractGameSummary,
   extractPartnerPairGameSummary,
   computeMatchScore,
+  computeMatchScoreBeforeGame,
   computePartnerPairScore,
+  computePartnerPairScoreBeforeGame,
   establishReferenceTeams,
 } from "@/app/components/match/MatchNavigation";
 
@@ -987,6 +989,71 @@ describe("computeMatchScore", () => {
   });
 });
 
+describe("computeMatchScoreBeforeGame", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  function createMatchGameWithResult(result: string): MatchGame {
+    return {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: result,
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+  }
+
+  it("excludes the currently selected game result", () => {
+    const games = [
+      createMatchGameWithResult("1-0"), // team1 win
+      createMatchGameWithResult("0-1"), // team2 win
+      createMatchGameWithResult("1-0"), // selected game, should be excluded
+    ];
+
+    const score = computeMatchScoreBeforeGame(games, 2);
+
+    expect(score.team1Wins).toBe(1);
+    expect(score.team2Wins).toBe(1);
+    expect(score.draws).toBe(0);
+  });
+
+  it("returns zero score for first selected game", () => {
+    const games = [createMatchGameWithResult("1-0"), createMatchGameWithResult("0-1")];
+    const score = computeMatchScoreBeforeGame(games, 0);
+
+    expect(score.team1Wins).toBe(0);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("includes draws from earlier games in running score", () => {
+    const games = [
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1/2-1/2"),
+      createMatchGameWithResult("0-1"), // selected game, excluded
+    ];
+    const score = computeMatchScoreBeforeGame(games, 2);
+
+    expect(score.team1Wins).toBe(1);
+    expect(score.team2Wins).toBe(0);
+    expect(score.draws).toBe(1);
+  });
+});
+
 describe("extractPartnerPairs", () => {
   let originalGame: ChessGame;
   let partnerGame: ChessGame;
@@ -1368,5 +1435,75 @@ describe("computePartnerPairScore", () => {
     expect(score.pairWins).toBe(2);
     expect(score.pairLosses).toBe(0);
     expect(score.draws).toBe(0);
+  });
+});
+
+describe("computePartnerPairScoreBeforeGame", () => {
+  let originalGame: ChessGame;
+  let partnerGame: ChessGame;
+
+  beforeEach(() => {
+    originalGame = loadFixture("160319845633.json");
+    partnerGame = loadFixture("160319845635.json");
+  });
+
+  function createMatchGameWithResult(result: string): MatchGame {
+    return {
+      gameId: originalGame.game.id.toString(),
+      partnerGameId: partnerGame.game.id.toString(),
+      original: {
+        ...originalGame,
+        game: {
+          ...originalGame.game,
+          pgnHeaders: {
+            ...originalGame.game.pgnHeaders,
+            Result: result,
+          },
+        },
+      },
+      partner: partnerGame,
+      endTime: originalGame.game.endTime ?? 0,
+    };
+  }
+
+  const pair: PartnerPair = {
+    usernames: ["chickencrossroad", "emeraldddd"],
+    displayNames: ["chickencrossroad", "Emeraldddd"],
+  };
+
+  it("excludes selected game from partner pair running score", () => {
+    const games = [
+      createMatchGameWithResult("1-0"), // pair win
+      createMatchGameWithResult("0-1"), // pair loss
+      createMatchGameWithResult("1/2-1/2"), // selected game, excluded
+    ];
+
+    const score = computePartnerPairScoreBeforeGame(games, pair, 2);
+
+    expect(score.pairWins).toBe(1);
+    expect(score.pairLosses).toBe(1);
+    expect(score.draws).toBe(0);
+  });
+
+  it("returns zeroes before first game in series", () => {
+    const games = [createMatchGameWithResult("1-0"), createMatchGameWithResult("0-1")];
+    const score = computePartnerPairScoreBeforeGame(games, pair, 0);
+
+    expect(score.pairWins).toBe(0);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(0);
+  });
+
+  it("includes draws from earlier games in partner running score", () => {
+    const games = [
+      createMatchGameWithResult("1-0"),
+      createMatchGameWithResult("1/2-1/2"),
+      createMatchGameWithResult("0-1"), // selected game, excluded
+    ];
+    const score = computePartnerPairScoreBeforeGame(games, pair, 2);
+
+    expect(score.pairWins).toBe(1);
+    expect(score.pairLosses).toBe(0);
+    expect(score.draws).toBe(1);
   });
 });

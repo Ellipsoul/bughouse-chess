@@ -1,5 +1,5 @@
 import MatchNavigation from "../../app/components/match/MatchNavigation";
-import type { MatchGame } from "../../app/types/match";
+import type { MatchGame, PartnerPair } from "../../app/types/match";
 import type { ChessGame } from "../../app/actions";
 
 /**
@@ -61,6 +61,35 @@ function createMockMatchGames(count: number): MatchGame[] {
       partnerGameId: (gameId + 1).toString(),
       original: createMockChessGame(gameId, `PlayerA${i}`, `PlayerB${i}`, result),
       partner: createMockChessGame(gameId + 1, `PlayerC${i}`, `PlayerD${i}`, result === "1-0" ? "0-1" : "1-0"),
+      endTime: Date.now() / 1000 + i * 300,
+    });
+  }
+
+  return games;
+}
+
+/**
+ * Creates mock match games with fixed teams across all games.
+ * This keeps score expectations deterministic for summary assertions.
+ */
+function createConsistentTeamMatchGames(
+  results: Array<"1-0" | "0-1" | "1/2-1/2">,
+): MatchGame[] {
+  const games: MatchGame[] = [];
+  const team1BoardA = "Team1BoardA";
+  const team1BoardB = "Team1BoardB";
+  const team2BoardA = "Team2BoardA";
+  const team2BoardB = "Team2BoardB";
+
+  for (let i = 0; i < results.length; i++) {
+    const gameId = 170000000000 + i * 2;
+    const result = results[i];
+
+    games.push({
+      gameId: gameId.toString(),
+      partnerGameId: (gameId + 1).toString(),
+      original: createMockChessGame(gameId, team1BoardA, team2BoardA, result),
+      partner: createMockChessGame(gameId + 1, team2BoardB, team1BoardB, result),
       endTime: Date.now() / 1000 + i * 300,
     });
   }
@@ -481,6 +510,71 @@ describe("MatchNavigation", () => {
 
       // Results should be displayed
       cy.get('[role="option"]').first().should("contain", "1-0");
+    });
+
+    it("shows current and final score in full match mode", () => {
+      const mockGames = createConsistentTeamMatchGames(["1-0", "0-1", "1/2-1/2", "1-0"]);
+      cy.mount(
+        <MatchNavigation
+          hasGameLoaded={true}
+          discoveryStatus="complete"
+          totalGames={4}
+          currentIndex={3}
+          matchGames={mockGames}
+          onFindMatchGames={cy.stub()}
+          onPreviousGame={cy.stub()}
+          onNextGame={cy.stub()}
+          onSelectGame={cy.stub()}
+        />,
+      );
+
+      cy.contains("Game 4 of 4").click();
+
+      cy.get('[data-testid="match-score-summary"]').should("exist");
+      cy.get('[data-testid="current-score-row"]')
+        .should("contain", "Current")
+        .and("contain", "1-1")
+        .and("contain", "(1 draw)");
+      cy.get('[data-testid="final-score-row"]')
+        .should("contain", "Final")
+        .and("contain", "2-1")
+        .and("contain", "(1 draw)");
+      cy.get('[data-testid="match-score-summary"]').should("contain", "(1 draw)");
+    });
+
+    it("shows current and final score in partner pair mode", () => {
+      const mockGames = createConsistentTeamMatchGames(["1-0", "0-1", "1/2-1/2", "1-0"]);
+      const selectedPair: PartnerPair = {
+        usernames: ["team1boarda", "team1boardb"],
+        displayNames: ["Team1BoardA", "Team1BoardB"],
+      };
+      cy.mount(
+        <MatchNavigation
+          hasGameLoaded={true}
+          discoveryStatus="complete"
+          totalGames={4}
+          currentIndex={3}
+          matchGames={mockGames}
+          selectedPair={selectedPair}
+          onFindMatchGames={cy.stub()}
+          onPreviousGame={cy.stub()}
+          onNextGame={cy.stub()}
+          onSelectGame={cy.stub()}
+        />,
+      );
+
+      cy.contains("Game 4 of 4").click();
+
+      cy.get('[data-testid="partner-pair-score-summary"]').should("exist");
+      cy.get('[data-testid="current-score-row"]')
+        .should("contain", "Current")
+        .and("contain", "1-1")
+        .and("contain", "(1 draw)");
+      cy.get('[data-testid="final-score-row"]')
+        .should("contain", "Final")
+        .and("contain", "2-1")
+        .and("contain", "(1 draw)");
+      cy.get('[data-testid="partner-pair-score-summary"]').should("contain", "(1 draw)");
     });
   });
 });

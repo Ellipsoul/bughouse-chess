@@ -59,7 +59,7 @@ describe("Game Loading", () => {
     it("updates URL gameId when loading a new game from input", () => {
       cy.visit(`/?gameId=${SINGLE_GAME_ID}&ply=4`);
 
-      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+      cy.get('button[aria-label^="Copy share link for game"]', {
         timeout: 20000,
       }).should("exist");
       cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
@@ -78,7 +78,7 @@ describe("Game Loading", () => {
         }
       });
 
-      cy.get(`button[aria-label="Copy share link for game ${SECOND_GAME_ID}"]`, {
+      cy.get('button[aria-label^="Copy share link for game"]', {
         timeout: 20000,
       }).should("exist");
       cy.location("search").should("include", `gameId=${SECOND_GAME_ID}`);

@@ -367,6 +367,34 @@ export function computeMatchScore(games: MatchGame[]): MatchScore {
 }
 
 /**
+ * Computes the match score up to (but excluding) a given game index.
+ * This is used to show the running score before the currently selected game.
+ * @param games - Full array of match games
+ * @param currentIndex - 0-based selected game index
+ * @returns MatchScore for games [0, currentIndex)
+ */
+export function computeMatchScoreBeforeGame(games: MatchGame[], currentIndex: number): MatchScore {
+  const boundedEndIndex = Math.min(Math.max(currentIndex, 0), games.length);
+  return computeMatchScore(games.slice(0, boundedEndIndex));
+}
+
+/**
+ * Computes the partner pair score up to (but excluding) a given game index.
+ * @param games - Full array of match games
+ * @param selectedPair - The selected partner pair
+ * @param currentIndex - 0-based selected game index
+ * @returns PartnerPairScore for games [0, currentIndex)
+ */
+export function computePartnerPairScoreBeforeGame(
+  games: MatchGame[],
+  selectedPair: PartnerPair,
+  currentIndex: number,
+): PartnerPairScore {
+  const boundedEndIndex = Math.min(Math.max(currentIndex, 0), games.length);
+  return computePartnerPairScore(games.slice(0, boundedEndIndex), selectedPair);
+}
+
+/**
  * Props for the MatchNavigation component.
  */
 export interface MatchNavigationProps {
@@ -661,7 +689,7 @@ function MatchDropdown({
 
   return (
     <div
-      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 w-64 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
+      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 w-74 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
       role="listbox"
       aria-label="Select a game"
     >
@@ -846,9 +874,13 @@ function MatchDropdown({
 
       {/* Score summary */}
       {isPartnerPairMode ? (
-        <PartnerPairScoreSummary games={games} selectedPair={selectedPair} />
+        <PartnerPairScoreSummary
+          games={games}
+          selectedPair={selectedPair}
+          currentIndex={currentIndex}
+        />
       ) : (
-        <MatchScoreSummary games={games} refTeams={refTeams} />
+        <MatchScoreSummary games={games} refTeams={refTeams} currentIndex={currentIndex} />
       )}
     </div>
   );
@@ -860,14 +892,20 @@ function MatchDropdown({
 function MatchScoreSummary({
   games,
   refTeams,
+  currentIndex,
 }: {
   games: MatchGame[];
   refTeams: ReferenceTeams;
+  currentIndex: number;
 }) {
-  const score = computeMatchScore(games);
+  const currentScore = computeMatchScoreBeforeGame(games, currentIndex);
+  const finalScore = computeMatchScore(games);
 
   return (
-    <div className="border-t-2 border-gray-600 px-2 py-2 bg-gray-800/80">
+    <div
+      className="border-t-2 border-gray-600 px-2 py-1.5 bg-gray-800/80"
+      data-testid="match-score-summary"
+    >
       <div className="flex items-center justify-between gap-2">
         {/* Team 1 names */}
         <div className="flex-1 min-w-0 text-left">
@@ -879,18 +917,36 @@ function MatchScoreSummary({
           </span>
         </div>
 
-        {/* Final score */}
-        <div className="shrink-0 text-center">
-          <span className="text-[11px] font-bold text-gray-200">
-            <span className="text-green-400">{score.team1Wins}</span>
+        {/* Current and final score */}
+        <div className="shrink-0 min-w-[8.5rem] leading-none" data-testid="match-score-rows">
+          <div
+            className="flex items-baseline text-[10px] font-semibold text-gray-300"
+            data-testid="current-score-row"
+          >
+            <span className="w-11 text-[7px] uppercase tracking-[0.08em] text-gray-500">Current</span>
+            <span className="text-green-400">{currentScore.team1Wins}</span>
             <span className="text-gray-500 mx-1">-</span>
-            <span className="text-red-400">{score.team2Wins}</span>
-          </span>
-          {score.draws > 0 && (
-            <span className="text-[9px] text-gray-500 block">
-              ({score.draws} draw{score.draws !== 1 ? "s" : ""})
-            </span>
-          )}
+            <span className="text-red-400">{currentScore.team2Wins}</span>
+            {currentScore.draws > 0 && (
+              <span className="text-[8px] text-gray-500 ml-1">
+                ({currentScore.draws} draw{currentScore.draws !== 1 ? "s" : ""})
+              </span>
+            )}
+          </div>
+          <div
+            className="mt-0.5 flex items-baseline text-[10px] font-bold text-gray-200"
+            data-testid="final-score-row"
+          >
+            <span className="w-11 text-[7px] uppercase tracking-[0.08em] text-gray-500">Final</span>
+            <span className="text-green-400">{finalScore.team1Wins}</span>
+            <span className="text-gray-500 mx-1">-</span>
+            <span className="text-red-400">{finalScore.team2Wins}</span>
+            {finalScore.draws > 0 && (
+              <span className="text-[8px] text-gray-500 ml-1">
+                ({finalScore.draws} draw{finalScore.draws !== 1 ? "s" : ""})
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Team 2 names */}
@@ -913,14 +969,20 @@ function MatchScoreSummary({
 function PartnerPairScoreSummary({
   games,
   selectedPair,
+  currentIndex,
 }: {
   games: MatchGame[];
   selectedPair: PartnerPair;
+  currentIndex: number;
 }) {
-  const score = computePartnerPairScore(games, selectedPair);
+  const currentScore = computePartnerPairScoreBeforeGame(games, selectedPair, currentIndex);
+  const finalScore = computePartnerPairScore(games, selectedPair);
 
   return (
-    <div className="border-t-2 border-gray-600 px-2 py-2 bg-gray-800/80">
+    <div
+      className="border-t-2 border-gray-600 px-2 py-1.5 bg-gray-800/80"
+      data-testid="partner-pair-score-summary"
+    >
       <div className="flex items-center justify-between gap-2">
         {/* Partner pair names */}
         <div className="flex-1 min-w-0 text-left">
@@ -932,18 +994,36 @@ function PartnerPairScoreSummary({
           </span>
         </div>
 
-        {/* Final score */}
-        <div className="shrink-0 text-center">
-          <span className="text-[11px] font-bold text-gray-200">
-            <span className="text-green-400">{score.pairWins}</span>
+        {/* Current and final score */}
+        <div className="shrink-0 min-w-[8.5rem] leading-none" data-testid="partner-pair-score-rows">
+          <div
+            className="flex items-baseline text-[10px] font-semibold text-gray-300"
+            data-testid="current-score-row"
+          >
+            <span className="w-11 text-[7px] uppercase tracking-[0.08em] text-gray-500">Current</span>
+            <span className="text-green-400">{currentScore.pairWins}</span>
             <span className="text-gray-500 mx-1">-</span>
-            <span className="text-red-400">{score.pairLosses}</span>
-          </span>
-          {score.draws > 0 && (
-            <span className="text-[9px] text-gray-500 block">
-              ({score.draws} draw{score.draws !== 1 ? "s" : ""})
-            </span>
-          )}
+            <span className="text-red-400">{currentScore.pairLosses}</span>
+            {currentScore.draws > 0 && (
+              <span className="text-[8px] text-gray-500 ml-1">
+                ({currentScore.draws} draw{currentScore.draws !== 1 ? "s" : ""})
+              </span>
+            )}
+          </div>
+          <div
+            className="mt-0.5 flex items-baseline text-[10px] font-bold text-gray-200"
+            data-testid="final-score-row"
+          >
+            <span className="w-11 text-[7px] uppercase tracking-[0.08em] text-gray-500">Final</span>
+            <span className="text-green-400">{finalScore.pairWins}</span>
+            <span className="text-gray-500 mx-1">-</span>
+            <span className="text-red-400">{finalScore.pairLosses}</span>
+            {finalScore.draws > 0 && (
+              <span className="text-[8px] text-gray-500 ml-1">
+                ({finalScore.draws} draw{finalScore.draws !== 1 ? "s" : ""})
+              </span>
+            )}
+          </div>
         </div>
 
         {/* "vs Various" label for opponents */}
