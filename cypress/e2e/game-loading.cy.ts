@@ -174,6 +174,63 @@ describe("Game Loading", () => {
         }
       });
     });
+
+    it("keeps match state while syncing URL on non-shared navigation", () => {
+      let callsBeforeNavigation: Array<{ request: { url: string } }> = [];
+
+      cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
+
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
+        timeout: 20000,
+      }).should("exist");
+
+      cy.get('button[aria-label="Find match games"]').click();
+      cy.contains("button", "Full Match (4 Players)", { timeout: 10000 }).click();
+
+      cy.get('button[aria-label="Next game"]', { timeout: 30000 }).should("exist");
+      cy.get("body").then(($body) => {
+        const nextButton = $body.find('button[aria-label="Next game"]');
+        if (nextButton.length > 0 && !nextButton.prop("disabled")) {
+          cy.get("@chesscomApi.all").then((calls) => {
+            callsBeforeNavigation = toInterceptCalls(calls);
+          });
+
+          cy.get('button[aria-label="Next game"]').click();
+
+          cy.location("search").then((search) => {
+            const params = new URLSearchParams(search);
+            const navigatedGameId = params.get("gameId");
+            if (!navigatedGameId) {
+              throw new Error("Expected non-shared match navigation to set a gameId in the URL.");
+            }
+
+            cy.get('button[aria-label="Select game from match"]', { timeout: 10000 }).should(
+              "contain.text",
+              "Game 2 of",
+            );
+            cy.get('button[aria-label="Find match games"]').should("not.exist");
+
+            cy.wait(800);
+            cy.get("@chesscomApi.all").then((callsAfterNavigation) => {
+              const beforeCount = countCallsForGameId(
+                callsBeforeNavigation,
+                navigatedGameId,
+              );
+              const afterCount = countCallsForGameId(
+                toInterceptCalls(callsAfterNavigation),
+                navigatedGameId,
+              );
+              expect(afterCount).to.equal(beforeCount);
+            });
+          });
+        } else {
+          // Keep deterministic assertions for environments where fixture discovery
+          // yields only one game and navigation cannot advance.
+          cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
+          cy.location("search").should("not.include", "sharedId=");
+        }
+      });
+    });
   });
 
   describe("Viewer Reset", () => {

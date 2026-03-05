@@ -177,6 +177,14 @@ export default function GameViewerPage() {
   const [isPending, startTransition] = useTransition();
   const loadedGameId = gameData?.original?.game?.id?.toString();
   const lastAutoLoadedIdRef = useRef<string | null>(null);
+  /**
+   * Tracks internal URL sync requests triggered by in-match navigation.
+   *
+   * Invariant: when this marker matches the current query `gameId`, the
+   * auto-load effect must NOT call `loadGame`, because match navigation already
+   * swapped `gameData` in memory and re-loading would reset match state.
+   */
+  const pendingInternalMatchNavigationGameIdRef = useRef<string | null>(null);
   const lastAutoLoadedSharedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
@@ -338,6 +346,11 @@ export default function GameViewerPage() {
 
       // This URL update is initiated by in-app state (not external navigation),
       // so pre-mark this game as auto-loaded to avoid duplicate auto-load fetches.
+      if (params.action === "matchNavigation") {
+        pendingInternalMatchNavigationGameIdRef.current = params.gameId;
+      } else {
+        pendingInternalMatchNavigationGameIdRef.current = null;
+      }
       lastAutoLoadedIdRef.current = params.gameId;
 
       const nextUrl = buildGameViewerUrl({
@@ -1210,6 +1223,13 @@ export default function GameViewerPage() {
 
   useEffect(() => {
     if (!autoLoadGameId) {
+      return;
+    }
+
+    if (pendingInternalMatchNavigationGameIdRef.current === autoLoadGameId) {
+      // Consume the internal marker so only this URL transition is ignored.
+      pendingInternalMatchNavigationGameIdRef.current = null;
+      lastAutoLoadedIdRef.current = autoLoadGameId;
       return;
     }
 
