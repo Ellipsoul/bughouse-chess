@@ -7,13 +7,13 @@ import type { ChessGame } from "../../../app/actions";
 import type { MatchGame, PartnerPair } from "../../../app/types/match";
 import type { SingleGameData } from "../../../app/types/sharedGame";
 import ShareGameModal from "../../../app/components/shared/ShareGameModal";
-import { shareGame, shareMatch } from "@/app/utils/shared-games/sharedGamesService";
+import { shareGame, shareMatch } from "../../../app/utils/shared-games/sharedGamesService";
 import { revalidateSharedGamesPage } from "../../../app/actions";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
   createShareHashInputFromSingleGame,
-} from "@/app/utils/shared-games/sharedGameHash";
+} from "../../../app/utils/shared-games/sharedGameHash";
 import React from "react";
 import toast from "react-hot-toast";
 
@@ -23,7 +23,7 @@ const sharedGameHashesState = vi.hoisted(() => ({
   addHash: vi.fn(),
 }));
 
-vi.mock("@/app/utils/shared-games/sharedGamesService", () => ({
+vi.mock("../../../app/utils/shared-games/sharedGamesService", () => ({
   shareGame: vi.fn(),
   shareMatch: vi.fn(),
 }));
