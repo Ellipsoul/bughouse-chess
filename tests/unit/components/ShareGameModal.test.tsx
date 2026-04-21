@@ -389,6 +389,31 @@ describe("ShareGameModal", () => {
     ).toBeInTheDocument();
   });
 
+  it("allows descriptions containing the chess term 'pawn'", async () => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const matchGames = loadMatchGames(index.games);
+    const singleGameData = toSingleGameData(matchGames[0]!);
+
+    render(
+      <ShareGameModal
+        open={true}
+        userId="user-123"
+        username="ellipsoul"
+        singleGameData={singleGameData}
+        matchGames={matchGames}
+        contentType="match"
+        selectedPair={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("switch", { name: "Share match" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Brilliant pawn sacrifice!" } });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).not.toBeDisabled();
+  });
+
   it("allows sharing a single game when match is already shared", async () => {
     const index = loadIndex<MatchIndex>("match-index.json");
     const matchGames = loadMatchGames(index.games);

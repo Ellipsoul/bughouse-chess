@@ -333,7 +333,11 @@ export default function ShareGameModal({
    * Initialize the profanity filter.
    * Using useMemo to avoid recreating the filter instance on every render.
    */
-  const profanityFilter = useMemo(() => new Filter(), []);
+  const profanityFilter = useMemo(() => {
+    const filter = new Filter();
+    filter.removeWords("pawn");
+    return filter;
+  }, []);
 
   /**
    * Determines the effective content type based on share scope.
