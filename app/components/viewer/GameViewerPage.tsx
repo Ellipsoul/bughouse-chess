@@ -45,6 +45,7 @@ import {
   DiscoveryCancellation,
 } from "../../utils/discovery/matchDiscovery";
 import { useCompactLandscape } from "../../utils/platform/useCompactLandscape";
+import { usePhonePortraitLandscapeHint } from "../../utils/platform/usePhonePortraitLandscapeHint";
 import type { PairKey } from "../../utils/board/matchBoardOrientation";
 import {
   computeBaseFlip,
@@ -60,6 +61,7 @@ import { getSharedGame, reconstructPartnerPairFromMetadata } from "../../utils/s
 import { getShareEligibility } from "../../utils/shared-games/shareEligibility";
 import { useSharedGameHashes } from "../../utils/shared-games/sharedGameHashesStore";
 import { ViewerOrientationStore, ViewerOrientationStoreProvider } from "../../stores/viewerOrientationStore";
+import ViewerLandscapeHint from "./ViewerLandscapeHint";
 import {
   computeShareContentHash,
   createShareHashInputFromMatchGames,
@@ -189,6 +191,7 @@ export default function GameViewerPage() {
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
   const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
   const isCompactLandscape = useCompactLandscape();
+  const { shouldSuggestLandscape } = usePhonePortraitLandscapeHint();
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
   const analytics = useFirebaseAnalytics();
   const hasLoadedGame = Boolean(gameData);
@@ -1404,6 +1407,7 @@ export default function GameViewerPage() {
 
   return (
     <div className="h-full bg-gray-900 flex flex-col overflow-y-hidden overflow-x-visible">
+      {shouldSuggestLandscape ? <ViewerLandscapeHint /> : null}
       {pendingLoadRequest ? (
         <ConfirmLoadNewGameModal
           open={true}
