@@ -2,6 +2,11 @@
 
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFirestoreDb } from "@/app/utils/platform/firebaseClient";
+import {
+  DEFAULT_PIECE_VALUE_PRESET,
+  isPieceValuePreset,
+  type PieceValuePreset,
+} from "@/app/utils/analysis/captureMaterial";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -24,6 +29,16 @@ const LOCAL_STORAGE_KEY = "bh-board-annotation-color";
 const AUTO_ADVANCE_LIVE_REPLAY_KEY = "bh-auto-advance-live-replay";
 
 /**
+ * LocalStorage key for the capture-material piece value preset.
+ */
+const PIECE_VALUE_PRESET_KEY = "bh-piece-value-preset";
+
+/**
+ * Same-tab notification used by the game viewer to react to saved preference changes.
+ */
+const PIECE_VALUE_PRESET_CHANGE_EVENT = "bh-piece-value-preset-change";
+
+/**
  * Firestore collection path for user preferences.
  * Structure: users/{userId}/userPreferences/{preferencesDocId}
  */
@@ -37,6 +52,7 @@ const USER_PREFERENCES_DOC_ID = "settings";
 export interface UserPreferences {
   boardAnnotationColor: string;
   autoAdvanceLiveReplay: boolean;
+  pieceValuePreset: PieceValuePreset;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -153,6 +169,69 @@ export function removeAutoAdvanceLiveReplayFromLocalStorage(): void {
   }
 }
 
+/**
+ * Gets the piece value preset from localStorage.
+ * Returns null when no valid explicit preference is stored.
+ */
+export function getPieceValuePresetFromLocalStorage(): PieceValuePreset | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = localStorage.getItem(PIECE_VALUE_PRESET_KEY);
+    return isPieceValuePreset(stored) ? stored : null;
+  } catch (err) {
+    console.warn("[userPreferencesService] Failed to read from localStorage:", err);
+    return null;
+  }
+}
+
+/**
+ * Saves the piece value preset and notifies same-tab subscribers.
+ */
+export function savePieceValuePresetToLocalStorage(preset: PieceValuePreset): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.setItem(PIECE_VALUE_PRESET_KEY, preset);
+    window.dispatchEvent(new Event(PIECE_VALUE_PRESET_CHANGE_EVENT));
+  } catch (err) {
+    console.warn("[userPreferencesService] Failed to write to localStorage:", err);
+  }
+}
+
+/**
+ * Subscribe to piece-value changes made in this tab or another browser tab.
+ */
+export function subscribeToPieceValuePresetChanges(onChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === PIECE_VALUE_PRESET_KEY) {
+      onChange();
+    }
+  };
+
+  window.addEventListener(PIECE_VALUE_PRESET_CHANGE_EVENT, onChange);
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    window.removeEventListener(PIECE_VALUE_PRESET_CHANGE_EVENT, onChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+/**
+ * Snapshot used by React preference subscribers.
+ */
+export function getPieceValuePresetSnapshot(): PieceValuePreset {
+  return getPieceValuePresetFromLocalStorage() ?? DEFAULT_PIECE_VALUE_PRESET;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Firestore Operations                                                       */
 /* -------------------------------------------------------------------------- */
@@ -177,6 +256,9 @@ export async function loadUserPreferencesFromFirestore(
     return {
       boardAnnotationColor: data.boardAnnotationColor ?? DEFAULT_BOARD_ANNOTATION_COLOR,
       autoAdvanceLiveReplay: data.autoAdvanceLiveReplay ?? false,
+      pieceValuePreset: isPieceValuePreset(data.pieceValuePreset)
+        ? data.pieceValuePreset
+        : DEFAULT_PIECE_VALUE_PRESET,
     };
   } catch (err) {
     console.error("[userPreferencesService] Failed to load preferences from Firestore:", err);
@@ -262,4 +344,29 @@ export async function loadAutoAdvanceLiveReplayPreference(
   }
 
   return false;
+}
+
+/**
+ * Loads the piece value preset using the following priority:
+ * 1. localStorage (if present)
+ * 2. Firestore (if authenticated and localStorage is empty)
+ * 3. Default bughouse values
+ */
+export async function loadPieceValuePresetPreference(
+  userId: string | null,
+): Promise<PieceValuePreset> {
+  const localPreference = getPieceValuePresetFromLocalStorage();
+  if (localPreference) {
+    return localPreference;
+  }
+
+  if (userId) {
+    const firestorePrefs = await loadUserPreferencesFromFirestore(userId);
+    if (firestorePrefs?.pieceValuePreset) {
+      savePieceValuePresetToLocalStorage(firestorePrefs.pieceValuePreset);
+      return firestorePrefs.pieceValuePreset;
+    }
+  }
+
+  return DEFAULT_PIECE_VALUE_PRESET;
 }

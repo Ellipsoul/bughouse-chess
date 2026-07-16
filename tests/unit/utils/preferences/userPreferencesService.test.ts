@@ -10,6 +10,9 @@ import {
   saveUserPreferencesToFirestore,
   loadBoardAnnotationColor,
   loadAutoAdvanceLiveReplayPreference,
+  getPieceValuePresetFromLocalStorage,
+  savePieceValuePresetToLocalStorage,
+  loadPieceValuePresetPreference,
   DEFAULT_BOARD_ANNOTATION_COLOR,
   type UserPreferences,
 } from "@/app/utils/preferences/userPreferencesService";
@@ -267,6 +270,35 @@ describe("userPreferencesService - localStorage operations", () => {
       expect(data.get("bh-auto-advance-live-replay")).toBeUndefined();
     });
   });
+
+  describe("piece value preset localStorage operations", () => {
+    it("returns null for missing or invalid values", () => {
+      const { storage } = createStorageMock({
+        "bh-piece-value-preset": "unsupported",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      expect(getPieceValuePresetFromLocalStorage()).toBeNull();
+    });
+
+    it("reads and saves a valid preset", () => {
+      const { storage, data } = createStorageMock({
+        "bh-piece-value-preset": "standard",
+      });
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      expect(getPieceValuePresetFromLocalStorage()).toBe("standard");
+
+      savePieceValuePresetToLocalStorage("bughouse");
+      expect(data.get("bh-piece-value-preset")).toBe("bughouse");
+    });
+  });
 });
 
 describe("userPreferencesService - Firestore operations", () => {
@@ -303,6 +335,7 @@ describe("userPreferencesService - Firestore operations", () => {
         data: () => ({
           boardAnnotationColor: customColor,
           autoAdvanceLiveReplay,
+          pieceValuePreset: "standard",
         }),
       } as unknown as DocumentSnapshot;
 
@@ -315,6 +348,7 @@ describe("userPreferencesService - Firestore operations", () => {
       expect(result).toEqual({
         boardAnnotationColor: customColor,
         autoAdvanceLiveReplay,
+        pieceValuePreset: "standard",
       });
     });
 
@@ -335,6 +369,7 @@ describe("userPreferencesService - Firestore operations", () => {
       expect(result).toEqual({
         boardAnnotationColor: DEFAULT_BOARD_ANNOTATION_COLOR,
         autoAdvanceLiveReplay: false,
+        pieceValuePreset: "bughouse",
       });
     });
 
@@ -359,6 +394,7 @@ describe("userPreferencesService - Firestore operations", () => {
       const preferences: UserPreferences = {
         boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
         autoAdvanceLiveReplay: false,
+        pieceValuePreset: "standard",
       };
 
       vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
@@ -377,6 +413,7 @@ describe("userPreferencesService - Firestore operations", () => {
       const preferences: UserPreferences = {
         boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
         autoAdvanceLiveReplay: true,
+        pieceValuePreset: "bughouse",
       };
 
       vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
@@ -592,6 +629,41 @@ describe("userPreferencesService - unified loading", () => {
       const preference = await loadAutoAdvanceLiveReplayPreference("user123");
 
       expect(preference).toBe(false);
+    });
+  });
+
+  describe("loadPieceValuePresetPreference", () => {
+    it("returns and caches the Firestore preset when localStorage is empty", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      const mockDb = {} as Firestore;
+      const mockDocRef = {} as DocumentReference;
+      const mockDocSnap = {
+        exists: () => true,
+        data: () => ({ pieceValuePreset: "standard" }),
+      } as unknown as DocumentSnapshot;
+
+      vi.mocked(getFirestoreDb).mockReturnValue(mockDb);
+      vi.mocked(doc).mockReturnValue(mockDocRef);
+      vi.mocked(getDoc).mockResolvedValue(mockDocSnap);
+
+      await expect(loadPieceValuePresetPreference("user123")).resolves.toBe("standard");
+      expect(storage.getItem("bh-piece-value-preset")).toBe("standard");
+    });
+
+    it("uses Bughouse values by default", async () => {
+      const { storage } = createStorageMock();
+      Object.defineProperty(window, "localStorage", {
+        value: storage,
+        writable: true,
+      });
+
+      await expect(loadPieceValuePresetPreference(null)).resolves.toBe("bughouse");
+      expect(getDoc).not.toHaveBeenCalled();
     });
   });
 });

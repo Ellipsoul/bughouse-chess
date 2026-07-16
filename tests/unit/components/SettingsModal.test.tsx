@@ -39,6 +39,8 @@ vi.mock("@/app/utils/preferences/userPreferencesService", () => ({
   saveUserPreferencesToFirestore: vi.fn(),
   loadAutoAdvanceLiveReplayPreference: vi.fn(),
   saveAutoAdvanceLiveReplayToLocalStorage: vi.fn(),
+  loadPieceValuePresetPreference: vi.fn(),
+  savePieceValuePresetToLocalStorage: vi.fn(),
   DEFAULT_BOARD_ANNOTATION_COLOR: "rgb(52, 168, 83, 0.95)",
 }));
 
@@ -64,6 +66,7 @@ describe("SettingsModal", () => {
       "rgb(52, 168, 83, 0.95)",
     );
     vi.mocked(userPreferencesService.loadAutoAdvanceLiveReplayPreference).mockResolvedValue(false);
+    vi.mocked(userPreferencesService.loadPieceValuePresetPreference).mockResolvedValue("bughouse");
   });
 
   it("does not render when open is false", () => {
@@ -92,6 +95,9 @@ describe("SettingsModal", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Board Annotation Color")).toBeInTheDocument();
+    expect(screen.getByText("Capture material values")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Bughouse/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Standard chess/ })).not.toBeChecked();
     expect(screen.getByText("Auto-advance live replay")).toBeInTheDocument();
   });
 
@@ -262,6 +268,7 @@ describe("SettingsModal", () => {
         {
           boardAnnotationColor: "rgb(255, 0, 0, 0.95)",
           autoAdvanceLiveReplay: true,
+          pieceValuePreset: "bughouse",
         },
       );
     });
@@ -292,6 +299,34 @@ describe("SettingsModal", () => {
       expect(userPreferencesService.saveAutoAdvanceLiveReplayToLocalStorage).toHaveBeenCalledWith(false);
     });
     expect(userPreferencesService.saveUserPreferencesToFirestore).not.toHaveBeenCalled();
+  });
+
+  it("saves the standard piece value preset locally and to Firestore", async () => {
+    vi.mocked(userPreferencesService.saveUserPreferencesToFirestore).mockResolvedValue(undefined);
+
+    render(
+      <SettingsModal
+        open={true}
+        userId="user123"
+        buttonPosition={defaultButtonPosition}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const standardPreset = await screen.findByRole("radio", { name: /Standard chess/ });
+    fireEvent.click(standardPreset);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save"));
+    });
+
+    expect(userPreferencesService.savePieceValuePresetToLocalStorage).toHaveBeenCalledWith(
+      "standard",
+    );
+    expect(userPreferencesService.saveUserPreferencesToFirestore).toHaveBeenCalledWith(
+      "user123",
+      expect.objectContaining({ pieceValuePreset: "standard" }),
+    );
   });
 
   it("handles save errors gracefully", async () => {

@@ -10,6 +10,7 @@ import * as userPreferencesService from "@/app/utils/preferences/userPreferences
 vi.mock("@/app/utils/preferences/userPreferencesService", () => ({
   loadBoardAnnotationColor: vi.fn(),
   loadAutoAdvanceLiveReplayPreference: vi.fn(),
+  loadPieceValuePresetPreference: vi.fn(),
   DEFAULT_BOARD_ANNOTATION_COLOR: "rgb(52, 168, 83, 0.95)",
 }));
 
@@ -34,6 +35,7 @@ describe("useUserPreferences", () => {
     // Reset document root style
     document.documentElement.style.removeProperty("--bh-board-annotation-color");
     vi.mocked(userPreferencesService.loadAutoAdvanceLiveReplayPreference).mockResolvedValue(false);
+    vi.mocked(userPreferencesService.loadPieceValuePresetPreference).mockResolvedValue("bughouse");
   });
 
   it("loads preferences and updates CSS variable when user is signed in", async () => {

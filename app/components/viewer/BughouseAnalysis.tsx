@@ -62,6 +62,7 @@ import {
   getPlayersForBoard,
 } from "../../utils/board/boardOrderMapping";
 import { clampPlyToMainlineBounds } from "../../utils/discovery/gameViewerUrlState";
+import { usePieceValuePreset } from "../../utils/preferences/usePieceValuePreset";
 
 interface BughouseAnalysisProps {
   gameData?: {
@@ -185,6 +186,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const analytics = useFirebaseAnalytics();
   const orientationStore = useViewerOrientationStore();
   const isBoardOrderSwapped = orientationStore.isBoardOrderSwapped;
+  const pieceValuePreset = usePieceValuePreset();
   const handleToggleBoardOrder = useCallback(() => {
     orientationStore.toggleBoardOrder();
   }, [orientationStore]);
@@ -207,7 +209,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     setPendingDrop,
     commitPromotion: commitPromotionBase,
     cancelPendingPromotion,
-  } = useAnalysisState();
+  } = useAnalysisState(pieceValuePreset);
 
   // Wrap variation and promotion functions with analytics
   const promoteVariationOneLevel = useCallback(

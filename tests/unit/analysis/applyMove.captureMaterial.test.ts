@@ -26,6 +26,31 @@ describe("validateAndApplyBughouseHalfMove - captureMaterial", () => {
     expect(result.next.captureMaterial.A.black).toBe(-1.5);
   });
 
+  it("tracks captures using the standard chess preset", () => {
+    const pos: BughousePositionSnapshot = {
+      fenA: "4k3/8/8/4r3/3Q4/8/8/4K3 w - - 0 1",
+      fenB: "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+      reserves: createEmptyReserves(),
+      promotedSquares: { A: [], B: [] },
+      captureMaterial: createEmptyCaptureMaterialLedger(),
+    };
+
+    const result = validateAndApplyBughouseHalfMove(
+      pos,
+      {
+        kind: "normal",
+        board: "A",
+        from: "d4",
+        to: "e5",
+      },
+      { pieceValuePreset: "standard" },
+    );
+    if (result.type !== "ok") throw new Error(`Expected ok, got ${result.type}`);
+
+    expect(result.next.captureMaterial.A.white).toBe(5);
+    expect(result.next.captureMaterial.A.black).toBe(-5);
+  });
+
   it("tracks an en-passant capture (pawn = 1.5)", () => {
     const pos: BughousePositionSnapshot = {
       // White pawn e5 can capture en-passant on d6 (capturing pawn on d5).

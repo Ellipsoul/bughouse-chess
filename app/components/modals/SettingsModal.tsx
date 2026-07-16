@@ -12,8 +12,14 @@ import {
   DEFAULT_BOARD_ANNOTATION_COLOR,
   loadAutoAdvanceLiveReplayPreference,
   saveAutoAdvanceLiveReplayToLocalStorage,
+  loadPieceValuePresetPreference,
+  savePieceValuePresetToLocalStorage,
   type UserPreferences,
 } from "../../utils/preferences/userPreferencesService";
+import {
+  DEFAULT_PIECE_VALUE_PRESET,
+  type PieceValuePreset,
+} from "../../utils/analysis/captureMaterial";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/platform/useFirebaseAnalytics";
 
 /* -------------------------------------------------------------------------- */
@@ -102,7 +108,7 @@ export interface SettingsModalProps {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Settings modal that allows users to customize board annotation color.
+ * Settings modal for board annotations, material values, and replay behavior.
  * Opens as a popout next to the settings icon.
  */
 export default function SettingsModal({
@@ -115,6 +121,12 @@ export default function SettingsModal({
   const [initialColor, setInitialColor] = useState<string>(DEFAULT_BOARD_ANNOTATION_COLOR);
   const [autoAdvanceLiveReplay, setAutoAdvanceLiveReplay] = useState(false);
   const [initialAutoAdvanceLiveReplay, setInitialAutoAdvanceLiveReplay] = useState(false);
+  const [pieceValuePreset, setPieceValuePreset] = useState<PieceValuePreset>(
+    DEFAULT_PIECE_VALUE_PRESET,
+  );
+  const [initialPieceValuePreset, setInitialPieceValuePreset] = useState<PieceValuePreset>(
+    DEFAULT_PIECE_VALUE_PRESET,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const [modalHeight, setModalHeight] = useState<number | null>(null);
@@ -153,8 +165,15 @@ export default function SettingsModal({
     }
 
     setAutoAdvanceLiveReplay(initialAutoAdvanceLiveReplay);
+    setPieceValuePreset(initialPieceValuePreset);
     onClose();
-  }, [isSaving, initialColor, initialAutoAdvanceLiveReplay, onClose]);
+  }, [
+    isSaving,
+    initialColor,
+    initialAutoAdvanceLiveReplay,
+    initialPieceValuePreset,
+    onClose,
+  ]);
 
   /**
    * Saves the preference to Firestore (if authenticated) and closes the modal.
@@ -170,8 +189,10 @@ export default function SettingsModal({
         const preferences: UserPreferences = {
           boardAnnotationColor: selectedColor,
           autoAdvanceLiveReplay,
+          pieceValuePreset,
         };
         saveAutoAdvanceLiveReplayToLocalStorage(autoAdvanceLiveReplay);
+        savePieceValuePresetToLocalStorage(pieceValuePreset);
         await saveUserPreferencesToFirestore(userId, preferences);
         toast.success("Settings saved!");
 
@@ -180,10 +201,12 @@ export default function SettingsModal({
           user_authenticated: "true",
           color_changed: selectedColor !== initialColor ? "true" : "false",
           auto_advance_live_replay: autoAdvanceLiveReplay ? "true" : "false",
+          piece_value_preset: pieceValuePreset,
           storage_type: "firestore",
         });
       } else {
         saveAutoAdvanceLiveReplayToLocalStorage(autoAdvanceLiveReplay);
+        savePieceValuePresetToLocalStorage(pieceValuePreset);
         // For non-authenticated users, board color localStorage is already updated in real-time
         toast.success("Settings saved!");
 
@@ -192,6 +215,7 @@ export default function SettingsModal({
           user_authenticated: "false",
           color_changed: selectedColor !== initialColor ? "true" : "false",
           auto_advance_live_replay: autoAdvanceLiveReplay ? "true" : "false",
+          piece_value_preset: pieceValuePreset,
           storage_type: "localStorage",
         });
       }
@@ -199,6 +223,7 @@ export default function SettingsModal({
       // Update initial color to the saved color
       setInitialColor(selectedColor);
       setInitialAutoAdvanceLiveReplay(autoAdvanceLiveReplay);
+      setInitialPieceValuePreset(pieceValuePreset);
       onClose();
     } catch (err) {
       console.error("[SettingsModal] Failed to save preferences:", err);
@@ -214,7 +239,16 @@ export default function SettingsModal({
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, userId, selectedColor, initialColor, autoAdvanceLiveReplay, onClose, analytics]);
+  }, [
+    isSaving,
+    userId,
+    selectedColor,
+    initialColor,
+    autoAdvanceLiveReplay,
+    pieceValuePreset,
+    onClose,
+    analytics,
+  ]);
 
   // Load initial color when modal opens
   useEffect(() => {
@@ -229,10 +263,15 @@ export default function SettingsModal({
       setIsSaving(false);
 
       void (async () => {
-        const preference = await loadAutoAdvanceLiveReplayPreference(userId);
+        const [autoAdvancePreference, pieceValuePreference] = await Promise.all([
+          loadAutoAdvanceLiveReplayPreference(userId),
+          loadPieceValuePresetPreference(userId),
+        ]);
         if (!isActive) return;
-        setAutoAdvanceLiveReplay(preference);
-        setInitialAutoAdvanceLiveReplay(preference);
+        setAutoAdvanceLiveReplay(autoAdvancePreference);
+        setInitialAutoAdvanceLiveReplay(autoAdvancePreference);
+        setPieceValuePreset(pieceValuePreference);
+        setInitialPieceValuePreset(pieceValuePreference);
       })();
 
       return () => {
@@ -297,9 +336,10 @@ export default function SettingsModal({
   // Calculate popout position (to the right of the settings button)
   // Align bottom of modal with bottom of button
   const popoutLeft = buttonPosition.left + buttonPosition.width + 8;
-  const popoutTop = modalHeight !== null
+  const desiredPopoutTop = modalHeight !== null
     ? buttonPosition.top + buttonPosition.height - modalHeight
     : buttonPosition.top; // Fallback to top alignment until height is measured
+  const popoutTop = Math.max(8, desiredPopoutTop);
 
   // Hide modal until position is calculated to prevent jumping
   const isPositioned = modalHeight !== null;
@@ -320,6 +360,8 @@ export default function SettingsModal({
           left: `${popoutLeft}px`,
           top: `${popoutTop}px`,
           minWidth: "240px",
+          maxHeight: "calc(100vh - 16px)",
+          overflowY: "auto",
           visibility: isPositioned ? "visible" : "hidden",
         }}
       >
@@ -355,6 +397,47 @@ export default function SettingsModal({
               }}
             />
           </div>
+
+          {/* Capture Material Piece Values Section */}
+          <fieldset className="mb-3" data-testid="piece-value-preset">
+            <legend className="mb-1.5 text-xs font-medium text-gray-300">
+              Capture material values
+            </legend>
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-start gap-2 text-xs text-gray-200">
+                <input
+                  type="radio"
+                  name="piece-value-preset"
+                  value="bughouse"
+                  checked={pieceValuePreset === "bughouse"}
+                  onChange={() => setPieceValuePreset("bughouse")}
+                  className="mt-0.5 h-4 w-4 border-gray-600 bg-gray-800 text-mariner-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+                />
+                <span>
+                  <span className="font-medium text-gray-300">Bughouse</span>
+                  <span className="ml-1 text-[10px] text-gray-400">
+                    P 1.5 · N/B 3 · R 4 · Q 7
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-xs text-gray-200">
+                <input
+                  type="radio"
+                  name="piece-value-preset"
+                  value="standard"
+                  checked={pieceValuePreset === "standard"}
+                  onChange={() => setPieceValuePreset("standard")}
+                  className="mt-0.5 h-4 w-4 border-gray-600 bg-gray-800 text-mariner-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60"
+                />
+                <span>
+                  <span className="font-medium text-gray-300">Standard chess</span>
+                  <span className="ml-1 text-[10px] text-gray-400">
+                    P 1 · N/B 3 · R 5 · Q 9
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           {/* Auto-Advance Live Replay Section */}
           <div className="mb-3" data-testid="auto-advance-live-replay">

@@ -91,11 +91,8 @@ export interface BughouseGameState {
   /**
    * Cumulative capture-material totals per board and per player.
    *
-   * Bughouse material points:
-   * - pawn: 1.5
-   * - knight/bishop: 3
-   * - rook: 4
-   * - queen: 7
+   * Material points use the user's selected preset. The default Bughouse values are
+   * pawn 1.5, knight/bishop 3, rook 4, and queen 7.
    *
    * Promoted pieces are treated as pawns for capture value (common bughouse rule).
    */

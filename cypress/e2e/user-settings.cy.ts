@@ -1,16 +1,17 @@
 /**
  * E2E Tests for User Settings
  *
- * Tests that user preferences (specifically board annotation colors)
+ * Tests that user preferences
  * are properly persisted to localStorage and Firestore (when authenticated).
  */
 
-describe("User Settings - Board Annotation Color", () => {
+describe("User Settings", () => {
   /**
    * LocalStorage key for board annotation color.
    * Must match the key used in userPreferencesService.ts.
    */
   const LOCAL_STORAGE_KEY = "bh-board-annotation-color";
+  const PIECE_VALUE_PRESET_KEY = "bh-piece-value-preset";
 
   beforeEach(() => {
     // Clear localStorage before each test
@@ -79,6 +80,22 @@ describe("User Settings - Board Annotation Color", () => {
 
       // Verify the color picker is present
       cy.get('[data-testid="annotation-color-picker"]').should("exist");
+    });
+
+    it("persists the selected piece value preset across reloads", () => {
+      cy.visit("/");
+
+      cy.get('button[aria-label="Settings"]', { timeout: 10000 }).click();
+      cy.get('[data-testid="piece-value-preset"] input[value="standard"]').check();
+      cy.contains("button", "Save").click();
+
+      cy.window().then((win) => {
+        expect(win.localStorage.getItem(PIECE_VALUE_PRESET_KEY)).to.equal("standard");
+      });
+
+      cy.reload();
+      cy.get('button[aria-label="Settings"]', { timeout: 10000 }).click();
+      cy.get('[data-testid="piece-value-preset"] input[value="standard"]').should("be.checked");
     });
   });
 

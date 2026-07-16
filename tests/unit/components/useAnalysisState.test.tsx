@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";
 import { useAnalysisState, reorderSimultaneousCheckmateMove } from "../../../app/components/moves/useAnalysisState";
 import { processGameData } from "@/app/utils/board/moveOrdering";
 import type { BughouseMove } from "../../../app/types/bughouse";
@@ -38,6 +39,35 @@ describe("useAnalysisState", () => {
     if (result.current.currentNode.incomingMove) {
       expect(result.current.currentNode.incomingMove.board).toBe("A");
     }
+  });
+
+  it("recalculates existing material without replacing the analysis tree", async () => {
+    const { result, rerender } = renderHook(
+      ({ preset }: { preset: PieceValuePreset }) => useAnalysisState(preset),
+      { initialProps: { preset: "bughouse" as PieceValuePreset } },
+    );
+
+    act(() => {
+      result.current.tryApplyMove({ kind: "normal", board: "A", from: "e2", to: "e4" });
+    });
+    act(() => {
+      result.current.tryApplyMove({ kind: "normal", board: "A", from: "d7", to: "d5" });
+    });
+    act(() => {
+      result.current.tryApplyMove({ kind: "normal", board: "A", from: "e4", to: "d5" });
+    });
+
+    const cursorNodeId = result.current.state.cursorNodeId;
+    const nodeCount = Object.keys(result.current.state.tree.nodesById).length;
+    expect(result.current.currentPosition.captureMaterial.A.white).toBe(1.5);
+
+    rerender({ preset: "standard" });
+
+    await waitFor(() => {
+      expect(result.current.currentPosition.captureMaterial.A.white).toBe(1);
+    });
+    expect(result.current.state.cursorNodeId).toBe(cursorNodeId);
+    expect(Object.keys(result.current.state.tree.nodesById)).toHaveLength(nodeCount);
   });
 
   it("handles promotion flow", () => {

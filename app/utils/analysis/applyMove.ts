@@ -15,6 +15,7 @@ import {
   applyCaptureToLedger,
   cloneCaptureMaterialLedger,
   createEmptyCaptureMaterialLedger,
+  type PieceValuePreset,
 } from "@/app/utils/analysis/captureMaterial";
 
 type ValidationOk = { type: "ok"; move: BughouseHalfMove; next: BughousePositionSnapshot };
@@ -98,6 +99,9 @@ export interface ValidateAndApplyOptions {
    * other board has ended.
    */
   bypassCheckmateCheck?: boolean;
+
+  /** Material values used when this move captures a piece. */
+  pieceValuePreset?: PieceValuePreset;
 }
 
 /**
@@ -269,6 +273,7 @@ export function validateAndApplyBughouseHalfMove(
       board: boardKey,
       capturerSide: sideToMove,
       capturedPiece,
+      pieceValuePreset: options?.pieceValuePreset,
     });
   }
 

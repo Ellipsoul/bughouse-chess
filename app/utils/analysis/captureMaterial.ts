@@ -1,13 +1,33 @@
 import type { BughouseCaptureMaterialLedger } from "@/app/types/bughouse";
 import type { BughouseBoardId, BughousePieceType, BughouseSide } from "@/app/types/analysis";
 
-const BUGHOUSE_CAPTURE_VALUE_BY_PIECE: Record<BughousePieceType, number> = {
-  p: 1.5,
-  n: 3,
-  b: 3,
-  r: 4,
-  q: 7,
+export type PieceValuePreset = "bughouse" | "standard";
+
+export const DEFAULT_PIECE_VALUE_PRESET: PieceValuePreset = "bughouse";
+
+export const PIECE_VALUE_PRESETS: Record<
+  PieceValuePreset,
+  Record<BughousePieceType, number>
+> = {
+  bughouse: {
+    p: 1.5,
+    n: 3,
+    b: 3,
+    r: 4,
+    q: 7,
+  },
+  standard: {
+    p: 1,
+    n: 3,
+    b: 3,
+    r: 5,
+    q: 9,
+  },
 };
+
+export function isPieceValuePreset(value: unknown): value is PieceValuePreset {
+  return value === "bughouse" || value === "standard";
+}
 
 /**
  * Create a zeroed capture-material ledger.
@@ -22,7 +42,7 @@ export function createEmptyCaptureMaterialLedger(): BughouseCaptureMaterialLedge
 }
 
 /**
- * Return the bughouse material value for a captured piece.
+ * Return the configured material value for a captured piece.
  *
  * Bughouse scoring (as used by this UI feature):
  * - pawn: 1.5
@@ -30,8 +50,11 @@ export function createEmptyCaptureMaterialLedger(): BughouseCaptureMaterialLedge
  * - rook: 4
  * - queen: 7
  */
-export function getBughouseCaptureValueForPiece(piece: BughousePieceType): number {
-  return BUGHOUSE_CAPTURE_VALUE_BY_PIECE[piece] ?? 0;
+export function getBughouseCaptureValueForPiece(
+  piece: BughousePieceType,
+  preset: PieceValuePreset = DEFAULT_PIECE_VALUE_PRESET,
+): number {
+  return PIECE_VALUE_PRESETS[preset][piece] ?? 0;
 }
 
 /**
@@ -60,9 +83,10 @@ export function applyCaptureToLedger(params: {
   board: BughouseBoardId;
   capturerSide: BughouseSide;
   capturedPiece: BughousePieceType;
+  pieceValuePreset?: PieceValuePreset;
 }): BughouseCaptureMaterialLedger {
-  const { ledger, board, capturerSide, capturedPiece } = params;
-  const delta = getBughouseCaptureValueForPiece(capturedPiece);
+  const { ledger, board, capturerSide, capturedPiece, pieceValuePreset } = params;
+  const delta = getBughouseCaptureValueForPiece(capturedPiece, pieceValuePreset);
   if (!delta) return ledger;
 
   const next = cloneCaptureMaterialLedger(ledger);

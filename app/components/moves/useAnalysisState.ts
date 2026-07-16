@@ -38,7 +38,7 @@
  * }
  * ```
  */
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import type { Square } from "chess.js";
 import type { BughouseMove } from "../../types/bughouse";
 import type {
@@ -57,6 +57,11 @@ import {
   type ValidateAndApplyResult,
 } from "../../utils/analysis/applyMove";
 import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
+import {
+  createEmptyCaptureMaterialLedger,
+  DEFAULT_PIECE_VALUE_PRESET,
+  type PieceValuePreset,
+} from "../../utils/analysis/captureMaterial";
 
 export interface PendingDropSelection {
   board: BughouseBoardId;
@@ -115,7 +120,85 @@ type Action =
   | { type: "CLOSE_VARIATION_SELECTOR" }
   | { type: "SET_VARIATION_SELECTOR_INDEX"; selectedChildIndex: number }
   | { type: "SET_PENDING_PROMOTION"; pendingPromotion: PendingPromotionState | null }
-  | { type: "APPLY_MOVE_EDGE"; move: BughouseHalfMove; next: BughousePositionSnapshot };
+  | { type: "APPLY_MOVE_EDGE"; move: BughouseHalfMove; next: BughousePositionSnapshot }
+  | { type: "RECALCULATE_CAPTURE_MATERIAL"; pieceValuePreset: PieceValuePreset };
+
+function toAttemptedMove(move: BughouseHalfMove): AttemptedBughouseHalfMove | null {
+  if (move.kind === "normal" && move.normal) {
+    return {
+      kind: "normal",
+      board: move.board,
+      from: move.normal.from,
+      to: move.normal.to,
+      promotion: move.normal.promotion,
+    };
+  }
+
+  if (move.kind === "drop" && move.drop) {
+    return {
+      kind: "drop",
+      board: move.board,
+      side: move.side,
+      piece: move.drop.piece,
+      to: move.drop.to,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Replay every analysis edge with new material values while preserving the tree,
+ * cursor, selected variation, and stable node IDs.
+ */
+function recalculateCaptureMaterial(
+  tree: AnalysisTree,
+  pieceValuePreset: PieceValuePreset,
+): AnalysisTree {
+  const root = tree.nodesById[tree.rootId];
+  if (!root) return tree;
+
+  const nodesById: Record<string, AnalysisNode> = {
+    ...tree.nodesById,
+    [root.id]: {
+      ...root,
+      position: {
+        ...root.position,
+        captureMaterial: createEmptyCaptureMaterialLedger(),
+      },
+    },
+  };
+  const pendingParentIds = [root.id];
+
+  while (pendingParentIds.length > 0) {
+    const parentId = pendingParentIds.pop();
+    if (!parentId) continue;
+
+    const originalParent = tree.nodesById[parentId];
+    const nextParent = nodesById[parentId];
+    if (!originalParent || !nextParent) continue;
+
+    for (const childId of originalParent.children) {
+      const child = tree.nodesById[childId];
+      const attempted = child?.incomingMove ? toAttemptedMove(child.incomingMove) : null;
+      if (!child || !attempted) continue;
+
+      const applied = validateAndApplyBughouseHalfMove(nextParent.position, attempted, {
+        bypassCheckmateCheck: true,
+        pieceValuePreset,
+      });
+      if (applied.type !== "ok") continue;
+
+      nodesById[childId] = {
+        ...child,
+        position: applied.next,
+      };
+      pendingParentIds.push(childId);
+    }
+  }
+
+  return { ...tree, nodesById };
+}
 
 function createIdFactory() {
   let counter = 0;
@@ -308,6 +391,11 @@ function reducer(state: InternalState, action: Action): InternalState {
         pendingPromotion: null,
       };
     }
+    case "RECALCULATE_CAPTURE_MATERIAL":
+      return {
+        ...state,
+        tree: recalculateCaptureMaterial(state.tree, action.pieceValuePreset),
+      };
     default:
       return state;
   }
@@ -363,7 +451,9 @@ export interface UseAnalysisStateResult {
  * - UI-friendly (cursor + selection separate)
  * - future-proof for adding annotations/engine eval/etc.
  */
-export function useAnalysisState(): UseAnalysisStateResult {
+export function useAnalysisState(
+  pieceValuePreset: PieceValuePreset = DEFAULT_PIECE_VALUE_PRESET,
+): UseAnalysisStateResult {
   const createId = useMemo(() => createIdFactory(), []);
 
   const [internalState, dispatch] = useReducer(
@@ -395,9 +485,15 @@ export function useAnalysisState(): UseAnalysisStateResult {
   const currentNode = internalState.tree.nodesById[internalState.cursorNodeId] ?? internalState.tree.nodesById[internalState.tree.rootId];
   const currentPosition = currentNode.position;
 
+  useEffect(() => {
+    dispatch({ type: "RECALCULATE_CAPTURE_MATERIAL", pieceValuePreset });
+  }, [pieceValuePreset]);
+
   const tryApplyMove = useCallback(
     (attempted: AttemptedBughouseHalfMove): ValidateAndApplyResult => {
-      const result = validateAndApplyBughouseHalfMove(currentPosition, attempted);
+      const result = validateAndApplyBughouseHalfMove(currentPosition, attempted, {
+        pieceValuePreset,
+      });
       if (result.type === "ok") {
         dispatch({ type: "APPLY_MOVE_EDGE", move: result.move, next: result.next });
       } else if (result.type === "needs_promotion" && attempted.kind === "normal") {
@@ -413,7 +509,7 @@ export function useAnalysisState(): UseAnalysisStateResult {
       }
       return result;
     },
-    [currentPosition],
+    [currentPosition, pieceValuePreset],
   );
 
   const commitPromotion = useCallback(
@@ -461,11 +557,15 @@ export function useAnalysisState(): UseAnalysisStateResult {
 
       for (let i = 0; i < reorderedMoves.length; i++) {
         const move = reorderedMoves[i];
-        const applied = validateAndApplyMoveFromNotation(position, {
-          board: move.board,
-          side: move.side,
-          move: move.move,
-        });
+        const applied = validateAndApplyMoveFromNotation(
+          position,
+          {
+            board: move.board,
+            side: move.side,
+            move: move.move,
+          },
+          { pieceValuePreset },
+        );
 
         if (applied.type !== "ok") {
           return {
@@ -510,7 +610,7 @@ export function useAnalysisState(): UseAnalysisStateResult {
       });
       return { ok: true };
     },
-    [createId],
+    [createId, pieceValuePreset],
   );
 
   const selectNode = useCallback((nodeId: string) => {
