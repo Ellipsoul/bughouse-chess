@@ -5,6 +5,7 @@ import { observer } from "mobx-react-lite";
 import { Chess, type Square } from "chess.js";
 import {
   ChevronLeft,
+  Fullscreen,
   MessageSquareText,
   Pause,
   Play,
@@ -157,6 +158,12 @@ const PLACEHOLDER_PLAYERS: {
 };
 
 /**
+ * Fullscreen is intentionally a desktop-only enhancement. Requiring a primary pointer that can
+ * hover keeps the control off phones and touch-first tablets, including wide landscape layouts.
+ */
+const DESKTOP_FULLSCREEN_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
+
+/**
  * Interactive analysis experience for a two-board bughouse position:
  * - always renders both boards from first paint (start position when no game loaded)
  * - supports move entry + drops + nested variations (wired via analysis store)
@@ -180,6 +187,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   autoStartLiveReplay,
 }) => {
   const analysisContainerRef = useRef<HTMLDivElement>(null);
+  const fullscreenPanelRef = useRef<HTMLDivElement>(null);
   const boardsContainerRef = useRef<HTMLDivElement>(null);
   const controlsContainerRef = useRef<HTMLDivElement>(null);
   const isCompactLandscape = useCompactLandscape();
@@ -187,9 +195,63 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   const orientationStore = useViewerOrientationStore();
   const isBoardOrderSwapped = orientationStore.isBoardOrderSwapped;
   const pieceValuePreset = usePieceValuePreset();
+  const [isDesktopFullscreenAvailable, setIsDesktopFullscreenAvailable] = useState(false);
+  const [isBoardsFullscreen, setIsBoardsFullscreen] = useState(false);
   const handleToggleBoardOrder = useCallback(() => {
     orientationStore.toggleBoardOrder();
   }, [orientationStore]);
+
+  useEffect(() => {
+    const panel = fullscreenPanelRef.current;
+    if (!panel || typeof window === "undefined") return;
+
+    const media = window.matchMedia(DESKTOP_FULLSCREEN_MEDIA_QUERY);
+    const updateAvailability = () => {
+      const isAvailable =
+        media.matches &&
+        document.fullscreenEnabled &&
+        typeof panel.requestFullscreen === "function";
+
+      setIsDesktopFullscreenAvailable(isAvailable);
+
+      // If a desktop window moves into a touch/mobile context while fullscreen, return to the
+      // normal viewer rather than leaving an otherwise-unavailable mode active.
+      if (!media.matches && document.fullscreenElement === panel) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+    };
+    const updateFullscreenState = () => {
+      setIsBoardsFullscreen(document.fullscreenElement === panel);
+    };
+
+    updateAvailability();
+    updateFullscreenState();
+    media.addEventListener("change", updateAvailability);
+    document.addEventListener("fullscreenchange", updateFullscreenState);
+
+    return () => {
+      media.removeEventListener("change", updateAvailability);
+      document.removeEventListener("fullscreenchange", updateFullscreenState);
+    };
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    const panel = fullscreenPanelRef.current;
+    if (!panel || !isDesktopFullscreenAvailable) return;
+
+    try {
+      if (document.fullscreenElement === panel) {
+        await document.exitFullscreen();
+        logAnalyticsEvent(analytics, "analysis_fullscreen_toggled", { enabled: false });
+        return;
+      }
+
+      await panel.requestFullscreen();
+      logAnalyticsEvent(analytics, "analysis_fullscreen_toggled", { enabled: true });
+    } catch {
+      toast.error("Full screen could not be opened.");
+    }
+  }, [analytics, isDesktopFullscreenAvailable]);
   const { leftBoardId, rightBoardId } = getBoardOrder(isBoardOrderSwapped);
   const {
     state,
@@ -358,14 +420,35 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         boardsContainer.clientWidth - (layout.reserveColumnWidthPx * 2 + layout.gapPx * 3);
       const widthCandidate = Math.floor(availableWidth / 2);
 
-      // Height-driven cap (stacked/tablet only): ensure we leave a reasonable amount of room
-      // for the move list so the page doesn't need to scroll.
+      // Height-driven cap (stacked/tablet and fullscreen): ensure the complete board work area,
+      // including player bars and controls, stays inside its available viewport.
       let heightCap = layout.defaultBoardSize;
       const isDesktop =
         typeof window !== "undefined" &&
         window.matchMedia(`(min-width: ${BH_DESKTOP_MIN_WIDTH_PX}px)`).matches;
 
-      if (!isDesktop) {
+      if (isBoardsFullscreen) {
+        const fullscreenPanel = fullscreenPanelRef.current;
+        const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
+
+        if (fullscreenPanel) {
+          const panelStyles = window.getComputedStyle(fullscreenPanel);
+          const verticalPadding =
+            (Number.parseFloat(panelStyles.paddingTop) || 0) +
+            (Number.parseFloat(panelStyles.paddingBottom) || 0);
+          const availablePlayAreaHeight =
+            fullscreenPanel.clientHeight -
+            verticalPadding -
+            controlsHeight -
+            layout.controlsGapPx;
+          const maxBoardSizeFromHeight =
+            availablePlayAreaHeight - layout.nameBlockPx * 2 - layout.columnPaddingPx * 2;
+
+          if (Number.isFinite(maxBoardSizeFromHeight)) {
+            heightCap = Math.floor(maxBoardSizeFromHeight);
+          }
+        }
+      } else if (!isDesktop) {
         const containerHeight = (() => {
           if (typeof window === "undefined") return 0;
           const el = analysisContainerRef.current;
@@ -405,7 +488,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       }
 
       const capped = Math.min(widthCandidate, heightCap);
-      const nextSize = Math.max(layout.minBoardSize, Math.min(layout.defaultBoardSize, capped));
+      const nextSize = Math.max(
+        layout.minBoardSize,
+        isBoardsFullscreen ? capped : Math.min(layout.defaultBoardSize, capped),
+      );
       setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
     };
 
@@ -418,8 +504,11 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     if (controlsContainerRef.current) {
       resizeObserver.observe(controlsContainerRef.current);
     }
+    if (fullscreenPanelRef.current) {
+      resizeObserver.observe(fullscreenPanelRef.current);
+    }
     return () => resizeObserver.disconnect();
-  }, [BH_DESKTOP_MIN_WIDTH_PX, isCompactLandscape, layout]);
+  }, [BH_DESKTOP_MIN_WIDTH_PX, isBoardsFullscreen, isCompactLandscape, layout]);
 
   const processedGame = useMemo(() => {
     if (!gameData) return null;
@@ -2002,9 +2091,15 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       >
         {/* Left Column: Boards + Controls */}
         <div
+          ref={fullscreenPanelRef}
+          data-testid="analysis-board-panel"
+          data-fullscreen={isBoardsFullscreen ? "true" : "false"}
           className={[
             "flex flex-col items-center min-w-0 relative w-full min-[1400px]:w-auto min-[1400px]:grow",
             isCompactLandscape ? "gap-2" : "gap-4",
+            isBoardsFullscreen
+              ? "h-full w-full min-[1400px]:w-full min-[1400px]:grow-0 justify-center overflow-hidden bg-gray-900 p-4 lg:p-6"
+              : "",
           ].join(" ")}
         >
           {state.pendingPromotion && (
@@ -2057,13 +2152,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Board Controls */}
           <div
             ref={controlsContainerRef}
+            data-testid="analysis-controls"
             className={[
               "grid w-full max-w-full items-center px-1",
               "grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto]",
             ].join(" ")}
             style={{ maxWidth: controlsWidth }}
           >
-            {/* Live replay controls: left side */}
+            {/* Fullscreen + live replay controls: left side */}
             <div className="shrink-0 inline-flex items-center gap-1 sm:gap-2">
               <TooltipAnchor content={liveReplayPlayButtonTooltip}>
                 <button
@@ -2080,6 +2176,25 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
                   )}
                 </button>
               </TooltipAnchor>
+              {isDesktopFullscreenAvailable ? (
+                <TooltipAnchor content={isBoardsFullscreen ? "Exit full screen" : "Full screen"}>
+                  <button
+                    onClick={() => void handleToggleFullscreen()}
+                    className={[
+                      controlButtonBaseClass,
+                      isBoardsFullscreen
+                        ? "border-mariner-400 bg-mariner-500/15 text-mariner-100"
+                        : "",
+                    ].join(" ")}
+                    aria-label={isBoardsFullscreen ? "Exit full screen" : "Enter full screen"}
+                    aria-pressed={isBoardsFullscreen}
+                    data-testid="analysis-fullscreen-toggle"
+                    type="button"
+                  >
+                    <Fullscreen aria-hidden className={layout.controlIconSizeClass} />
+                  </button>
+                </TooltipAnchor>
+              ) : null}
             </div>
 
             {/* Shared description spacer to keep controls centered */}
@@ -2192,39 +2307,43 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Move list placeholder (MoveTree lands next) */}
-        <div
-          className={[
-            // Stacked / tablet: full width under the boards.
-            "w-full min-w-0 overflow-x-hidden",
-            // Default (viewport-clamped): consume remaining height so the move list is always visible.
-            isCompactLandscape ? "shrink-0" : "flex-1 min-h-0",
-            // Desktop: fixed right column, height aligned to board play area.
-            "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-(--bh-play-area-height)",
-            // Compact landscape: give the move list a bounded height so it can scroll internally
-            // after the user scrolls down to it.
-            isCompactLandscape ? "h-[280px] max-h-[60vh]" : "",
-          ].join(" ")}
-        >
-          <MoveListWithVariations
-            tree={state.tree}
-            cursorNodeId={state.cursorNodeId}
-            selectedNodeId={state.selectedNodeId}
-            players={players}
-            isBoardOrderSwapped={isBoardOrderSwapped}
-            onToggleBoardOrder={handleToggleBoardOrder}
-            combinedMoves={combinedMovesForMoveTimes}
-            combinedMoveDurations={combinedMoveDurationsForMoveTimes}
-            footer={moveListFooter}
-            disabled={isLiveReplayPlaying}
-            onSelectNode={selectNode}
-            onPromoteVariationOneLevel={promoteVariationOneLevel}
-            onTruncateAfterNode={truncateAfterNode}
-            onTruncateFromNodeInclusive={truncateFromNodeInclusive}
-            onShareGameFromNode={handleShareGameFromNode}
-            canShareGameFromNode={canShareGameFromNode}
-          />
-        </div>
+        {!isBoardsFullscreen ? (
+          /* Right Column: move list. It is deliberately removed while the board panel owns the
+             fullscreen viewport so the available space goes entirely to the two boards. */
+          <div
+            data-testid="analysis-move-list-panel"
+            className={[
+              // Stacked / tablet: full width under the boards.
+              "w-full min-w-0 overflow-x-hidden",
+              // Default (viewport-clamped): consume remaining height so the move list is always visible.
+              isCompactLandscape ? "shrink-0" : "flex-1 min-h-0",
+              // Desktop: fixed right column, height aligned to board play area.
+              "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-(--bh-play-area-height)",
+              // Compact landscape: give the move list a bounded height so it can scroll internally
+              // after the user scrolls down to it.
+              isCompactLandscape ? "h-[280px] max-h-[60vh]" : "",
+            ].join(" ")}
+          >
+            <MoveListWithVariations
+              tree={state.tree}
+              cursorNodeId={state.cursorNodeId}
+              selectedNodeId={state.selectedNodeId}
+              players={players}
+              isBoardOrderSwapped={isBoardOrderSwapped}
+              onToggleBoardOrder={handleToggleBoardOrder}
+              combinedMoves={combinedMovesForMoveTimes}
+              combinedMoveDurations={combinedMoveDurationsForMoveTimes}
+              footer={moveListFooter}
+              disabled={isLiveReplayPlaying}
+              onSelectNode={selectNode}
+              onPromoteVariationOneLevel={promoteVariationOneLevel}
+              onTruncateAfterNode={truncateAfterNode}
+              onTruncateFromNodeInclusive={truncateFromNodeInclusive}
+              onShareGameFromNode={handleShareGameFromNode}
+              canShareGameFromNode={canShareGameFromNode}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
