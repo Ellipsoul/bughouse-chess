@@ -148,6 +148,11 @@ chess.com).
 
 ### Architecture map (where to look)
 
+- **Local opening-explorer experiment**:
+  `app/opening-explorer/page.tsx`,
+  `app/components/opening-explorer/`. This is a separate one-board surface and
+  does not share viewer replay, analysis, move-tree, or URL state.
+
 - **Core bughouse rules / move application**: `app/utils/analysis/applyMove.ts`
 - **Analysis tree + navigation + promotions/variations**:
   `app/components/useAnalysisState.ts`
@@ -168,6 +173,32 @@ chess.com).
 - **Username service**: `app/utils/usernameService.ts`
 - **Match discovery**: `app/utils/matchDiscovery.ts`,
   `app/components/MatchNavigation.tsx`
+
+### Local opening-explorer experiment
+
+The opening explorer is intentionally absent from production. Start its
+validated loopback service from the sibling `bughouse-opening-explorer`
+repository, then run this application locally with:
+
+```bash
+NEXT_PUBLIC_ENABLE_OPENING_EXPLORER=true \
+OPENING_EXPLORER_SERVICE_URL=http://127.0.0.1:8765 \
+npm run dev
+```
+
+Visit `/opening-explorer` or use the `Opening explorer` sidebar icon. Both the
+route and link use the same flag, and the implementation forces that flag off
+when `NODE_ENV=production`. The browser uses a same-origin, feature-gated
+read-only proxy; only the Next.js server knows the loopback service origin.
+The browser fetches bounded, versioned node neighborhoods and lazy game
+details; it never loads the packed artifact.
+
+The move list is ordered by descending game support and uses White-win, draw,
+and Black-win bars. Use Up/Down to select a continuation, Right to play it,
+and Left to return along the cached prefix. At desktop widths the board stays
+fixed while the possible-move list scrolls independently. A sole-game leaf
+loads one bounded metadata record automatically and shows both players plus
+the source Chess.com link.
 
 ### Firebase (optional, for metrics + analytics + user features)
 
