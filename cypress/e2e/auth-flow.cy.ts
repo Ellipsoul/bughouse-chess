@@ -54,6 +54,14 @@ describe("Authentication Flow", () => {
   });
 
   describe("Navigation Integration", () => {
+    it("opening explorer link navigates to the always-available route", () => {
+      cy.visit("/");
+
+      cy.get('a[aria-label="Opening explorer"]', { timeout: 10000 }).click();
+      cy.url().should("include", "/opening-explorer");
+      cy.contains("h1", "Opening explorer").should("be.visible");
+    });
+
     it("sidebar profile link navigates to profile page", () => {
       cy.visit("/");
 

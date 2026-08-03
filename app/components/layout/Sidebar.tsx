@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback, type ReactNode } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BookMarked, ChessKnight, HeartPlus, Settings, UserRound } from "lucide-react";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { useAuth } from "../../auth/useAuth";
 import SettingsModal from "../modals/SettingsModal";
+import { OpeningExplorerSidebarLink } from "../opening-explorer/OpeningExplorerSidebarLink";
 
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";
@@ -63,11 +64,7 @@ function ProfileAvatar({ src, alt }: { src: string; alt: string }) {
  * - Keyboard accessible controls
  * - Clear sign-in affordance via profile avatar state
  */
-export default function Sidebar({
-  openingExplorerSlot,
-}: {
-  openingExplorerSlot?: ReactNode;
-}) {
+export default function Sidebar() {
   const { user, status } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsButtonPosition, setSettingsButtonPosition] = useState({
@@ -111,7 +108,7 @@ export default function Sidebar({
     >
       <div className="mt-auto flex flex-col items-center gap-2 pb-1">
         <div className="h-6 w-6 shrink-0 md:h-8 md:w-8 lg:h-10 lg:w-10">
-          {openingExplorerSlot}
+          <OpeningExplorerSidebarLink />
         </div>
 
         <TooltipAnchor content="Browse shared games">

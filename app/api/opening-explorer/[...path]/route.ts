@@ -1,5 +1,3 @@
-import { openingExplorerEnabledForServerRequest } from "@/app/components/opening-explorer/featureFlag";
-
 interface RouteContext {
   params: Promise<{ path: string[] }>;
 }
@@ -60,10 +58,6 @@ function jsonError(status: number, code: string, detail: string): Response {
 }
 
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
-  if (!openingExplorerEnabledForServerRequest(new URL(request.url).host)) {
-    return jsonError(404, "feature_disabled", "Opening explorer is disabled.");
-  }
-
   const { path } = await context.params;
   if (!isAllowedReadPath(path)) {
     return jsonError(404, "invalid_proxy_path", "Unknown opening explorer operation.");

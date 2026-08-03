@@ -5,7 +5,6 @@ import Sidebar from "./Sidebar";
 
 export interface AppShellProps {
   children: React.ReactNode;
-  openingExplorerSlot?: React.ReactNode;
 }
 
 /**
@@ -16,10 +15,10 @@ export interface AppShellProps {
  * - The left sidebar is fixed-width and non-scrolling.
  * - The right content region is responsible for its own internal overflow.
  */
-export default function AppShell({ children, openingExplorerSlot }: AppShellProps) {
+export default function AppShell({ children }: AppShellProps) {
   return (
     <div className="relative flex h-full w-full overflow-hidden">
-      <Sidebar openingExplorerSlot={openingExplorerSlot} />
+      <Sidebar />
       {/* The content region fills the remaining space. Pages with fixed headers (like the
           game viewer) handle their own internal layout and z-index stacking. */}
       <div className="relative flex-1 min-w-0 h-full">{children}</div>

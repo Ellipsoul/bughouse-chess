@@ -1,12 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import { Fira_Code, Inter, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./components/layout/AppShell";
 import { metadataBase } from "./utils/platform/siteMetadata";
-import { OpeningExplorerSidebarGate } from "./components/opening-explorer/OpeningExplorerSidebarGate";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -131,11 +129,7 @@ export default function RootLayout({
           {/* Allow certain pages (e.g. viewer) to visually extend their top navbar
               into the sidebar column without being clipped horizontally. */}
           <main className="w-full h-full overflow-y-hidden overflow-x-visible">
-            <AppShell openingExplorerSlot={
-              <Suspense fallback={null}>
-                <OpeningExplorerSidebarGate />
-              </Suspense>
-            }>
+            <AppShell>
               {children}
             </AppShell>
           </main>

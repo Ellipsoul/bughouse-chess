@@ -177,7 +177,7 @@ chess.com).
 ### Opening-explorer experiment
 
 The opening explorer remains isolated from the two-board viewer and is now
-available as an exact-host Vercel experiment at
+available as a production trial at
 [`/opening-explorer`](https://bughouse.aronteh.com/opening-explorer). It reads
 only bounded, versioned responses through a same-origin proxy; the browser never
 loads the packed artifact or receives the service credential.
@@ -186,25 +186,29 @@ For local development, start the validated loopback service from the sibling
 `bughouse-opening-explorer` repository, then run this application with:
 
 ```bash
-NEXT_PUBLIC_ENABLE_OPENING_EXPLORER=true \
 OPENING_EXPLORER_SERVICE_URL=http://127.0.0.1:8765 \
 npm run dev
 ```
 
 Visit `/opening-explorer` or use the `Opening explorer` sidebar icon. Route,
-sidebar, and proxy use the same pure decision. The local flag works only on a
-loopback host in a development-mode build. Hosted builds instead require one of
-two separately named server-only gates:
+sidebar, and proxy are always available in local, Preview, and Production
+builds; no availability feature flag is required.
 
-- Preview: `OPENING_EXPLORER_PREVIEW_ENABLED`, an exact
-  `OPENING_EXPLORER_PREVIEW_HOSTS` list, and `VERCEL_ENV=preview`.
-- Production experiment: `OPENING_EXPLORER_PRODUCTION_ENABLED`, an exact
-  `OPENING_EXPLORER_PRODUCTION_HOSTS` list, and `VERCEL_ENV=production`.
+The local Python reader is a separate process; `npm run dev` does not start it.
+If the reader is absent, the always-present page shows a bounded unavailable
+state and the proxy returns 503. On first visit the browser requests metadata,
+then one root or deep-link neighborhood capped at 500 nodes/256 KiB by default;
+it does not download or initialize the packed artifact in browser memory.
 
 The hosted service origin, exact origin allowlist, timeout, and bearer token are
 server-only `OPENING_EXPLORER_SERVICE_*` variables. Never expose them through a
-`NEXT_PUBLIC_*` variable. Disabled page and proxy paths return not-found
-behavior.
+`NEXT_PUBLIC_*` variable. Unknown proxy operations return not-found behavior;
+unavailable upstream services return a bounded `503` response.
+
+The next scale-up slice is documented in the sibling repository at
+`bughouse-opening-explorer/docs/FULL_OPENING_TREE_SCALE_UP_PLAN_2026-08-03.md`.
+It will instrument the representative cold/warm first-load phases before any
+full local build or separately approved full production publication.
 
 Possible next moves are ordered by descending game support and use White-win,
 draw, and Black-win bars. Use Up/Down to select a continuation, Right to play it,

@@ -23,6 +23,20 @@ function createFakeAdapter(user: AuthUser | null): AuthAdapter {
 }
 
 describe("Sidebar", () => {
+  it("always renders the opening explorer link", () => {
+    const adapter = createFakeAdapter(null);
+
+    cy.mount(
+      <AuthProvider adapter={adapter}>
+        <Sidebar />
+      </AuthProvider>,
+    );
+
+    cy.get('a[aria-label="Opening explorer"]')
+      .should("exist")
+      .and("have.attr", "href", "/opening-explorer");
+  });
+
   it("renders shared games link with correct href", () => {
     const adapter = createFakeAdapter(null);
 

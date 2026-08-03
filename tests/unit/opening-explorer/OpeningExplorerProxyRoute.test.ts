@@ -9,7 +9,6 @@ describe("opening explorer local proxy", () => {
 
   it("forwards a metadata read to the loopback service", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_ENABLE_OPENING_EXPLORER", "true");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");
     const upstream = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       void input;
@@ -35,7 +34,6 @@ describe("opening explorer local proxy", () => {
 
   it("preserves immutable validators across the same-origin boundary", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_ENABLE_OPENING_EXPLORER", "true");
     const upstream = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("if-none-match")).toBe('"dataset-response"');
       return new Response(null, {
@@ -63,11 +61,8 @@ describe("opening explorer local proxy", () => {
     expect(response.headers.get("server-timing")).toBe("reader;dur=1.250");
   });
 
-  it("forwards Preview reads only to an exact HTTPS allowlist entry with a server-side credential", async () => {
+  it("forwards hosted reads only to an exact HTTPS allowlist entry with a server-side credential", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "preview");
-    vi.stubEnv("OPENING_EXPLORER_PREVIEW_ENABLED", "true");
-    vi.stubEnv("OPENING_EXPLORER_PREVIEW_HOSTS", "preview.example.test");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "https://opening-service.example/base-is-rejected");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_ALLOWED_ORIGINS", "https://opening-service.example");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_TOKEN", "server-secret");
@@ -104,11 +99,8 @@ describe("opening explorer local proxy", () => {
     expect(new Headers(upstream.mock.calls[0][1]?.headers).get("authorization")).toBe("Bearer server-secret");
   });
 
-  it("forwards Production reads only when the server-only Production gate is enabled", async () => {
+  it("forwards production reads through the server-only service boundary", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("OPENING_EXPLORER_PRODUCTION_ENABLED", "true");
-    vi.stubEnv("OPENING_EXPLORER_PRODUCTION_HOSTS", "bughouse.aronteh.com");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "https://opening-service.example");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_ALLOWED_ORIGINS", "https://opening-service.example");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_TOKEN", "server-secret");
@@ -125,10 +117,10 @@ describe("opening explorer local proxy", () => {
     expect(upstream).toHaveBeenCalledOnce();
   });
 
-  it("does not expose the proxy when the local feature flag is disabled", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_ENABLE_OPENING_EXPLORER", "true");
-    const upstream = vi.fn();
+  it("forwards requests without availability configuration", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");
+    const upstream = vi.fn(async () => Response.json({ dataset_version: "v1" }));
     vi.stubGlobal("fetch", upstream);
     const { GET } = await import("@/app/api/opening-explorer/[...path]/route");
 
@@ -137,13 +129,12 @@ describe("opening explorer local proxy", () => {
       { params: Promise.resolve({ path: ["api", "meta"] }) },
     );
 
-    expect(response.status).toBe(404);
-    expect(upstream).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
   });
 
   it("rejects a non-loopback upstream without making a request", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_ENABLE_OPENING_EXPLORER", "true");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "https://example.com");
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
