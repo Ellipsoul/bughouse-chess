@@ -182,10 +182,32 @@ available as a production trial at
 only bounded, versioned responses through a same-origin proxy; the browser never
 loads the packed artifact or receives the service credential.
 
-For local development, start the validated loopback service from the sibling
-`bughouse-opening-explorer` repository, then run this application with:
+For local development, run two processes: the Python loopback reader from the
+sibling `bughouse-opening-explorer` repository, then this Next.js app pointed at
+that service.
+
+1. Start the opening service (from `bughouse-opening-explorer`):
 
 ```bash
+cd ~/Desktop/Coding_Adventures/bughouse-opening-explorer
+
+.venv/bin/python -m bughouse_explorer.opening.service \
+  artifacts/opening/representative-mod71-v2-a \
+  --port 8765
+```
+
+The second argument is the packed artifact directory under
+`artifacts/opening/`. That path changes as newer validated builds are published
+(for example `representative-mod71-a` vs `representative-mod71-v2-a`). List
+`artifacts/opening/` in the sibling repo and pass the directory you intend to
+serve; keep `--port 8765` unless you also change
+`OPENING_EXPLORER_SERVICE_URL` below.
+
+2. Start this application (from `bughouse-chess`):
+
+```bash
+cd ~/Desktop/Coding_Adventures/bughouse/bughouse-chess
+
 OPENING_EXPLORER_SERVICE_URL=http://127.0.0.1:8765 \
 npm run dev
 ```
