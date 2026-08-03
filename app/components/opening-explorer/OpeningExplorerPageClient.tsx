@@ -530,7 +530,7 @@ export default function OpeningExplorerPageClient() {
           </div>
         </section>
 
-        <aside aria-label="Played moves" className="flex min-w-0 flex-col lg:col-start-2 lg:row-start-1 xl:row-start-1 xl:min-h-0 xl:overflow-hidden">
+        <aside aria-label="Played moves" className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-1 xl:row-start-1 xl:min-h-0 xl:overflow-hidden">
           <section aria-label="Move list" className="flex min-h-48 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 xl:min-h-0">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Move list</h2>
@@ -563,6 +563,32 @@ export default function OpeningExplorerPageClient() {
               </ol>}
             </div>
           </section>
+
+          <details className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-400">
+            <summary className="cursor-pointer text-slate-300">Prototype instrumentation</summary>
+            <dl className="mt-3 grid grid-cols-2 gap-2">
+              <dt>Foreground neighborhood requests</dt>
+              <dd>{metrics.foregroundRequests}</dd>
+              <dt>Prefetch neighborhood requests</dt>
+              <dd>{metrics.prefetchRequests}</dd>
+              <dt>Response bytes</dt>
+              <dd>{metrics.responseBytes.toLocaleString()}</dd>
+              <dt>Cache hits / misses</dt>
+              <dd>{cacheMetrics.cacheHits} / {cacheMetrics.cacheMisses}</dd>
+              <dt>Returned / used nodes</dt>
+              <dd>{cacheMetrics.returnedNodes} / {cacheMetrics.usedNodes}</dd>
+              <dt>Evicted nodes</dt>
+              <dd>{cacheMetrics.evictedNodes}</dd>
+              <dt>Frontier stalls</dt>
+              <dd>{metrics.frontierStalls}</dd>
+              <dt>Last click render</dt>
+              <dd>{metrics.lastClickRenderMs.toFixed(2)} ms</dd>
+              <dt>Format</dt>
+              <dd>{metadata.format_version}</dd>
+              <dt>Terminal policy</dt>
+              <dd>{metadata.terminal_policy}</dd>
+            </dl>
+          </details>
         </aside>
 
         <aside aria-label="Explorer controls" className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-2 lg:min-h-0 lg:overflow-hidden xl:col-start-3 xl:row-start-1">
@@ -625,8 +651,6 @@ export default function OpeningExplorerPageClient() {
               {continuations.length === 0 && !locksUniqueLine && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No continuations from this position.</p> : null}
             </div>
           </section>
-
-          <details className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-400"><summary className="cursor-pointer text-slate-300">Prototype instrumentation</summary><dl className="mt-3 grid grid-cols-2 gap-2"><dt>Foreground neighborhood requests</dt><dd>{metrics.foregroundRequests}</dd><dt>Prefetch neighborhood requests</dt><dd>{metrics.prefetchRequests}</dd><dt>Response bytes</dt><dd>{metrics.responseBytes.toLocaleString()}</dd><dt>Cache hits / misses</dt><dd>{cacheMetrics.cacheHits} / {cacheMetrics.cacheMisses}</dd><dt>Returned / used nodes</dt><dd>{cacheMetrics.returnedNodes} / {cacheMetrics.usedNodes}</dd><dt>Evicted nodes</dt><dd>{cacheMetrics.evictedNodes}</dd><dt>Frontier stalls</dt><dd>{metrics.frontierStalls}</dd><dt>Last click render</dt><dd>{metrics.lastClickRenderMs.toFixed(2)} ms</dd><dt>Format</dt><dd>{metadata.format_version}</dd><dt>Terminal policy</dt><dd>{metadata.terminal_policy}</dd></dl></details>
         </aside>
       </div>
     </div>

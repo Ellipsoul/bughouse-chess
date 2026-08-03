@@ -435,10 +435,11 @@ describe("OpeningExplorerPageClient", () => {
     const controls = screen.getByRole("complementary", { name: "Explorer controls" });
 
     expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
+    expect(within(playedMoves).getByText("Prototype instrumentation")).toBeInTheDocument();
     expect(within(playedMoves).queryByRole("region", { name: "Opening Tree" })).not.toBeInTheDocument();
     expect(within(controls).getByText("Player filters")).toBeInTheDocument();
     expect(within(controls).getByRole("region", { name: "Opening Tree" })).toBeInTheDocument();
-    expect(within(controls).getByText("Prototype instrumentation")).toBeInTheDocument();
+    expect(within(controls).queryByText("Prototype instrumentation")).not.toBeInTheDocument();
 
     fireEvent.click(within(controls).getByRole("button", { name: /e4, 6 games/i }));
     expect(await within(playedMoves).findByRole("button", { name: "Go to position after e4" })).toBeInTheDocument();
