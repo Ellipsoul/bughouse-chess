@@ -489,7 +489,6 @@ export default function OpeningExplorerPageClient() {
   }
 
   const cacheMetrics = cache.metrics();
-  const title = path.length <= 1 ? "Starting position" : position.moves.at(-1)?.label ?? "Opening prefix";
   const uniqueGame = examples?.games[0] ?? null;
   const playedMoves = position.moves.map((move, index) => ({
     label: move.label,
@@ -516,8 +515,11 @@ export default function OpeningExplorerPageClient() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,390px)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(240px,300px)_minmax(330px,390px)] xl:grid-rows-[minmax(0,1fr)]">
-        <section ref={boardArea} aria-label="Opening board" className="flex min-h-0 min-w-0 flex-col items-center lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:overflow-hidden xl:row-span-1">
-          <h2 className="mb-3 text-lg font-medium">{title}</h2>
+        <section
+          ref={boardArea}
+          aria-label="Opening board"
+          className="flex min-h-0 min-w-0 flex-col items-center justify-center lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:overflow-hidden xl:row-span-1"
+        >
           <div className="rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-2xl">
             <ChessBoard
               boardName="A"

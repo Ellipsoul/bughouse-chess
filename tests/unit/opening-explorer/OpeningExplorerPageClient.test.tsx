@@ -165,7 +165,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=2&dataset=dataset-1");
 
     expect(fireEvent.keyDown(window, { key: "ArrowLeft" })).toBe(false);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Starting position" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Go to starting position" })).toHaveAttribute("aria-current", "true"));
     expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=0&dataset=dataset-1");
     await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 game/i })).toHaveAttribute("aria-current", "true"));
 
@@ -433,6 +433,7 @@ describe("OpeningExplorerPageClient", () => {
 
     const playedMoves = await screen.findByRole("complementary", { name: "Played moves" });
     const controls = screen.getByRole("complementary", { name: "Explorer controls" });
+    const board = screen.getByRole("region", { name: "Opening board" });
 
     expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
     expect(within(playedMoves).getByText("Prototype instrumentation")).toBeInTheDocument();
@@ -440,9 +441,13 @@ describe("OpeningExplorerPageClient", () => {
     expect(within(controls).getByText("Player filters")).toBeInTheDocument();
     expect(within(controls).getByRole("region", { name: "Opening Tree" })).toBeInTheDocument();
     expect(within(controls).queryByText("Prototype instrumentation")).not.toBeInTheDocument();
+    // Position context belongs in the move list; the board pane should not repeat the last ply.
+    expect(within(board).queryByRole("heading")).not.toBeInTheDocument();
 
     fireEvent.click(within(controls).getByRole("button", { name: /e4, 6 games/i }));
     expect(await within(playedMoves).findByRole("button", { name: "Go to position after e4" })).toBeInTheDocument();
+    expect(within(board).queryByRole("heading")).not.toBeInTheDocument();
+    expect(within(board).queryByText("e4")).not.toBeInTheDocument();
   });
 
   it("does not loop when an idle refill leaves the selected view on a frontier", async () => {
