@@ -3,11 +3,10 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, HeartPlus, Settings, UserRound } from "lucide-react";
+import { BookMarked, ChessKnight, GitFork, HeartPlus, House, Settings, UserRound } from "lucide-react";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { useAuth } from "../../auth/useAuth";
 import SettingsModal from "../modals/SettingsModal";
-import { OpeningExplorerSidebarLink } from "../opening-explorer/OpeningExplorerSidebarLink";
 
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";
@@ -107,9 +106,37 @@ export default function Sidebar() {
       aria-label="App sidebar"
     >
       <div className="mt-auto flex flex-col items-center gap-2 pb-1">
-        <div className="h-6 w-6 shrink-0 md:h-8 md:w-8 lg:h-10 lg:w-10">
-          <OpeningExplorerSidebarLink />
-        </div>
+        <TooltipAnchor content="Analysis board">
+          <Link
+            href="/"
+            aria-label="Open analysis board"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <House className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
+
+        <TooltipAnchor content="Opening explorer">
+          <Link
+            href="/opening-explorer"
+            aria-label="Opening explorer"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              // Match sidebar breakpoints: w-8 (32px) -> w-10 (40px) -> w-16 (64px)
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <GitFork className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
 
         <TooltipAnchor content="Browse shared games">
           <Link

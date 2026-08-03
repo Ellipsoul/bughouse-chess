@@ -23,6 +23,34 @@ function createFakeAdapter(user: AuthUser | null): AuthAdapter {
 }
 
 describe("Sidebar", () => {
+  it("renders the analysis board link pointing to the home page", () => {
+    const adapter = createFakeAdapter(null);
+
+    cy.mount(
+      <AuthProvider adapter={adapter}>
+        <Sidebar />
+      </AuthProvider>,
+    );
+
+    cy.get('a[aria-label="Open analysis board"]')
+      .should("exist")
+      .and("have.attr", "href", "/");
+  });
+
+  it("renders navigation links in order: analysis board, opening explorer, shared games", () => {
+    const adapter = createFakeAdapter(null);
+
+    cy.mount(
+      <AuthProvider adapter={adapter}>
+        <Sidebar />
+      </AuthProvider>,
+    );
+
+    cy.get('a[aria-label="Open analysis board"], a[aria-label="Opening explorer"], a[aria-label="Browse shared games"]')
+      .then(($links) => [...$links].map((link) => link.getAttribute("href")))
+      .should("deep.equal", ["/", "/opening-explorer", "/shared-games"]);
+  });
+
   it("always renders the opening explorer link", () => {
     const adapter = createFakeAdapter(null);
 

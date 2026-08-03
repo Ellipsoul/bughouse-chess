@@ -82,6 +82,13 @@ describe("Authentication Flow", () => {
       cy.get('a[aria-label="Browse shared games"]', { timeout: 10000 }).click();
       cy.url().should("include", "/shared-games");
     });
+
+    it("analysis board link returns to the home page from another route", () => {
+      cy.visit("/shared-games");
+
+      cy.get('a[aria-label="Open analysis board"]', { timeout: 10000 }).click();
+      cy.url().should("eq", Cypress.config().baseUrl + "/");
+    });
   });
 
   describe("Sign Out Flow", () => {
