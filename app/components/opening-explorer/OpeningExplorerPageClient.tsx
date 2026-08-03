@@ -578,8 +578,8 @@ export default function OpeningExplorerPageClient() {
 
           {error ? <div role="alert" className="shrink-0 rounded-xl border border-amber-400/30 bg-amber-950/20 p-4 text-sm text-amber-100">{errorCopy(error)}</div> : null}
 
-          <section aria-label="Possible next moves" className="flex min-h-[22rem] flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
-            <div className="flex items-center justify-between"><h2 className="font-semibold">Possible next moves</h2><span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span></div>
+          <section aria-label="Opening Tree" className="flex min-h-[22rem] flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
+            <div className="flex items-center justify-between"><h2 className="font-semibold">Opening Tree</h2><span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span></div>
             {currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
             <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {uniqueContinuation ? (uniqueGame?.url ? <a

@@ -117,7 +117,7 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
+    const moveList = await screen.findByRole("region", { name: "Opening Tree" });
     const moves = within(moveList).getAllByRole("button");
     expect(moves[0]).toHaveAccessibleName(/e4.*6 games/i);
     expect(moves[1]).toHaveAccessibleName(/d4.*1 game/i);
@@ -290,7 +290,7 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
+    const moveList = await screen.findByRole("region", { name: "Opening Tree" });
     expect(within(moveList).getByText("6")).toBeInTheDocument();
     expect(within(moveList).getByRole("img", { name: "White wins 50%, draws 17%, Black wins 33%" })).toBeInTheDocument();
     expect(within(moveList).queryByText(/repetition|resigned/i)).not.toBeInTheDocument();
@@ -310,7 +310,7 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
+    const moveList = await screen.findByRole("region", { name: "Opening Tree" });
     const ending = within(moveList).getByLabelText("2 games end at this position");
     expect(ending).toHaveTextContent("-");
     expect(ending).not.toHaveAttribute("role", "button");
@@ -435,9 +435,9 @@ describe("OpeningExplorerPageClient", () => {
     const controls = screen.getByRole("complementary", { name: "Explorer controls" });
 
     expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
-    expect(within(playedMoves).queryByRole("region", { name: "Possible next moves" })).not.toBeInTheDocument();
+    expect(within(playedMoves).queryByRole("region", { name: "Opening Tree" })).not.toBeInTheDocument();
     expect(within(controls).getByText("Player filters")).toBeInTheDocument();
-    expect(within(controls).getByRole("region", { name: "Possible next moves" })).toBeInTheDocument();
+    expect(within(controls).getByRole("region", { name: "Opening Tree" })).toBeInTheDocument();
     expect(within(controls).getByText("Prototype instrumentation")).toBeInTheDocument();
 
     fireEvent.click(within(controls).getByRole("button", { name: /e4, 6 games/i }));
