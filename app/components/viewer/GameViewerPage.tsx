@@ -199,7 +199,6 @@ export default function GameViewerPage() {
   const prefetchedRef = useRef(prefetched);
   const prefetchSeqRef = useRef(0);
   const prefetchDebounceTimeoutRef = useRef<number | null>(null);
-  const didPrefetchSeededSampleRef = useRef(false);
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingLoadRequest, setPendingLoadRequest] = useState<PendingLoadGameRequest | null>(
     null,
@@ -384,7 +383,6 @@ export default function GameViewerPage() {
     }
 
     prefetchSeqRef.current += 1;
-    didPrefetchSeededSampleRef.current = false;
     prefetchedRef.current = { status: "idle" };
     setPrefetched({ status: "idle" });
     setPendingLoadRequest(null);
@@ -1194,22 +1192,6 @@ export default function GameViewerPage() {
         })();
       }, debounceMs);
     }, []);
-
-  useEffect(() => {
-    // Bonus: also prefetch the seeded sample game ID on initial load.
-    if (!shouldSeedWithSample) return;
-    if (didPrefetchSeededSampleRef.current) return;
-    if (!gameId) return;
-
-    didPrefetchSeededSampleRef.current = true;
-    const timeoutId = window.setTimeout(() => {
-      schedulePrefetchForRawInput(gameId);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [gameId, schedulePrefetchForRawInput, shouldSeedWithSample]);
 
   useEffect(() => {
     prefetchedRef.current = prefetched;

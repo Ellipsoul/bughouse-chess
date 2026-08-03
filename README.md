@@ -174,11 +174,16 @@ chess.com).
 - **Match discovery**: `app/utils/matchDiscovery.ts`,
   `app/components/MatchNavigation.tsx`
 
-### Local opening-explorer experiment
+### Opening-explorer experiment
 
-The opening explorer is intentionally absent from production. Start its
-validated loopback service from the sibling `bughouse-opening-explorer`
-repository, then run this application locally with:
+The opening explorer remains isolated from the two-board viewer and is now
+available as an exact-host Vercel experiment at
+[`/opening-explorer`](https://bughouse.aronteh.com/opening-explorer). It reads
+only bounded, versioned responses through a same-origin proxy; the browser never
+loads the packed artifact or receives the service credential.
+
+For local development, start the validated loopback service from the sibling
+`bughouse-opening-explorer` repository, then run this application with:
 
 ```bash
 NEXT_PUBLIC_ENABLE_OPENING_EXPLORER=true \
@@ -186,19 +191,34 @@ OPENING_EXPLORER_SERVICE_URL=http://127.0.0.1:8765 \
 npm run dev
 ```
 
-Visit `/opening-explorer` or use the `Opening explorer` sidebar icon. Both the
-route and link use the same flag, and the implementation forces that flag off
-when `NODE_ENV=production`. The browser uses a same-origin, feature-gated
-read-only proxy; only the Next.js server knows the loopback service origin.
-The browser fetches bounded, versioned node neighborhoods and lazy game
-details; it never loads the packed artifact.
+Visit `/opening-explorer` or use the `Opening explorer` sidebar icon. Route,
+sidebar, and proxy use the same pure decision. The local flag works only on a
+loopback host in a development-mode build. Hosted builds instead require one of
+two separately named server-only gates:
 
-The move list is ordered by descending game support and uses White-win, draw,
-and Black-win bars. Use Up/Down to select a continuation, Right to play it,
-and Left to return along the cached prefix. At desktop widths the board stays
-fixed while the possible-move list scrolls independently. A sole-game leaf
-loads one bounded metadata record automatically and shows both players plus
-the source Chess.com link.
+- Preview: `OPENING_EXPLORER_PREVIEW_ENABLED`, an exact
+  `OPENING_EXPLORER_PREVIEW_HOSTS` list, and `VERCEL_ENV=preview`.
+- Production experiment: `OPENING_EXPLORER_PRODUCTION_ENABLED`, an exact
+  `OPENING_EXPLORER_PRODUCTION_HOSTS` list, and `VERCEL_ENV=production`.
+
+The hosted service origin, exact origin allowlist, timeout, and bearer token are
+server-only `OPENING_EXPLORER_SERVICE_*` variables. Never expose them through a
+`NEXT_PUBLIC_*` variable. Disabled page and proxy paths return not-found
+behavior.
+
+Possible next moves are ordered by descending game support and use White-win,
+draw, and Black-win bars. Use Up/Down to select a continuation, Right to play it,
+and Left to return along the cached prefix. At desktop widths the board expands
+beside a dedicated played-line move list; the far-right controls stack player
+filters, possible next moves, and instrumentation. A game ending at the current
+prefix appears as an unclickable `-`
+row. Once a prefix contains exactly one game and one continuation, that move
+becomes the source Chess.com link and shows both players plus the result;
+keyboard navigation deliberately stops at that boundary. If the packed
+terminal policy has already stopped materializing at the first global
+support-one prefix, the same bounded metadata lookup appears as a `Game` source
+row instead. The earlier bounded multi-game inspection panel is intentionally
+omitted from the user-facing UI.
 
 ### Firebase (optional, for metrics + analytics + user features)
 

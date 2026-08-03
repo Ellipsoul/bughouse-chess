@@ -61,6 +61,14 @@ describe("OpeningExplorerPageClient", () => {
   beforeEach(() => {
     mocks.push.mockReset();
     mocks.games.mockReset();
+    mocks.games.mockResolvedValue({
+      actual_ending_count: 0,
+      dataset_version: "dataset-1",
+      games: [],
+      limit: 1,
+      node_id: 0,
+      total_matching: 0,
+    });
     mocks.metadata.mockResolvedValue({
       adapter_policy: "opening-adapter-v2-short-non-checkmate",
       coverage: { accepted_games: 7, source_fingerprint: "fixture" },
@@ -77,6 +85,7 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     await screen.findByRole("heading", { name: "Opening explorer" });
+    expect(screen.getByText("HOSTED EXPERIMENT")).toBeInTheDocument();
     expect(screen.getAllByTestId("single-opening-board")).toHaveLength(1);
     expect(mocks.neighborhood).toHaveBeenCalledTimes(1);
 
@@ -108,7 +117,7 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const moveList = await screen.findByRole("region", { name: "Move list" });
+    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
     const moves = within(moveList).getAllByRole("button");
     expect(moves[0]).toHaveAccessibleName(/e4.*6 games/i);
     expect(moves[1]).toHaveAccessibleName(/d4.*1 game/i);
@@ -212,11 +221,57 @@ describe("OpeningExplorerPageClient", () => {
     fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
     await waitFor(() => expect(mocks.neighborhood.mock.calls.length).toBeGreaterThanOrEqual(2));
     const requestsBeforeBack = mocks.neighborhood.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go to starting position" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 game/i })).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /Nf3, 1 game/i })).toBeInTheDocument();
     expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeBack);
+  });
+
+  it("loads a missing filtered overlay when backtracking to a structurally cached ancestor", async () => {
+    const filteredChild = {
+      ...neighborhoodResponse,
+      anchor_node_id: 1,
+      edges: [],
+      filter: { white_username: "alice", black_username: null },
+      nodes: [neighborhoodResponse.nodes[1]],
+      overlays: {
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 2, support: 1 },
+      },
+      path: [{ move_token: null, node_id: 0 }, { move_token: "mC", node_id: 1 }],
+    };
+    const filteredRoot = {
+      ...neighborhoodResponse,
+      filter: { white_username: "alice", black_username: null },
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 2, support: 1 },
+      },
+    };
+    mocks.neighborhood.mockImplementation((request: { nodeId: number; filter: { white?: string | null } }) => {
+      if (request.filter?.white === "alice") {
+        return Promise.resolve(request.nodeId === 1 ? filteredChild : filteredRoot);
+      }
+      return Promise.resolve(neighborhoodResponse);
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
+    fireEvent.change(screen.getByLabelText("White"), { target: { value: "alice" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
+    await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      nodeId: 1,
+      filter: { white: "alice", black: null },
+    })));
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to starting position" }));
+
+    await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      nodeId: 0,
+      filter: { white: "alice", black: null },
+    })));
+    await waitFor(() => expect(screen.getByText("2 games")).toBeInTheDocument());
   });
 
   it("summarizes each variation as White wins, draws, and Black wins", async () => {
@@ -235,28 +290,48 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const moveList = await screen.findByRole("region", { name: "Move list" });
+    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
     expect(within(moveList).getByText("6")).toBeInTheDocument();
     expect(within(moveList).getByRole("img", { name: "White wins 50%, draws 17%, Black wins 33%" })).toBeInTheDocument();
     expect(within(moveList).queryByText(/repetition|resigned/i)).not.toBeInTheDocument();
   });
 
-  it("automatically shows both players and the Chess.com game link at a sole-game leaf", async () => {
+  it("renders actual endings as an unclickable move row without a game inspector", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,
-      edges: [],
-      nodes: [
-        { child_count: 0, id: 0, interval_end: 1, interval_start: 0, move_token: null, parent_id: null, ply: 0 },
-      ],
       overlays: {
-        "0": { actual_ending_count: 1, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+        ...neighborhoodResponse.overlays,
+        "0": {
+          ...neighborhoodResponse.overlays["0"],
+          actual_ending_count: 2,
+        },
+      },
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    const moveList = await screen.findByRole("region", { name: "Possible next moves" });
+    const ending = within(moveList).getByLabelText("2 games end at this position");
+    expect(ending).toHaveTextContent("-");
+    expect(ending).not.toHaveAttribute("role", "button");
+    expect(ending).not.toHaveAttribute("href");
+    expect(within(moveList).queryByText(/actual game ending/i)).not.toBeInTheDocument();
+    expect(within(moveList).queryByRole("button", { name: "Inspect bounded game details" })).not.toBeInTheDocument();
+  });
+
+  it("opens the source game from a sole continuation without advancing the board", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
       },
     });
     mocks.games.mockResolvedValue({
-      actual_ending_count: 1,
+      actual_ending_count: 0,
       dataset_version: "dataset-1",
       games: [{
-        actual_ending: true,
+        actual_ending: false,
         black_rating: 2100,
         black_result: "resigned",
         black_username: "Bob",
@@ -276,14 +351,97 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    const leaf = await screen.findByRole("region", { name: "Game at this leaf" });
-    expect(within(leaf).getByText(/White\s+Alice/)).toBeInTheDocument();
-    expect(within(leaf).getByText(/Black\s+Bob/)).toBeInTheDocument();
-    expect(within(leaf).getByRole("link", { name: "Open full game on Chess.com" })).toHaveAttribute(
+    const gameLink = await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i });
+    expect(gameLink).toHaveAttribute("href", "https://www.chess.com/game/live/123");
+    expect(gameLink).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("button", { name: /e4/i })).not.toBeInTheDocument();
+    expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(true);
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
+    expect(mocks.games).toHaveBeenCalledWith(
+      "dataset-1",
+      0,
+      { white: null, black: null },
+      1,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("renders a sole-game terminal as the ending row without loading a separate game card", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      edges: [],
+      nodes: [
+        { child_count: 0, id: 0, interval_end: 1, interval_start: 0, move_token: null, parent_id: null, ply: 0 },
+      ],
+      overlays: {
+        "0": { actual_ending_count: 1, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+      },
+    });
+    render(<OpeningExplorerPageClient />);
+
+    expect(await screen.findByLabelText("1 game ends at this position")).toHaveTextContent("-");
+    expect(screen.queryByRole("region", { name: "Game at this leaf" })).not.toBeInTheDocument();
+    expect(mocks.games).not.toHaveBeenCalled();
+  });
+
+  it("keeps a source-game link when the packed terminal policy stops at support one", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      edges: [],
+      nodes: [
+        { child_count: 0, id: 0, interval_end: 1, interval_start: 0, move_token: null, parent_id: null, ply: 0 },
+      ],
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+      },
+    });
+    mocks.games.mockResolvedValue({
+      actual_ending_count: 0,
+      dataset_version: "dataset-1",
+      games: [{
+        actual_ending: false,
+        black_rating: 2100,
+        black_result: "resigned",
+        black_username: "Bob",
+        ordinal: 0,
+        provenance_flags: [],
+        source: "chess.com",
+        url: "https://www.chess.com/game/live/123",
+        uuid: "game-1",
+        white_rating: 2200,
+        white_result: "win",
+        white_username: "Alice",
+      }],
+      limit: 1,
+      node_id: 0,
+      total_matching: 1,
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    expect(await screen.findByRole("link", { name: /Source game.*Alice.*1–0.*Bob/i })).toHaveAttribute(
       "href",
       "https://www.chess.com/game/live/123",
     );
-    expect(mocks.games).toHaveBeenCalledWith("dataset-1", 0, { white: null, black: null }, 1);
+    expect(screen.getByText("1 game")).toBeInTheDocument();
+    expect(screen.queryByText("No continuations from this position.")).not.toBeInTheDocument();
+  });
+
+  it("places the played move list between the board and the candidate-move controls", async () => {
+    render(<OpeningExplorerPageClient />);
+
+    const playedMoves = await screen.findByRole("complementary", { name: "Played moves" });
+    const controls = screen.getByRole("complementary", { name: "Explorer controls" });
+
+    expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
+    expect(within(playedMoves).queryByRole("region", { name: "Possible next moves" })).not.toBeInTheDocument();
+    expect(within(controls).getByText("Player filters")).toBeInTheDocument();
+    expect(within(controls).getByRole("region", { name: "Possible next moves" })).toBeInTheDocument();
+    expect(within(controls).getByText("Prototype instrumentation")).toBeInTheDocument();
+
+    fireEvent.click(within(controls).getByRole("button", { name: /e4, 6 games/i }));
+    expect(await within(playedMoves).findByRole("button", { name: "Go to position after e4" })).toBeInTheDocument();
   });
 
   it("does not loop when an idle refill leaves the selected view on a frontier", async () => {

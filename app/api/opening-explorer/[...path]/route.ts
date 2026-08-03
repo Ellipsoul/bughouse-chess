@@ -1,10 +1,11 @@
-import { openingExplorerEnabled } from "@/app/components/opening-explorer/featureFlag";
+import { openingExplorerEnabledForServerRequest } from "@/app/components/opening-explorer/featureFlag";
 
 interface RouteContext {
   params: Promise<{ path: string[] }>;
 }
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const DEFAULT_TIMEOUT_MS = 5_000;
 
 function isAllowedReadPath(path: string[]): boolean {
   if (path.length === 2 && path[0] === "api" && (path[1] === "meta" || path[1] === "players")) {
@@ -17,12 +18,41 @@ function isAllowedReadPath(path: string[]): boolean {
     && (path[3] === "neighborhood" || path[3] === "games");
 }
 
-function localServiceOrigin(): URL {
+function configuredAllowedOrigins(): Set<string> {
+  return new Set(
+    (process.env.OPENING_EXPLORER_SERVICE_ALLOWED_ORIGINS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => new URL(value).origin),
+  );
+}
+
+function serviceOrigin(): { origin: URL; token?: string } {
   const origin = new URL(process.env.OPENING_EXPLORER_SERVICE_URL ?? "http://127.0.0.1:8765");
-  if (origin.protocol !== "http:" || !LOOPBACK_HOSTS.has(origin.hostname) || origin.username || origin.password) {
-    throw new Error("Opening explorer service URL must be an unauthenticated loopback HTTP origin.");
+  if (origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) {
+    throw new Error("Opening explorer service URL must be a bare origin without credentials.");
   }
-  return origin;
+  if (origin.protocol === "http:" && LOOPBACK_HOSTS.has(origin.hostname)) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Opening explorer Preview service must use HTTPS.");
+    }
+    return { origin };
+  }
+  if (origin.protocol !== "https:" || !configuredAllowedOrigins().has(origin.origin)) {
+    throw new Error("Opening explorer hosted service origin is not allowlisted.");
+  }
+  const token = process.env.OPENING_EXPLORER_SERVICE_TOKEN;
+  if (!token) throw new Error("Opening explorer hosted service credential is missing.");
+  return { origin, token };
+}
+
+function serviceTimeoutMs(): number {
+  const configured = Number(process.env.OPENING_EXPLORER_SERVICE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  if (!Number.isInteger(configured) || configured < 100 || configured > 10_000) {
+    throw new Error("Opening explorer service timeout must be between 100 and 10000 milliseconds.");
+  }
+  return configured;
 }
 
 function jsonError(status: number, code: string, detail: string): Response {
@@ -30,10 +60,7 @@ function jsonError(status: number, code: string, detail: string): Response {
 }
 
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
-  if (!openingExplorerEnabled({
-    nodeEnv: process.env.NODE_ENV,
-    publicFlag: process.env.NEXT_PUBLIC_ENABLE_OPENING_EXPLORER,
-  })) {
+  if (!openingExplorerEnabledForServerRequest(new URL(request.url).host)) {
     return jsonError(404, "feature_disabled", "Opening explorer is disabled.");
   }
 
@@ -43,24 +70,41 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   }
 
   let upstream: URL;
+  let authorization: string | undefined;
+  let timeoutMs: number;
   try {
-    upstream = new URL(`/${path.join("/")}`, localServiceOrigin());
+    const service = serviceOrigin();
+    upstream = new URL(`/${path.join("/")}`, service.origin);
+    authorization = service.token ? `Bearer ${service.token}` : undefined;
+    timeoutMs = serviceTimeoutMs();
   } catch {
-    return jsonError(503, "service_unavailable", "The local opening service is unavailable.");
+    return jsonError(503, "service_unavailable", "The opening service is unavailable.");
   }
   upstream.search = new URL(request.url).search;
 
   try {
+    const validator = request.headers.get("if-none-match");
     const response = await fetch(upstream, {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-      signal: request.signal,
+      headers: {
+        accept: "application/json",
+        ...(authorization ? { authorization } : {}),
+        ...(validator ? { "if-none-match": validator } : {}),
+      },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
     });
+    const responseHeaders = new Headers();
+    for (const name of ["cache-control", "content-type", "etag", "server-timing", "vary"]) {
+      const value = response.headers.get(name);
+      if (value) responseHeaders.set(name, value);
+    }
+    if (!responseHeaders.has("content-type") && response.status !== 304) {
+      responseHeaders.set("content-type", "application/json");
+    }
     return new Response(response.body, {
       status: response.status,
-      headers: { "content-type": response.headers.get("content-type") ?? "application/json" },
+      headers: responseHeaders,
     });
   } catch {
-    return jsonError(503, "service_unavailable", "The local opening service is unavailable.");
+    return jsonError(503, "service_unavailable", "The opening service is unavailable.");
   }
 }
