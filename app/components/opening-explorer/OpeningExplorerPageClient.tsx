@@ -531,7 +531,7 @@ export default function OpeningExplorerPageClient() {
         </section>
 
         <aside aria-label="Played moves" className="flex min-w-0 flex-col lg:col-start-2 lg:row-start-1 xl:row-start-1 xl:min-h-0 xl:overflow-hidden">
-          <section aria-label="Move list" className="flex min-h-[12rem] flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 xl:min-h-0">
+          <section aria-label="Move list" className="flex min-h-48 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 xl:min-h-0">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Move list</h2>
               <span className="text-xs text-slate-500">{playedMoves.length} {playedMoves.length === 1 ? "ply" : "plies"}</span>
@@ -545,7 +545,7 @@ export default function OpeningExplorerPageClient() {
             >
               Starting position
             </button>
-            <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {moveRows.length === 0 ? <p className="rounded-lg border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">No moves played yet</p> : <ol className="space-y-1.5">
                 {moveRows.map((row) => <li key={row.moveNumber} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1.5">
                   <span className="text-right font-mono text-xs text-slate-500">{row.moveNumber}.</span>
@@ -578,10 +578,10 @@ export default function OpeningExplorerPageClient() {
 
           {error ? <div role="alert" className="shrink-0 rounded-xl border border-amber-400/30 bg-amber-950/20 p-4 text-sm text-amber-100">{errorCopy(error)}</div> : null}
 
-          <section aria-label="Opening Tree" className="flex min-h-[22rem] flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
+          <section aria-label="Opening Tree" className="flex min-h-88 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
             <div className="flex items-center justify-between"><h2 className="font-semibold">Opening Tree</h2><span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span></div>
             {currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
-            <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {uniqueContinuation ? (uniqueGame?.url ? <a
                 href={uniqueGame.url}
                 target="_blank"
