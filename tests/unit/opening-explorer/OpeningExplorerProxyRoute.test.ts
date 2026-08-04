@@ -70,7 +70,9 @@ describe("opening explorer local proxy", () => {
     expect(response.status).toBe(304);
     expect(response.headers.get("etag")).toBe('"dataset-response"');
     expect(response.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
-    expect(response.headers.get("server-timing")).toBe("reader;dur=1.250");
+    expect(response.headers.get("server-timing")).toMatch(
+      /^reader;dur=1\.250, proxy-upstream;dur=\d+\.\d{3}$/,
+    );
   });
 
   it("forwards hosted reads only to an exact HTTPS allowlist entry with a server-side credential", async () => {
