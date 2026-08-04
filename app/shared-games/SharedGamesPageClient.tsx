@@ -228,7 +228,7 @@ export default function SharedGamesPageClient({
           isCompactLandscape ? "py-0" : "py-3",
         ].join(" ")}
       >
-        <div className="mx-auto flex w-full max-w-[1600px] items-center min-h-10 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-400 items-center min-h-10 px-4 sm:px-6 lg:px-8">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors"
@@ -243,10 +243,10 @@ export default function SharedGamesPageClient({
       <main
         className={[
           "flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-6",
-          isCompactLandscape ? "pt-16" : "pt-[76px]",
+          isCompactLandscape ? "pt-16" : "pt-19",
         ].join(" ")}
       >
-        <div className="mx-auto max-w-[1400px]">
+        <div className="mx-auto max-w-350">
           {/* Page title and filters in same row */}
           <div className="mb-6 pt-4 flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="mb-4 sm:mb-0">

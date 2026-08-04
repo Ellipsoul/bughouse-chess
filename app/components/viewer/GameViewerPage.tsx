@@ -1443,7 +1443,7 @@ export default function GameViewerPage() {
       >
         <div
           className={[
-            "mx-auto flex w-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8",
+            "mx-auto flex w-full max-w-400 items-center px-4 sm:px-6 lg:px-8",
             isCompactLandscape ? "gap-3" : "gap-6",
           ].join(" ")}
         >
@@ -1569,7 +1569,7 @@ export default function GameViewerPage() {
       >
         <div
           className={[
-            "mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 sm:px-6 lg:px-8",
+            "mx-auto flex w-full max-w-400 flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 sm:px-6 lg:px-8",
             isCompactLandscape ? "py-2" : "py-4",
           ].join(" ")}
         >

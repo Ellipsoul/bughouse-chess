@@ -316,7 +316,7 @@ export function UsernameReservationModal({
             </div>
 
             {/* Validation/availability message */}
-            <div className="min-h-[20px]">
+            <div className="min-h-5">
               {validationError && (
                 <p className="text-sm text-red-400">{validationError}</p>
               )}

@@ -47,7 +47,7 @@ describe("BughouseAnalysis board order", () => {
 
   it("preserves swapped order across flips and match navigation", () => {
     cy.mount(
-      <div className="h-[900px] w-[1400px] bg-gray-900">
+      <div className="h-225 w-350 bg-gray-900">
         <Wrapper />
       </div>,
     );
@@ -77,7 +77,7 @@ describe("BughouseAnalysis board order", () => {
 
   it("toggles board order with 's' key", () => {
     cy.mount(
-      <div className="h-[900px] w-[1400px] bg-gray-900">
+      <div className="h-225 w-350 bg-gray-900">
         <Wrapper />
       </div>,
     );

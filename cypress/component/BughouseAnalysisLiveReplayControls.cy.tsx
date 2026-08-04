@@ -21,7 +21,7 @@ describe("BughouseAnalysis live replay controls", () => {
   it("hides Stop, enables prev/next seek during playback, and keeps jump-to-start/end disabled", () => {
     const orientationStore = new ViewerOrientationStore(0);
     cy.mount(
-      <div className="h-[900px] w-[1400px] bg-gray-900">
+      <div className="h-225 w-350 bg-gray-900">
         <ViewerOrientationStoreProvider store={orientationStore}>
           <BughouseAnalysis
             gameData={{ original, partner }}

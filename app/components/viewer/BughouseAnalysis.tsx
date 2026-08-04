@@ -2326,10 +2326,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
               // Default (viewport-clamped): consume remaining height so the move list is always visible.
               isCompactLandscape ? "shrink-0" : "flex-1 min-h-0",
               // Desktop: fixed right column, height aligned to board play area.
-              "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-[360px] min-[1400px]:h-(--bh-play-area-height)",
+              "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-90 min-[1400px]:h-(--bh-play-area-height)",
               // Compact landscape: give the move list a bounded height so it can scroll internally
               // after the user scrolls down to it.
-              isCompactLandscape ? "h-[280px] max-h-[60vh]" : "",
+              isCompactLandscape ? "h-70 max-h-[60vh]" : "",
             ].join(" ")}
           >
             <MoveListWithVariations

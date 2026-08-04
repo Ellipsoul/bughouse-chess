@@ -743,7 +743,7 @@ export default function ShareGameModal({
 
           {/* Game Summary */}
           <div
-            className="mb-4 min-h-[120px] rounded-lg border border-gray-700 bg-gray-800/50 p-4"
+            className="mb-4 min-h-30 rounded-lg border border-gray-700 bg-gray-800/50 p-4"
             data-testid="game-summary"
           >
             {/* Type and game count */}

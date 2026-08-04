@@ -594,7 +594,7 @@ export default function MatchNavigation({
           </button>
 
           {/* Game counter or loading indicator */}
-          <div className="relative min-w-[100px] flex items-center justify-center" ref={dropdownRef}>
+          <div className="relative min-w-25 flex items-center justify-center" ref={dropdownRef}>
             {isDiscovering ? (
               <span className="inline-flex items-center justify-center gap-1.5 text-sm text-gray-300">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -927,7 +927,7 @@ function MatchScoreSummary({
         </div>
 
         {/* Current and final score */}
-        <div className="shrink-0 min-w-[8.5rem] leading-none" data-testid="match-score-rows">
+        <div className="shrink-0 min-w-34 leading-none" data-testid="match-score-rows">
           <div
             className="flex items-baseline text-[10px] font-semibold text-gray-300"
             data-testid="current-score-row"
@@ -1004,7 +1004,7 @@ function PartnerPairScoreSummary({
         </div>
 
         {/* Current and final score */}
-        <div className="shrink-0 min-w-[8.5rem] leading-none" data-testid="partner-pair-score-rows">
+        <div className="shrink-0 min-w-34 leading-none" data-testid="partner-pair-score-rows">
           <div
             className="flex items-baseline text-[10px] font-semibold text-gray-300"
             data-testid="current-score-row"

@@ -112,7 +112,7 @@ export default function ProfilePageClient() {
         ].join(" ")}
       >
         {/* min-h-10 (40px) matches the main page header content height (logo is h-10) */}
-        <div className="mx-auto flex w-full max-w-[1600px] items-center min-h-10 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-400 items-center min-h-10 px-4 sm:px-6 lg:px-8">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors"
@@ -133,7 +133,7 @@ export default function ProfilePageClient() {
       <main
         className={[
           "flex-1 flex items-start md:items-center justify-center px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto",
-          isCompactLandscape ? "pt-16" : "pt-[76px]",
+          isCompactLandscape ? "pt-16" : "pt-19",
         ].join(" ")}
       >
         <div className="w-full max-w-sm md:flex md:flex-col md:items-center md:text-center">
@@ -287,7 +287,7 @@ function SignedInState({
                 <UserRound className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300" aria-hidden="true" />
               )}
             </div>
-            <h1 className="text-base sm:text-lg font-semibold text-gray-100 mt-3 max-w-[120px] wrap-break-word">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-100 mt-3 max-w-30 wrap-break-word">
               {displayName}
             </h1>
           </div>
