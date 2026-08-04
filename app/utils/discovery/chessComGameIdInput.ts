@@ -3,6 +3,10 @@
  *
  * Normalizes pasted Chess.com game ids and bughouse share URLs into raw numeric ids.
  */
+
+/** Defensive ceiling so pathological nested paste values cannot recurse forever. */
+const MAX_SANITIZE_DEPTH = 5;
+
 /**
  * Sanitizes a "game id" input value that may be either a raw chess.com game id
  * or a full URL (or any other string containing `/` path segments).
@@ -11,7 +15,8 @@
  * we extract **everything after the last slash (`/`)**.
  *
  * For bughouse share URLs (e.g. `https://bughouse.aronteh.com/?gameId=...`),
- * we prefer the `gameId` query param.
+ * we prefer the `gameId` query param. That param may itself be a Chess.com URL
+ * (or another share URL); we keep resolving until we get a bare id.
  *
  * We also defensively strip query/hash fragments and trailing slashes to avoid
  * common copy/paste artifacts like:
@@ -19,22 +24,25 @@
  * - `https://www.chess.com/game/live/160407448121/`
  */
 export function sanitizeChessComGameIdInput(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
+  return sanitizeChessComGameIdInputInternal(input, 0);
+}
 
-  // Prefer explicit share URLs that embed the game id in the query string.
-  const queryGameId = extractChessComGameIdFromQuery(trimmed);
-  if (queryGameId) return queryGameId;
-
-  // If no query param is present, fall back to extracting the URL tail.
-  // Remove `?query` / `#hash` fragments (not part of the game id).
-  const withoutQueryOrHash = trimmed.split(/[?#]/, 1)[0] ?? "";
-  // Drop any trailing slash to avoid returning an empty segment.
-  const withoutTrailingSlashes = withoutQueryOrHash.replace(/\/+$/g, "");
-
-  const lastSlashIdx = withoutTrailingSlashes.lastIndexOf("/");
-  if (lastSlashIdx === -1) return withoutTrailingSlashes;
-  return withoutTrailingSlashes.slice(lastSlashIdx + 1);
+/**
+ * Resolves a raw `gameId` / `gameid` query-param value into a canonical Chess.com id.
+ *
+ * Used by URL auto-load so the effect dedupe key matches the id written back by
+ * `syncUrlForLoadedGame`. Without this, `/?gameId=https://www.chess.com/...`
+ * keeps the raw URL as the auto-load key while post-load URL sync stores the
+ * numeric id — the mismatch re-triggers fetch forever.
+ *
+ * @returns Canonical id, or `null` when missing/blank after sanitization.
+ */
+export function resolveChessComGameIdFromQueryParam(
+  raw: string | null | undefined,
+): string | null {
+  if (raw == null) return null;
+  const sanitized = sanitizeChessComGameIdInput(raw);
+  return sanitized || null;
 }
 
 /**
@@ -47,6 +55,34 @@ export function sanitizeChessComGameIdInput(input: string): string {
 export function isValidChessComGameId(gameId: string): boolean {
   // Chess.com game IDs must be 10, 11, or 12 digits.
   return /^\d{10,12}$/.test(gameId);
+}
+
+function sanitizeChessComGameIdInputInternal(input: string, depth: number): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (depth > MAX_SANITIZE_DEPTH) return trimmed;
+
+  // Prefer explicit share URLs that embed the game id in the query string.
+  // Recurse because the param value may itself be a Chess.com (or share) URL.
+  const queryGameId = extractChessComGameIdFromQuery(trimmed);
+  if (queryGameId) {
+    return sanitizeChessComGameIdInputInternal(queryGameId, depth + 1);
+  }
+
+  return extractIdFromUrlPathTail(trimmed);
+}
+
+/**
+ * Extracts the trailing path segment from a URL-like string.
+ * Strips `?query` / `#hash` and trailing slashes first.
+ */
+function extractIdFromUrlPathTail(input: string): string {
+  const withoutQueryOrHash = input.split(/[?#]/, 1)[0] ?? "";
+  const withoutTrailingSlashes = withoutQueryOrHash.replace(/\/+$/g, "");
+
+  const lastSlashIdx = withoutTrailingSlashes.lastIndexOf("/");
+  if (lastSlashIdx === -1) return withoutTrailingSlashes;
+  return withoutTrailingSlashes.slice(lastSlashIdx + 1);
 }
 
 /**

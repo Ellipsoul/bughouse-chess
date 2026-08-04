@@ -77,6 +77,7 @@ import { getAutoAdvanceLiveReplayFromLocalStorage } from "../../utils/preference
 import { scheduleLiveReplayAutoAdvance } from "../../utils/replay/liveReplayAutoAdvance";
 import {
   isValidChessComGameId,
+  resolveChessComGameIdFromQueryParam,
   sanitizeChessComGameIdInput,
 } from "../../utils/discovery/chessComGameIdInput";
 import {
@@ -160,9 +161,18 @@ function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: stri
 export default function GameViewerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryGameId = searchParams.get("gameid") ?? searchParams.get("gameId");
   const sharedId = searchParams.get("sharedId");
-  const autoLoadGameId = queryGameId?.trim();
+  /**
+   * Canonical game id for URL auto-load.
+   *
+   * Must sanitize here (not only inside `loadGame`): the auto-load effect dedupes
+   * against this value, while successful loads write the numeric id back via
+   * `syncUrlForLoadedGame`. If we kept a raw Chess.com URL as the key, those
+   * two forms would diverge and re-trigger fetch in a loop.
+   */
+  const autoLoadGameId = resolveChessComGameIdFromQueryParam(
+    searchParams.get("gameid") ?? searchParams.get("gameId"),
+  );
   const initialGlobalPly = useMemo(
     () => parsePlyFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams],
