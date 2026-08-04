@@ -98,6 +98,15 @@ describe("OpeningExplorerPageClient", () => {
     mocks.players.mockResolvedValue([]);
   });
 
+  it("sets a patient cold-start expectation only while the opening dataset loads", async () => {
+    render(<OpeningExplorerPageClient />);
+
+    expect(screen.getByText("Cold starts can take up to 20 seconds. Please be patient.")).toBeInTheDocument();
+
+    await screen.findByRole("heading", { name: "Opening explorer" });
+    expect(screen.queryByText("Cold starts can take up to 20 seconds. Please be patient.")).not.toBeInTheDocument();
+  });
+
   it("publishes first-load phases to the browser performance timeline", async () => {
     const mark = vi.spyOn(performance, "mark");
 

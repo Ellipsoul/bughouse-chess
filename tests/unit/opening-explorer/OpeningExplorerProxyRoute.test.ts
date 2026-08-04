@@ -131,6 +131,25 @@ describe("opening explorer local proxy", () => {
     expect(upstream).toHaveBeenCalledOnce();
   });
 
+  it("accepts a hosted timeout long enough for the full artifact to cold-start", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "https://opening-service.example");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_ALLOWED_ORIGINS", "https://opening-service.example");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_TOKEN", "server-secret");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_TIMEOUT_MS", "30000");
+    const upstream = vi.fn(async () => Response.json({ dataset_version: "v1" }));
+    vi.stubGlobal("fetch", upstream);
+    const { GET } = await import("@/app/api/opening-explorer/[...path]/route");
+
+    const response = await GET(
+      new Request("https://bughouse.aronteh.com/api/opening-explorer/api/meta"),
+      { params: Promise.resolve({ path: ["api", "meta"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
   it("forwards requests without availability configuration", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");

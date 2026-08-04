@@ -26,7 +26,10 @@ interface RouteContext {
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
 /** Default upstream timeout when the env override is absent. */
-const DEFAULT_TIMEOUT_MS = 5_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Keep the proxy alive long enough for a full-artifact Large Function cold start. */
+export const maxDuration = 60;
 
 /**
  * Returns whether the catch-all path matches an allowed read operation.
@@ -109,8 +112,8 @@ function serviceOrigin(): { origin: URL; token?: string } {
 function serviceTimeoutMs(): number {
   const configured = Number(process.env.OPENING_EXPLORER_SERVICE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
 
-  if (!Number.isInteger(configured) || configured < 100 || configured > 10_000) {
-    throw new Error("Opening explorer service timeout must be between 100 and 10000 milliseconds.");
+  if (!Number.isInteger(configured) || configured < 100 || configured > 60_000) {
+    throw new Error("Opening explorer service timeout must be between 100 and 60000 milliseconds.");
   }
 
   return configured;

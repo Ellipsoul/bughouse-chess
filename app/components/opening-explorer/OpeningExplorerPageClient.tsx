@@ -880,9 +880,18 @@ export default function OpeningExplorerPageClient() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-slate-950 text-slate-100">
-        <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-        Loading opening dataset…
+      <div
+        aria-live="polite"
+        className="flex h-full flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-slate-100"
+        role="status"
+      >
+        <div className="flex items-center">
+          <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+          <span>Loading opening dataset…</span>
+        </div>
+        <p className="max-w-sm text-sm text-slate-400">
+          Cold starts can take up to 20 seconds. Please be patient.
+        </p>
       </div>
     );
   }
