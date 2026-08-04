@@ -1,3 +1,8 @@
+/**
+ * Unit tests for {@link ChessTitleBadge} rendering.
+ *
+ * Verifies FIDE title badges appear only for recognized titles with accessible labels.
+ */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ChessTitleBadge } from "../../../app/components/badges/ChessTitleBadge";

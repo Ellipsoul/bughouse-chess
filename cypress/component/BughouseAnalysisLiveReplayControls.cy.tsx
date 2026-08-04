@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link BughouseAnalysis} live replay controls.
+ *
+ * Verifies play/pause/seek button visibility and disabled states during fixture
+ * replay without exercising real timers beyond UI affordances.
+ */
 import BughouseAnalysis from "../../app/components/viewer/BughouseAnalysis";
 import {
   ViewerOrientationStore,

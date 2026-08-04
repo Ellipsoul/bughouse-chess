@@ -1,5 +1,5 @@
 /**
- * Match Discovery Service
+ * @module matchDiscovery
  *
  * Discovers subsequent bughouse games with the same four players and team pairings.
  * Uses rate-limited API requests to avoid overwhelming Chess.com's servers.
@@ -225,23 +225,24 @@ export function parsePgnDate(dateStr: string): { year: number; month: number } |
 }
 
 /**
- * Controller for cancelling ongoing discovery operations.
+ * Cooperative cancellation token passed into long-running discovery loops.
  */
 export class DiscoveryCancellation {
   private cancelled = false;
 
+  /** Marks discovery as cancelled; in-flight delays reject on next check. */
   cancel(): void {
     this.cancelled = true;
   }
 
+  /** Returns whether {@link cancel} was called. */
   isCancelled(): boolean {
     return this.cancelled;
   }
 }
 
 /**
- * Delays execution for a specified number of milliseconds.
- * Supports cancellation via AbortController.
+ * Sleeps between Chess.com API calls; rejects if cancellation fires during the wait.
  */
 async function delay(ms: number, cancellation?: DiscoveryCancellation): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -256,14 +257,18 @@ async function delay(ms: number, cancellation?: DiscoveryCancellation): Promise<
 }
 
 /**
- * Internal search context shared between forward and backward searches.
+ * Internal search context shared between forward and backward archive scans.
  */
 interface SearchContext {
+  /** Team pairings from the seed game used for full-match mode comparison. */
   referenceTeams: TeamComposition;
+  /** Chess.com username whose monthly archive is queried. */
   archivePlayer: string;
   callbacks: MatchDiscoveryCallbacks;
   cancellation?: DiscoveryCancellation;
+  /** Total candidate games examined (including non-matches). */
   gamesChecked: number;
+  /** Total matching games found in this discovery run (excluding seed). */
   gamesFound: number;
   /** Discovery mode: full match or partner pair. */
   mode: DiscoveryMode;

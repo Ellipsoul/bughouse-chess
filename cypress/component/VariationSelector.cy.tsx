@@ -1,9 +1,16 @@
+/**
+ * Cypress component tests for {@link VariationSelector}.
+ *
+ * Covers variation picker open/close, keyboard selection, and callback wiring on
+ * branched analysis trees.
+ */
 import VariationSelector from "../../app/components/moves/VariationSelector";
 import type { VariationSelectorState } from "../../app/components/moves/useAnalysisState";
 import type { AnalysisTree } from "../../app/types/analysis";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";
 
 describe("VariationSelector", () => {
+  /** Tree with sibling variations off the root for selector UI tests. */
   const createTreeWithVariations = (): AnalysisTree => {
     const rootPosition = createInitialPositionSnapshot();
     return {

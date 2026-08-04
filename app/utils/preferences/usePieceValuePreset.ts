@@ -1,3 +1,8 @@
+/**
+ * @module usePieceValuePreset
+ *
+ * React hook that mirrors the capture-material preset stored in localStorage.
+ */
 "use client";
 
 import { useSyncExternalStore } from "react";

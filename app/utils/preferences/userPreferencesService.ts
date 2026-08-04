@@ -1,3 +1,9 @@
+/**
+ * @module userPreferencesService
+ *
+ * Dual-layer preference storage: localStorage for instant reads, Firestore for cross-device sync.
+ * Settings modal writes both; this module resolves conflicts with local-first priority on load.
+ */
 "use client";
 
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -49,6 +55,7 @@ const USER_PREFERENCES_DOC_ID = "settings";
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Firestore-backed preference document shape (also mirrored to localStorage). */
 export interface UserPreferences {
   boardAnnotationColor: string;
   autoAdvanceLiveReplay: boolean;
@@ -211,6 +218,7 @@ export function subscribeToPieceValuePresetChanges(onChange: () => void): () => 
     return () => {};
   }
 
+  /** Reacts to cross-tab `storage` events for the piece-value preset key. */
   const handleStorage = (event: StorageEvent) => {
     if (event.key === PIECE_VALUE_PRESET_KEY) {
       onChange();

@@ -25,12 +25,20 @@ import { parseChessComCompressedMoveList } from "@/app/chesscom_movelist_parse";
  * The "top/bottom" seating can vary depending on the viewer context, so we must derive
  * White/Black by the provided `color` field rather than assuming a fixed mapping.
  */
+/**
+ * Normalize chess.com player title strings (e.g. "gm" → "GM").
+ * Returns undefined for missing/blank values so callers can omit the field.
+ */
 function normalizeChessTitle(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const normalized = raw.trim().toUpperCase();
   return normalized ? normalized : undefined;
 }
 
+/**
+ * Derive white/black player objects from chess.com's top/bottom seating using the
+ * explicit `color` field rather than assuming a fixed screen position mapping.
+ */
 function getPlayersByColor(game: ChessGame | null | undefined): {
   white: { username: string; rating: number; chessTitle?: string } | null;
   black: { username: string; rating: number; chessTitle?: string } | null;
@@ -171,6 +179,7 @@ export function processGameData(
   return result;
 }
 
+/** Delegate to the chess.com compressed movelist parser. */
 function parseMovesFromMoveList(moveList: string): string[] {
   return parseChessComCompressedMoveList(moveList);
 }
@@ -252,6 +261,12 @@ function createCombinedMoveList(
   return combinedMoves;
 }
 
+/**
+ * Convert chess.com remaining-time stamps into elapsed-time stamps (deciseconds).
+ *
+ * Uses the bughouse-viewer trick: remaining on a board ≈ mover remaining + opponent
+ * remaining, so elapsed = total given time − remaining sum.
+ */
 function calculateMoveTimes(
   timestamps: number[],
   initialTime: number,

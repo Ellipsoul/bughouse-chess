@@ -1,9 +1,15 @@
+/**
+ * Cypress component tests for {@link Sidebar} navigation.
+ *
+ * Verifies nav link order, auth-gated entries, and opening-explorer availability
+ * using a fake {@link AuthAdapter}.
+ */
 import Sidebar from "../../app/components/layout/Sidebar";
 import { AuthProvider } from "../../app/auth/AuthProvider";
 import type { AuthAdapter, AuthUser } from "../../app/auth/types";
 
 /**
- * Creates a fake AuthAdapter that immediately resolves to the given user state.
+ * Immediate-resolving fake {@link AuthAdapter} for sidebar mount tests.
  */
 function createFakeAdapter(user: AuthUser | null): AuthAdapter {
   return {

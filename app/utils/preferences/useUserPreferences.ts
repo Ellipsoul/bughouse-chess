@@ -1,3 +1,9 @@
+/**
+ * @module useUserPreferences
+ *
+ * Bootstraps persisted user preferences on app load and applies board annotation color
+ * to the document root CSS variable.
+ */
 "use client";
 
 import { useEffect } from "react";

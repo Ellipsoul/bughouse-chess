@@ -1,4 +1,6 @@
 /**
+ * @module loadGameOverrideConfirmPreference
+ *
  * User preference for suppressing the "load new game will override" confirmation.
  *
  * Why localStorage?

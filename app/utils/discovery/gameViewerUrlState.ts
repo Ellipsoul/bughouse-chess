@@ -1,4 +1,6 @@
 /**
+ * @module gameViewerUrlState
+ *
  * URL helpers for Game Viewer state synchronization.
  *
  * These helpers centralize query-string behavior so load/navigation handlers can

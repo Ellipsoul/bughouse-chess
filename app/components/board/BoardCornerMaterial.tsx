@@ -1,8 +1,14 @@
 "use client";
 
+/**
+ * @module app/components/board/BoardCornerMaterial
+ *
+ * Tiny signed capture-material counter rendered in a board/player-bar corner.
+ */
 import React from "react";
 import { formatSignedCaptureMaterial } from "../../utils/analysis/captureMaterial";
 
+/** Which corner of the board overlay should host the material badge. */
 export type BoardCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 export interface BoardCornerMaterialProps {
@@ -20,6 +26,7 @@ export interface BoardCornerMaterialProps {
   density?: "default" | "compact";
 }
 
+/** Tailwind absolute-position classes that pin the badge to a board corner. */
 function getCornerPositionClasses(corner: BoardCorner): string {
   switch (corner) {
     case "top-left":

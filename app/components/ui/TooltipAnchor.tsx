@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/ui/TooltipAnchor
+ *
+ * Thin wrapper that attaches app-wide React Tooltip attributes to a non-disabled
+ * span so tooltips work on disabled controls.
+ */
 import React from "react";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 

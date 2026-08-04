@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * @module app/components/moves/MoveTree
+ *
+ * Alternate analysis move renderer: parenthesized variation tree (mainline + nested lines).
+ */
 import React, { useCallback, useMemo } from "react";
 import type { AnalysisNode, AnalysisTree } from "../../types/analysis";
 import { findContainingVariationHeadNodeId } from "../../utils/analysis/findVariationHead";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 
+/** Props for {@link MoveTree}. */
 interface MoveTreeProps {
   tree: AnalysisTree;
   cursorNodeId: string;
@@ -56,6 +62,7 @@ export default function MoveTree({
   );
   const canTruncateSelectedInclusive = Boolean(selectedNode && selectedNodeId !== tree.rootId);
 
+  /** Clickable SAN token for a single analysis node. */
   const renderMoveToken = useCallback(
     (node: AnalysisNode) => {
       const move = node.incomingMove;
@@ -92,6 +99,7 @@ export default function MoveTree({
     [cursorNodeId, onSelectNode, selectedNodeId],
   );
 
+  /** Recursively render a parenthesized variation starting at `startNodeId`. */
   const renderVariationLine = useCallback(
     function renderVariationLine(startNodeId: string): React.ReactNode {
       const startNode = tree.nodesById[startNodeId];
@@ -139,6 +147,7 @@ export default function MoveTree({
     [renderMoveToken, tree.nodesById],
   );
 
+  /** Walk the mainline from `nodeId`, nesting sibling variations inline. */
   const renderMainlineFrom = useCallback(
     (nodeId: string) => {
       const node = tree.nodesById[nodeId];

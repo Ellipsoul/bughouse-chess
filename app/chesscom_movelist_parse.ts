@@ -1,7 +1,20 @@
 /**
- * Parse chess.com compressed move list into SAN-like strings the rest of the app can consume.
- * The string encodes source/target in two-character chunks with custom drop/promotion symbols.
- * This function replays moves on a virtual board to emit readable move strings.
+ * chess.com compressed movelist decoder.
+ *
+ * chess.com stores each game's move history as a dense two-character-per-move string.
+ * Symbols encode source/target squares, drops, promotions, castling, and en passant.
+ * This module replays those pairs on a virtual board to emit SAN-like strings the
+ * rest of the app (replay, analysis loading, move ordering) can consume.
+ *
+ * Adapted from the legacy bughouse-viewer implementation; behavior must remain
+ * byte-compatible with chess.com payloads.
+ */
+
+/**
+ * Parse a chess.com compressed move list into an ordered array of move strings.
+ *
+ * @param raw - The raw `moveList` field from a chess.com live-game payload.
+ * @returns SAN-ish move strings including bughouse drops (`P@e4`) and promotions.
  */
 export function parseChessComCompressedMoveList(raw: string): string[] {
     const encodedPairs: string[] = [];
@@ -9,10 +22,10 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
         encodedPairs.push(raw.substring(i, i + 2));
     }
 
-    // Track the current board state
-    // Note: The mapping here tracks piece TYPES on squares.
-    // Uppercase = White, Lowercase = Black?
-    // Based on initialization: "a8": "r" (Black rook), "a1": "R" (White rook). Yes.
+    /**
+     * Virtual board state keyed by algebraic square.
+     * Uppercase = white piece, lowercase = black piece, "." = empty.
+     */
     const board: Record<string, string> = {
         "a8": "r",
         "b8": "n",
@@ -82,6 +95,10 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
 
     const moves: string[] = [];
 
+    /**
+     * Map a single chess.com encoding symbol to an algebraic square (e.g. `"e4"`).
+     * Returns undefined when the symbol is not in the known alphabet.
+     */
     function toSquare(symbol: string) {
         const squareMap = {
             "4": "a8",
@@ -153,14 +170,12 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
         return result;
     }
 
-    // Main parsing loop
+    // Main parsing loop: each pair is (sourceSymbol, targetSymbol).
     for (let i = 0; i < encodedPairs.length; i++) {
         const sourceSymbol = encodedPairs[i][0];
         const targetSymbol = encodedPairs[i][1];
 
-        // Handle drops (bughouse pieces arriving from reserve).
-        // Remaining logic handles promotions, castling, en passant, and captures.
-        // Drops
+        // --- Bughouse drops: source symbol selects piece type, target is square ---
         if ("&-*+=".includes(sourceSymbol)) {
             const piece = "QNRBP"["&-*+=".indexOf(sourceSymbol)];
             board[toSquare(targetSymbol)] = piece;
@@ -168,6 +183,7 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
             continue;
         }
 
+        // --- Pawn promotions: target symbol encodes piece + file adjustment ---
         if ("{~}(^)[_]@#$".includes(targetSymbol)) {
             const promoteTo =
                 "qnrb"[Math.floor("{~}(^)[_]@#$".indexOf(targetSymbol) / 3)];
@@ -191,8 +207,8 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
             continue;
         }
 
+        // --- Castling: king source + king target on e-file ---
         if ("kK".includes(board[toSquare(sourceSymbol)])) {
-            // Handling castles
             const kingMove = toSquare(sourceSymbol) + toSquare(targetSymbol);
             let isCastle = false;
 
@@ -223,24 +239,19 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
                 board[toSquare(sourceSymbol)] = ".";
                 continue;
             }
-            // If it's a king move but not castling, fall through to regular move logic
+            // Non-castling king moves fall through to regular move handling.
         }
 
-        // Check for En Passant
-        // Legacy: pawn moves diagonally to empty square
+        // --- En passant: pawn moves diagonally to an empty square ---
         if ("pP".includes(board[toSquare(sourceSymbol)])) {
             const isDiagonal = toSquare(sourceSymbol)[0] !== toSquare(targetSymbol)[0];
             const isEmptyTarget = board[toSquare(targetSymbol)] === ".";
 
             if (isDiagonal && isEmptyTarget) {
-                // En Passant detected
-                // Clean the captured pawn
                 if (toSquare(targetSymbol)[1] === "6") {
-                    // White capturing en passant on rank 6, pawn is on rank 5
                     const capturedSq = toSquare(targetSymbol)[0] + "5";
                     board[capturedSq] = ".";
                 } else if (toSquare(targetSymbol)[1] === "3") {
-                    // Black capturing en passant on rank 3, pawn is on rank 4
                     const capturedSq = toSquare(targetSymbol)[0] + "4";
                     board[capturedSq] = ".";
                 }
@@ -252,21 +263,18 @@ export function parseChessComCompressedMoveList(raw: string): string[] {
             }
         }
 
-        // Handling regular moves and captures
+        // --- Regular moves and captures ---
         const isCapture = board[toSquare(targetSymbol)] !== ".";
         board[toSquare(targetSymbol)] = board[toSquare(sourceSymbol)];
         board[toSquare(sourceSymbol)] = ".";
 
-        // Check if source piece was a king and update tracking
         if (board[toSquare(targetSymbol)].toLowerCase() === "p") {
-            // Pawn move
             if (isCapture) {
                 moves.push(toSquare(sourceSymbol)[0] + "x" + toSquare(targetSymbol));
             } else {
                 moves.push(toSquare(targetSymbol));
             }
         } else {
-            // Piece move
             moves.push(
                 board[toSquare(targetSymbol)].toUpperCase() + toSquare(sourceSymbol) + (isCapture ? "x" : "") +
                     toSquare(targetSymbol),

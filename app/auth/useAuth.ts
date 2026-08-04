@@ -1,3 +1,8 @@
+/**
+ * @module useAuth
+ *
+ * React hook for {@link AuthContextValue} from {@link AuthProvider}.
+ */
 "use client";
 
 import { useContext } from "react";

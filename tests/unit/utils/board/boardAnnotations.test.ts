@@ -1,3 +1,9 @@
+/**
+ * Unit tests for board annotation primitives (`boardAnnotations.ts`).
+ *
+ * Validates square parsing, arrow key construction, and toggle helpers for
+ * highlighted squares and drawn arrows.
+ */
 import { describe, it, expect } from "vitest";
 import {
   buildArrowKey,

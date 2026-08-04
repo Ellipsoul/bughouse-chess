@@ -1,3 +1,8 @@
+/**
+ * @module SharedGamesPageClient
+ *
+ * Client UI for browsing/filtering community shared games (data prefetched on server).
+ */
 "use client";
 
 import React, {
@@ -153,6 +158,7 @@ export default function SharedGamesPageClient({
     () => true,
   );
 
+  /** Persists show/hide preference for match result scores on browse cards. */
   const handleToggleShowResults = useCallback(() => {
     if (typeof window === "undefined") {
       return;

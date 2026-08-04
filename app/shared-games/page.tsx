@@ -1,3 +1,8 @@
+/**
+ * @module shared-games/page
+ *
+ * Server entry for `/shared-games`; prefetches summaries and hydrates the client grid.
+ */
 import SharedGamesPageClient from "./SharedGamesPageClient";
 import { getAllSharedGames } from "../utils/shared-games/sharedGamesService.server";
 

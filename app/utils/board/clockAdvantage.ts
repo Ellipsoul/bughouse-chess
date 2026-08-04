@@ -1,3 +1,9 @@
+/**
+ * Team clock advantage computation and UI tinting.
+ *
+ * Bughouse teams are fixed pairings across boards; this module sums each team's
+ * remaining time and maps the signed difference to Tailwind visual tiers.
+ */
 import type { BughouseClocksSnapshotByBoard } from "@/app/types/bughouse";
 
 /**
@@ -23,6 +29,10 @@ export function getTeamTimeDiffDeciseconds(
   return team1 - team2;
 }
 
+/**
+ * Map absolute team time difference (deciseconds) to a visual intensity tier (0–5).
+ * Tiers follow exponential second thresholds: <1, <2, <4, <8, <16, ≥16.
+ */
 function getAdvantageTier(absDiffDeciseconds: number): 0 | 1 | 2 | 3 | 4 | 5 {
   if (!(absDiffDeciseconds > 0)) return 0;
 

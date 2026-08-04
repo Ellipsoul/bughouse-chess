@@ -1,3 +1,10 @@
+/**
+ * Unit tests for per-board move duration extraction
+ * (`buildPerBoardMoveDurationsDeciseconds.ts`).
+ *
+ * Durations measure elapsed deciseconds since the previous move on the same
+ * board (not global ply order), matching live clock display semantics.
+ */
 import { describe, it, expect } from "vitest";
 import { buildPerBoardMoveDurationsDeciseconds } from "@/app/utils/analysis/buildPerBoardMoveDurationsDeciseconds";
 import type { BughouseMove } from "../../../app/types/bughouse";

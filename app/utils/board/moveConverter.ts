@@ -1,7 +1,18 @@
+/**
+ * Chess.com SAN → chess.js move-string conversion.
+ *
+ * External move strings from chess.com payloads are often valid SAN but may use
+ * alternate notation (0-0 castling, extra disambiguation, etc.). These helpers
+ * probe chess.js legality with tolerant fallbacks before rejecting a move.
+ */
 import { Chess } from "chess.js";
 
 /**
- * Converts Chess.com move notation to chess.js compatible format
+ * Converts Chess.com move notation to a chess.js-compatible move string.
+ *
+ * Tries the move as-is first, then a sequence of heuristic rewrites (capture
+ * notation cleanup, disambiguation stripping, destination-square matching).
+ * Returns null when no legal interpretation exists in the current position.
  */
 export function convertChessComMoveToChessJs(
   move: string,
@@ -17,11 +28,13 @@ export function convertChessComMoveToChessJs(
   const shouldLog = (): boolean =>
     process.env.NODE_ENV !== "test" && process.env.VITEST !== "true";
 
+  /** Emit a console.error when conversion fails, suppressed during test runs. */
   const logConversionError = (message: string): void => {
     if (!shouldLog()) return;
     console.error(message);
   };
 
+  /** Emit a console.warn for soft conversion failures, suppressed during test runs. */
   const logConversionWarning = (message: string): void => {
     if (!shouldLog()) return;
     console.warn(message);
@@ -135,7 +148,10 @@ export function convertChessComMoveToChessJs(
 }
 
 /**
- * Validates and converts a move if necessary
+ * Validate a move string against the current position, converting if necessary.
+ *
+ * Attempts a direct chess.js parse first; on failure delegates to
+ * {@link convertChessComMoveToChessJs} for heuristic recovery.
  */
 export function validateAndConvertMove(
   move: string,

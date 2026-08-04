@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/layout/Sidebar
+ *
+ * Icon-first global navigation rail: primary routes, external links, settings,
+ * and profile avatar/sign-in affordance.
+ */
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,8 +14,13 @@ import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { useAuth } from "../../auth/useAuth";
 import SettingsModal from "../modals/SettingsModal";
 
+/** Public GitHub repository for this project. */
 const GITHUB_REPO_URL = "https://github.com/Ellipsoul/bughouse-chess";
+
+/** Chess.com bughouse lobby deep link. */
 const CHESS_COM_BUGHOUSE_URL = "https://www.chess.com/play/online/doubles-bughouse";
+
+/** Support/donation link shown in the sidebar. */
 const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/aronteh";
 
 /**
@@ -77,6 +88,7 @@ export default function Sidebar() {
   const avatarAlt =
     status === "signed_in" && user?.email ? `Profile avatar for ${user.email}` : "Profile";
 
+  /** Capture settings button geometry so the popout anchors beside the icon. */
   const handleSettingsClick = useCallback(() => {
     if (settingsButtonRef.current) {
       const rect = settingsButtonRef.current.getBoundingClientRect();
@@ -90,6 +102,7 @@ export default function Sidebar() {
     setIsSettingsOpen((prev) => !prev);
   }, []);
 
+  /** Close settings popout without toggling. */
   const handleSettingsClose = useCallback(() => {
     setIsSettingsOpen(false);
   }, []);

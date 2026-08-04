@@ -1,9 +1,17 @@
+/**
+ * Unit tests for load-game override confirmation preference
+ * (`loadGameOverrideConfirmPreference.ts`).
+ *
+ * Persists a skip-warning flag in session/local storage so repeat loads do not
+ * re-prompt unnecessarily.
+ */
 import { describe, expect, it } from "vitest";
 import {
   setSkipLoadGameOverrideConfirm,
   shouldSkipLoadGameOverrideConfirm,
 } from "@/app/utils/preferences/loadGameOverrideConfirmPreference";
 
+/** Partial in-memory storage double for preference read/write tests. */
 function createStorageMock(initial: Record<string, string> = {}): {
   storage: Pick<Storage, "getItem" | "setItem">;
   data: Map<string, string>;

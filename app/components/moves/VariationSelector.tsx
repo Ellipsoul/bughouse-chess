@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * @module app/components/moves/VariationSelector
+ *
+ * Small floating panel for choosing among multiple continuations at one ply.
+ */
 import React from "react";
 import type { AnalysisTree } from "../../types/analysis";
 import type { VariationSelectorState } from "./useAnalysisState";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 
+/** Props for {@link VariationSelector}. */
 interface VariationSelectorProps {
   tree: AnalysisTree;
   selector: VariationSelectorState;

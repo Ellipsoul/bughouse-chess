@@ -72,14 +72,20 @@ const GAMES_SUBCOLLECTION = "games";
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Timestamped stdout logger for migration progress. */
 function log(message: string, ...args: unknown[]): void {
   console.log(`[${new Date().toISOString()}] ${message}`, ...args);
 }
 
+/** Timestamped stderr logger for migration failures. */
 function logError(message: string, ...args: unknown[]): void {
   console.error(`[${new Date().toISOString()}] ERROR: ${message}`, ...args);
 }
 
+/**
+ * Reads sorted partner-pair usernames from partnerGames share metadata.
+ * Returns null when team1 player names are missing.
+ */
 function deriveSelectedPairUsernames(
   metadata: SharedGameDocumentSnapshot["metadata"],
 ): [string, string] | null {
@@ -104,6 +110,7 @@ interface MigrationStats {
   errors: Array<{ id: string; error: string }>;
 }
 
+/** Loads ordered `games` subcollection documents for a shared game root doc. */
 async function fetchGameSubcollection(
   docRef: FirebaseFirestore.DocumentReference,
 ): Promise<SharedGameSubDocument[]> {
@@ -111,6 +118,10 @@ async function fetchGameSubcollection(
   return snapshot.docs.map((docSnap) => docSnap.data() as SharedGameSubDocument);
 }
 
+/**
+ * Recomputes SHA-256 content hashes and updates user index docs when values differ.
+ * Skips documents whose hash already matches.
+ */
 async function runMigration(dryRun: boolean): Promise<MigrationStats> {
   const stats: MigrationStats = {
     total: 0,
@@ -249,6 +260,7 @@ async function runMigration(dryRun: boolean): Promise<MigrationStats> {
 /* Main                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** CLI entry; honors `DRY_RUN` env (defaults to dry run). */
 async function main(): Promise<void> {
   const dryRun = process.env.DRY_RUN !== "false";
 

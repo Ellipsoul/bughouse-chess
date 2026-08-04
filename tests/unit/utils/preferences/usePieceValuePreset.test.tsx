@@ -1,3 +1,9 @@
+/**
+ * Unit tests for {@link usePieceValuePreset} hook.
+ *
+ * Verifies same-tab `storage` event propagation when the bughouse/standard preset
+ * changes in localStorage.
+ */
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset";

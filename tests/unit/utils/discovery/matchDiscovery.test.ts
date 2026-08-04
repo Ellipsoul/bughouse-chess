@@ -1,3 +1,10 @@
+/**
+ * Unit tests for match discovery utilities (`matchDiscovery.ts`) and
+ * {@link MatchNavigation} score helpers.
+ *
+ * Uses chess.com fixtures to validate team extraction, archive traversal helpers,
+ * partner-pair filtering, and match score aggregation invariants.
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -24,7 +31,7 @@ import {
   establishReferenceTeams,
 } from "@/app/components/match/MatchNavigation";
 
-// Load fixtures
+/** Loads a chess.com live-game JSON fixture from `tests/fixtures/chesscom/`. */
 function loadFixture(filename: string): ChessGame {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),

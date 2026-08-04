@@ -1,4 +1,9 @@
 /**
+ * @module usePhonePortraitLandscapeHint
+ *
+ * Detects phone portrait viewports where a rotate-to-landscape hint is appropriate.
+ */
+/**
  * Detects viewports where we gently suggest rotating to landscape for the game viewer.
  *
  * Heuristic (aligned with {@link useCompactLandscape}):

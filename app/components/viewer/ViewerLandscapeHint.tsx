@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/viewer/ViewerLandscapeHint
+ *
+ * Non-blocking phone-portrait hint chip suggesting landscape for the dual-board layout.
+ */
 import { RotateCw, Smartphone } from "lucide-react";
 
 /**

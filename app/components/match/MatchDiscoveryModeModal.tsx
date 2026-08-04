@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/match/MatchDiscoveryModeModal
+ *
+ * First-step UX for match discovery: choose full 4-player match vs a partner series.
+ */
 import React, { useEffect, useRef } from "react";
 import { Users, UserCheck } from "lucide-react";
 import type { PartnerPair, DiscoveryMode } from "../../types/match";
@@ -64,10 +69,12 @@ export default function MatchDiscoveryModeModal({
 
   if (!open) return null;
 
+  /** User chose to discover all games with the same four players. */
   const handleFullMatch = () => {
     onSelect({ mode: "fullMatch" });
   };
 
+  /** User chose to track games where a specific partner pair played together. */
   const handlePartnerPair = (pair: PartnerPair) => {
     onSelect({ mode: "partnerPair", selectedPair: pair });
   };

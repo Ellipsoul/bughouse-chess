@@ -1,3 +1,8 @@
+/**
+ * Unit tests for shared-game description tooltip helper (`sharedGameDescription.ts`).
+ *
+ * Returns null for empty descriptions; otherwise surfaces full text for truncation UI.
+ */
 import { describe, it, expect } from "vitest";
 import { getSharedGameDescriptionTooltip } from "@/app/utils/shared-games/sharedGameDescription";
 

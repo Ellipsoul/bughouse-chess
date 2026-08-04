@@ -1,3 +1,10 @@
+/**
+ * @module auth/types
+ *
+ * Provider-agnostic auth contracts used by UI and test doubles.
+ */
+
+/** High-level auth lifecycle exposed by {@link AuthProvider}. */
 export type AuthStatus = "loading" | "signed_out" | "signed_in" | "unavailable";
 
 /**

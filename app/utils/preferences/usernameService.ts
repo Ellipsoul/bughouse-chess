@@ -1,3 +1,9 @@
+/**
+ * @module usernameService
+ *
+ * Username reservation with Firestore transactional uniqueness guarantees.
+ * Usernames are stored lowercase in both `usernames/{name}` and `users/{uid}`.
+ */
 "use client";
 
 import {

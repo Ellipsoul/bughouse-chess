@@ -1,4 +1,9 @@
 /**
+ * @module siteMetadata
+ *
+ * Canonical absolute site URL resolution for Next.js metadata and OG tags.
+ */
+/**
  * Resolve the canonical site URL used for SEO metadata and static routes.
  * Prefers NEXT_PUBLIC_SITE_URL, then VERCEL_URL, then a localhost fallback.
  */

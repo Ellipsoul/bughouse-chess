@@ -1,4 +1,6 @@
 /**
+ * @module chesscomGameValidation
+ *
  * Shared validation helpers for Chess.com "live game" payloads.
  *
  * Keep this file free of `"use server"` / `"use client"` so it can be used from both:

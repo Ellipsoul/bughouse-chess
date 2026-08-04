@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/modals/UsernameReservationModal
+ *
+ * One-time username reservation flow for authenticated users without a handle.
+ */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import {

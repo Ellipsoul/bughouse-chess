@@ -1,7 +1,22 @@
+/**
+ * Unit tests for {@link OpeningExplorerCache} and filter-key normalization.
+ *
+ * Validates bounded in-memory cache semantics: overlay keys scoped by normalized
+ * player filter, LRU eviction of unpinned structural nodes, pinned ancestor
+ * retention under capacity pressure, and frontier staleness when children are
+ * evicted.
+ */
 import { describe, expect, it } from "vitest";
 import { OpeningExplorerCache, normalizedFilterKey } from "@/app/components/opening-explorer/cache";
 import type { NeighborhoodResponse } from "@/app/components/opening-explorer/types";
 
+/**
+ * Builds a synthetic {@link NeighborhoodResponse} whose node ids follow `ids[0]`
+ * as anchor with star-shaped edges to remaining ids.
+ *
+ * @param ids - Anchor first, then child node ids.
+ * @param filter - Optional player filter echoed on the response.
+ */
 function response(ids: number[], filter: NeighborhoodResponse["filter"] = null): NeighborhoodResponse {
   return {
     anchor_node_id: ids[0],
@@ -37,6 +52,10 @@ function response(ids: number[], filter: NeighborhoodResponse["filter"] = null):
   };
 }
 
+/**
+ * Attaches budget frontiers to a neighborhood response so cache tests can
+ * assert frontier replacement and parent incompleteness after eviction.
+ */
 function withFrontiers(
   value: NeighborhoodResponse,
   nodeIds: number[],

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/modals/SettingsModal
+ *
+ * Sidebar-anchored settings popout: annotation color, piece values, live-replay prefs.
+ */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TwitterPicker, type ColorResult } from "react-color";
 import { Loader2 } from "lucide-react";

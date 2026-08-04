@@ -1,6 +1,11 @@
+/**
+ * Mock `next/image` for Cypress/Vite component tests.
+ *
+ * Renders a plain `<img>` — Next.js Image optimization and loader config are
+ * unavailable outside the Next dev/build pipeline.
+ */
 import React from "react";
 
-// Mock Next.js Image component for Cypress/Vite environment
 const Image = ({
   src,
   alt,

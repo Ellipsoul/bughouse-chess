@@ -1,3 +1,9 @@
+/**
+ * @module app/stores/viewerOrientationStore
+ *
+ * Ephemeral MobX store scoped to a single loaded game/match session. Holds
+ * display-only state (board left/right swap) that must reset when a new game loads.
+ */
 import React, { createContext, useContext } from "react";
 import { makeAutoObservable } from "mobx";
 
@@ -27,6 +33,7 @@ export class ViewerOrientationStore {
   }
 }
 
+/** React context carrying the active {@link ViewerOrientationStore} instance. */
 const ViewerOrientationStoreContext = createContext<ViewerOrientationStore | null>(null);
 
 /**

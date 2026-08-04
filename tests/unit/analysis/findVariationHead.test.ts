@@ -1,3 +1,9 @@
+/**
+ * Unit tests for variation-head lookup (`findVariationHead.ts`).
+ *
+ * Ensures {@link findContainingVariationHeadNodeId} walks parent links to the
+ * branching ancestor for nodes inside user-created variations.
+ */
 import { describe, it, expect } from "vitest";
 import { findContainingVariationHeadNodeId } from "@/app/utils/analysis/findVariationHead";
 import { createEmptyCaptureMaterialLedger } from "@/app/utils/analysis/captureMaterial";

@@ -1,3 +1,9 @@
+/**
+ * @module shareEligibility
+ *
+ * Pure rules for when the Share button is enabled in the game viewer.
+ * Keeps UI gating logic testable and separate from modal/network code.
+ */
 import type { MatchDiscoveryStatus } from "@/app/types/match";
 
 export interface ShareEligibilityInput {

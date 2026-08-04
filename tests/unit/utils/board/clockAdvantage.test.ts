@@ -1,3 +1,9 @@
+/**
+ * Unit tests for team clock advantage display (`clockAdvantage.ts`).
+ *
+ * Computes decisecond diffs between partnered boards and CSS tint classes for
+ * leading/trailing teams.
+ */
 import { describe, it, expect } from "vitest";
 import {
   getTeamTimeDiffDeciseconds,

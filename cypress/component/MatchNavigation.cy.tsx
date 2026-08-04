@@ -1,9 +1,16 @@
+/**
+ * Cypress component tests for {@link MatchNavigation}.
+ *
+ * Validates match/partner-series navigation, score chips, and game list UX using
+ * synthetic {@link MatchGame} fixtures.
+ */
 import MatchNavigation from "../../app/components/match/MatchNavigation";
 import type { MatchGame, PartnerPair } from "../../app/types/match";
 import type { ChessGame } from "../../app/actions";
 
 /**
- * Creates a mock ChessGame for testing.
+ * Minimal {@link ChessGame} stub with configurable players and PGN result.
+ * Only fields consumed by match navigation/score UI are populated.
  */
 function createMockChessGame(
   id: number,
@@ -46,7 +53,8 @@ function createMockChessGame(
 }
 
 /**
- * Creates mock match games for testing dropdown.
+ * Generates `count` synthetic {@link MatchGame} rows with rotating PGN results.
+ * Used for match dropdown overflow and pagination UI.
  */
 function createMockMatchGames(count: number): MatchGame[] {
   const games: MatchGame[] = [];
@@ -69,8 +77,7 @@ function createMockMatchGames(count: number): MatchGame[] {
 }
 
 /**
- * Creates mock match games with fixed teams across all games.
- * This keeps score expectations deterministic for summary assertions.
+ * Builds match games with fixed team names so aggregate score assertions stay deterministic.
  */
 function createConsistentTeamMatchGames(
   results: Array<"1-0" | "0-1" | "1/2-1/2">,

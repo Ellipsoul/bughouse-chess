@@ -1,4 +1,10 @@
 /**
+ * @module sampleGameIds
+ *
+ * Curated Chess.com game ids used as demo defaults when no `gameId` is in the URL.
+ * Sourced from `tests/fixtures/chesscom/` so samples stay valid in CI.
+ */
+/**
  * List of available sample game IDs extracted from test fixtures.
  * These are valid bughouse game IDs that can be used as default samples.
  *

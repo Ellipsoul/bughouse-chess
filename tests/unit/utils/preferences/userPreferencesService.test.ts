@@ -1,3 +1,9 @@
+/**
+ * Unit tests for user preference persistence (`userPreferencesService.ts`).
+ *
+ * Covers localStorage fallbacks, Firestore load/save, and default values for
+ * board annotation color, live-replay auto-advance, and piece-value presets.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getBoardAnnotationColorFromLocalStorage,
@@ -31,6 +37,10 @@ vi.mock("@/app/utils/platform/firebaseClient", () => ({
   getFirestoreDb: vi.fn(),
 }));
 
+/**
+ * In-memory `Storage` double for localStorage-dependent preference tests.
+ * Returns both the mock and a mutable backing map for assertions.
+ */
 function createStorageMock(initial: Record<string, string> = {}): {
   storage: Storage;
   data: Map<string, string>;

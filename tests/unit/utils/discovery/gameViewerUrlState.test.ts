@@ -1,3 +1,9 @@
+/**
+ * Unit tests for game viewer URL state sync (`gameViewerUrlState.ts`).
+ *
+ * Covers ply parsing/clamping, URL construction, and when client navigation should
+ * mirror analysis cursor changes.
+ */
 import { describe, expect, it } from "vitest";
 import {
   buildGameViewerUrl,

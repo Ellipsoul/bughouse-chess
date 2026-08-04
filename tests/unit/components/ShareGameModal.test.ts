@@ -1,3 +1,9 @@
+/**
+ * Unit tests for share-modal match score helpers (non-React module).
+ *
+ * Exercises {@link MatchNavigation} score aggregation and partner-pair extraction
+ * against chess.com match fixtures — complementary to ShareGameModal.test.tsx UI tests.
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -6,7 +12,7 @@ import type { MatchGame } from "../../../app/types/match";
 import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../../../app/components/match/MatchNavigation";
 import { extractPartnerPairs } from "../../../app/types/match";
 
-// Load fixtures
+/** Loads a chess.com live-game JSON fixture from `tests/fixtures/chesscom/`. */
 function loadFixture(filename: string): ChessGame {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
@@ -14,7 +20,7 @@ function loadFixture(filename: string): ChessGame {
 }
 
 /**
- * Helper to create a MatchGame with a specific result.
+ * Builds a {@link MatchGame} with an overridden PGN `Result` header for score tests.
  */
 function createMatchGameWithResult(
   originalGame: ChessGame,
@@ -40,7 +46,7 @@ function createMatchGameWithResult(
 }
 
 /**
- * Helper to create a MatchGame with swapped colors.
+ * Builds a {@link MatchGame} with swapped board colors relative to the seed fixtures.
  */
 function createMatchGameWithSwappedColors(
   originalGame: ChessGame,

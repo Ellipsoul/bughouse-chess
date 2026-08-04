@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/shared/ShareGameModal
+ *
+ * Modal flow for publishing a single game, full match, or partner series to the
+ * shared-games library with optional description and duplicate-share detection.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";

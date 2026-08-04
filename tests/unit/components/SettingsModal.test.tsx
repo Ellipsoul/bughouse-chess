@@ -1,3 +1,9 @@
+/**
+ * Unit tests for {@link SettingsModal} preference editing UI.
+ *
+ * Mocks Firestore/color picker dependencies to verify load, edit, save, and
+ * toast feedback for user-facing settings.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import SettingsModal from "../../../app/components/modals/SettingsModal";

@@ -1,9 +1,16 @@
+/**
+ * Unit tests for per-session game-load metrics (`gameLoadSession.ts`).
+ *
+ * Tracks whether a game load has already been counted this browser session to
+ * avoid duplicate analytics events.
+ */
 import { describe, expect, it } from "vitest";
 import {
   hasRecordedGameLoadThisSession,
   markRecordedGameLoadThisSession,
 } from "@/app/utils/platform/metrics/gameLoadSession";
 
+/** Minimal in-memory {@link Storage} implementation for session flag tests. */
 function createInMemoryStorage(): Storage {
   const map = new Map<string, string>();
 

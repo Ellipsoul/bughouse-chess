@@ -1,5 +1,11 @@
+/**
+ * @module app/components/shared/SharedGameDescription
+ *
+ * Compact description pill shown in dense viewer control bars for shared games.
+ */
 import React from "react";
 
+/** Visual density preset for {@link SharedGameDescription}. */
 export type SharedGameDescriptionDensity = "default" | "compact";
 
 export interface SharedGameDescriptionProps {

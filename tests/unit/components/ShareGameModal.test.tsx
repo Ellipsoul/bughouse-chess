@@ -1,3 +1,9 @@
+/**
+ * Unit tests for {@link ShareGameModal} sharing flows.
+ *
+ * Mocks Firestore services and hash store to verify single-game/match/partner
+ * share UX, duplicate detection, payload size guards, and post-share cache updates.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -69,18 +75,21 @@ type PartnerSeriesIndex = MatchIndex & {
   selectedPair: [string, string];
 };
 
+/** Loads a chess.com live-game JSON fixture from `tests/fixtures/chesscom/`. */
 function loadFixture(filename: string): ChessGame {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
   ) as ChessGame;
 }
 
+/** Loads a match or partner-series index JSON fixture. */
 function loadIndex<T>(filename: string): T {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
   ) as T;
 }
 
+/** Hydrates {@link MatchGame} rows from index entries plus on-disk game fixtures. */
 function loadMatchGames(entries: MatchIndexEntry[]): MatchGame[] {
   return entries.map((entry) => {
     const original = loadFixture(`${entry.gameId}.json`);
@@ -96,6 +105,7 @@ function loadMatchGames(entries: MatchIndexEntry[]): MatchGame[] {
   });
 }
 
+/** Converts a {@link MatchGame} pair into {@link SingleGameData} share payload shape. */
 function toSingleGameData(matchGame: MatchGame): SingleGameData {
   return {
     original: matchGame.original,
@@ -104,6 +114,10 @@ function toSingleGameData(matchGame: MatchGame): SingleGameData {
   };
 }
 
+/**
+ * Clones `seedGame` into `gameCount` synthetic match rows with distinct ids.
+ * Used to exercise Firestore batching / size-limit UI without recording extra fixtures.
+ */
 function createLargeMatchGames(seedGame: MatchGame, gameCount: number): MatchGame[] {
   return Array.from({ length: gameCount }, (_, index) => ({
     gameId: `game-${index}`,

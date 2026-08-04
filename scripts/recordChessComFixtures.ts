@@ -116,7 +116,7 @@ async function recordGameFixture(gameId: string, fixturesDir: string): Promise<v
 }
 
 /**
- * Main entry point.
+ * Main entry point — records default or CLI-supplied game ids to fixtures.
  */
 async function main() {
   const defaultGameIds = [

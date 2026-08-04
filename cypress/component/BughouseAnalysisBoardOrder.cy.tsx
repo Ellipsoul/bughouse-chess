@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link BughouseAnalysis} board order.
+ *
+ * Ensures user board-order preference persists via {@link ViewerOrientationStore}
+ * and swaps physical board placement without breaking fixture replay.
+ */
 import { useMemo, useState } from "react";
 import BughouseAnalysis from "../../app/components/viewer/BughouseAnalysis";
 import {

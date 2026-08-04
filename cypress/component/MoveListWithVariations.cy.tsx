@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link MoveListWithVariations}.
+ *
+ * Covers mainline rendering, variation badges, ply selection callbacks, and
+ * keyboard-free click navigation on synthetic analysis trees.
+ */
 import { useState } from "react";
 import MoveListWithVariations from "../../app/components/moves/MoveListWithVariations";
 import type { AnalysisTree } from "../../app/types/analysis";
@@ -5,6 +11,7 @@ import type { BughouseMove } from "../../app/types/bughouse";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";
 
 describe("MoveListWithVariations", () => {
+  /** Builds a tiny two-move mainline tree for list rendering tests. */
   const createTreeWithMoves = (): AnalysisTree => {
     const rootPosition = createInitialPositionSnapshot();
     const afterE4 = createInitialPositionSnapshot();

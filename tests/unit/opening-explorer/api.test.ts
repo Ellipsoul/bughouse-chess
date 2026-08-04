@@ -1,3 +1,10 @@
+/**
+ * Unit tests for {@link OpeningExplorerApi} — the browser-side HTTP client.
+ *
+ * Covers same-origin proxy URL construction, structured 503 error preservation,
+ * abort-signal isolation (no cross-caller request reuse), correct `fetch` `this`
+ * binding, and in-flight deduplication of identical neighborhood requests.
+ */
 import { describe, expect, it } from "vitest";
 import { OpeningExplorerApi, OpeningExplorerApiError } from "@/app/components/opening-explorer/api";
 

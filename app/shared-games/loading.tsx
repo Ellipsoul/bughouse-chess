@@ -1,3 +1,8 @@
+/**
+ * @module shared-games/loading
+ *
+ * Next.js streaming fallback while the shared-games RSC payload resolves.
+ */
 import CenteredLoadingSpinner from "../components/ui/CenteredLoadingSpinner";
 
 /**

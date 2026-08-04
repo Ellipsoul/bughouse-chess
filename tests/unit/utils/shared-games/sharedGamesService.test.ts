@@ -1,3 +1,9 @@
+/**
+ * Unit tests for shared-games Firestore service (`sharedGamesService.ts`).
+ *
+ * Covers metadata construction, partner-pair reconstruction, match/partner sharing,
+ * pagination queries, and score helpers using chess.com fixtures.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -38,7 +44,7 @@ vi.mock("@/app/utils/platform/firebaseClient", () => ({
 
 import { getUserSharedGames } from "@/app/utils/shared-games/sharedGamesService";
 
-// Load fixtures
+/** Loads a chess.com live-game JSON fixture from `tests/fixtures/chesscom/`. */
 function loadFixture(filename: string): ChessGame {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
@@ -46,7 +52,8 @@ function loadFixture(filename: string): ChessGame {
 }
 
 /**
- * Helper to create a MatchGame with a specific result.
+ * Builds a {@link MatchGame} with an overridden PGN `Result` header.
+ * Score and metadata tests depend on consistent result strings, not full game bodies.
  */
 function createMatchGameWithResult(
   originalGame: ChessGame,
@@ -72,7 +79,8 @@ function createMatchGameWithResult(
 }
 
 /**
- * Helper to create a MatchGame with swapped colors.
+ * Builds a {@link MatchGame} where board colors are swapped relative to the seed fixtures.
+ * Models alternate-game seating in a multi-game match.
  */
 function createMatchGameWithSwappedColors(
   originalGame: ChessGame,

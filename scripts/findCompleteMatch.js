@@ -8,6 +8,7 @@
  * Example: node scripts/findCompleteMatch.js 158281644905
  */
 
+/** Fetches live game JSON; returns null when chess.com responds non-OK. */
 async function fetchGame(gameId) {
   const response = await fetch(
     `https://www.chess.com/callback/live/game/${gameId}`,
@@ -25,6 +26,7 @@ async function fetchGame(gameId) {
   return await response.json();
 }
 
+/** Fetches a player's public monthly archive; empty array on 404. */
 async function fetchPlayerArchive(username, year, month) {
   const monthStr = month.toString().padStart(2, "0");
   const response = await fetch(
@@ -48,6 +50,7 @@ async function fetchPlayerArchive(username, year, month) {
   return data.games ?? [];
 }
 
+/** Extracts a 12-digit live game id from a chess.com game URL. */
 function extractGameIdFromUrl(url) {
   if (!url) return null;
   try {
@@ -64,6 +67,10 @@ function extractGameIdFromUrl(url) {
   }
 }
 
+/**
+ * Derives canonical sorted team pairs from board-A and board-B games.
+ * Team1 = board-A white + board-B black; team2 = board-A black + board-B white.
+ */
 function extractTeamComposition(game1, game2) {
   const getWhitePlayer = (game) => {
     if (game.players.top.color?.toLowerCase() === "white") return game.players.top.username.toLowerCase();
@@ -88,6 +95,7 @@ function extractTeamComposition(game1, game2) {
   return { team1, team2 };
 }
 
+/** True when two team compositions match directly or with teams swapped. */
 function areTeamsIdentical(comp1, comp2) {
   const directMatch =
     comp1.team1[0] === comp2.team1[0] &&
@@ -104,6 +112,7 @@ function areTeamsIdentical(comp1, comp2) {
   return directMatch || swappedMatch;
 }
 
+/** Collects all four player usernames from a bughouse game pair. */
 function getAllPlayerUsernames(originalGame, partnerGame) {
   const players = new Set();
 
@@ -115,6 +124,7 @@ function getAllPlayerUsernames(originalGame, partnerGame) {
   return Array.from(players);
 }
 
+/** Parses chess.com PGN `Date` header (`YYYY.MM.DD`) into year/month parts. */
 function parsePgnDate(dateStr) {
   if (!dateStr) return null;
   const parts = dateStr.split(".");
@@ -130,6 +140,7 @@ function parsePgnDate(dateStr) {
   return { year, month };
 }
 
+/** Promise-based sleep for chess.com API rate limiting. */
 async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -269,6 +280,7 @@ async function searchPlayerArchive(
   return foundGames;
 }
 
+/** CLI entry: searches all four players' archives to reconstruct a full match. */
 async function main() {
   const gameId = process.argv[2];
 
@@ -323,9 +335,10 @@ async function main() {
   console.log(`Date: ${date} (${year}/${month}, day ${dayOfMonth})\n`);
 
   // Helper function to check if a game pair is already in our results
-  // A game pair is the same if either:
-  // - gameId matches an existing gameId or partnerGameId
-  // - partnerGameId matches an existing gameId or partnerGameId
+  /**
+   * Returns an existing found game when either id in the pair was already collected.
+   * Prevents duplicate rows when the same game appears in multiple player archives.
+   */
   function isGamePairAlreadyFound(gameId, partnerGameId, foundGames) {
     for (const existing of foundGames.values()) {
       if (

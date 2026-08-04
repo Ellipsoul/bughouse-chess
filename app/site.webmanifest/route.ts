@@ -2,6 +2,13 @@ import type { MetadataRoute } from "next";
 import { shouldLockLandscapeForPhone } from "../utils/platform/pwa/shouldLockLandscapeForPhone";
 
 /**
+ * @module app/site.webmanifest/route
+ *
+ * Dynamic Web App Manifest route handler. Serves per-request manifest JSON so
+ * Android phones can request landscape lock without affecting tablets/desktop.
+ */
+
+/**
  * Dynamic Web App Manifest.
  *
  * Why dynamic?

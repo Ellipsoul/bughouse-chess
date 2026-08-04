@@ -1,9 +1,15 @@
+/**
+ * @module AuthProvider
+ *
+ * Global Firebase auth state container with graceful degradation when env is missing.
+ */
 "use client";
 
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { getFirebaseAuthAdapter, type AuthAdapter } from "./firebaseAuthAdapter";
 import type { AuthStatus, AuthUser } from "./types";
 
+/** Context value consumed via {@link useAuth}. */
 export type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
@@ -16,8 +22,10 @@ export type AuthContextValue = {
   signOut: () => Promise<void>;
 };
 
+/** React context; use {@link useAuth} instead of reading directly. */
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Props for {@link AuthProvider}; inject a mock {@link AuthAdapter} in tests. */
 export interface AuthProviderProps {
   children: React.ReactNode;
   /**

@@ -86,10 +86,12 @@ type PartnerPair = {
 
 const API_DELAY_MS = 300;
 
+/** Rate-limit cushion between chess.com API requests. */
 async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Fetches live game JSON; returns null on 404 instead of throwing. */
 async function fetchChessGame(gameId: string): Promise<ChessGame | null> {
   const response = await fetch(
     `https://www.chess.com/callback/live/game/${gameId}`,
@@ -108,6 +110,7 @@ async function fetchChessGame(gameId: string): Promise<ChessGame | null> {
   return await response.json();
 }
 
+/** Fetches a player's public monthly archive; empty array on 404. */
 async function fetchPlayerArchive(
   username: string,
   year: number,
@@ -137,6 +140,7 @@ async function fetchPlayerArchive(
 /* Match Discovery Logic                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Extracts a 12-digit live game id from a chess.com game URL. */
 function extractGameIdFromUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
@@ -152,18 +156,24 @@ function extractGameIdFromUrl(url: string): string | null {
   }
 }
 
+/** Returns lowercase white username from a live game payload. */
 function getWhitePlayer(game: ChessGame): string {
   if (game.players.top.color?.toLowerCase() === "white") return game.players.top.username.toLowerCase();
   if (game.players.bottom.color?.toLowerCase() === "white") return game.players.bottom.username.toLowerCase();
   return game.players.top.username.toLowerCase();
 }
 
+/** Returns lowercase black username from a live game payload. */
 function getBlackPlayer(game: ChessGame): string {
   if (game.players.top.color?.toLowerCase() === "black") return game.players.top.username.toLowerCase();
   if (game.players.bottom.color?.toLowerCase() === "black") return game.players.bottom.username.toLowerCase();
   return game.players.bottom.username.toLowerCase();
 }
 
+/**
+ * Derives canonical sorted team pairs from board-A and board-B games.
+ * Team1 = board-A white + board-B black; team2 = board-A black + board-B white.
+ */
 function extractTeamComposition(
   originalGame: ChessGame,
   partnerGame: ChessGame | null,
@@ -179,6 +189,7 @@ function extractTeamComposition(
   return { team1, team2 };
 }
 
+/** True when two team compositions match directly or with teams swapped. */
 function areTeamsIdentical(comp1: TeamComposition, comp2: TeamComposition): boolean {
   const directMatch =
     comp1.team1[0] === comp2.team1[0] &&
@@ -195,6 +206,7 @@ function areTeamsIdentical(comp1: TeamComposition, comp2: TeamComposition): bool
   return directMatch || swappedMatch;
 }
 
+/** True when the selected partner pair sits on the same team in `composition`. */
 function isPartnerPairPresent(pair: PartnerPair, composition: TeamComposition): boolean {
   const [p1, p2] = pair.usernames;
   const matchesTeam1 = composition.team1[0] === p1 && composition.team1[1] === p2;
@@ -202,6 +214,7 @@ function isPartnerPairPresent(pair: PartnerPair, composition: TeamComposition): 
   return matchesTeam1 || matchesTeam2;
 }
 
+/** Collects all four player usernames from a bughouse game pair. */
 function getAllPlayerUsernames(originalGame: ChessGame, partnerGame: ChessGame | null): string[] {
   const players = new Set<string>();
   players.add(originalGame.players.top.username.toLowerCase());
@@ -213,6 +226,7 @@ function getAllPlayerUsernames(originalGame: ChessGame, partnerGame: ChessGame |
   return Array.from(players);
 }
 
+/** Parses chess.com PGN `Date` header (`YYYY.MM.DD`) into year/month parts. */
 function parsePgnDate(dateStr: string): { year: number; month: number } | null {
   if (!dateStr) return null;
   const parts = dateStr.split(".");
@@ -235,6 +249,10 @@ function parsePgnDate(dateStr: string): { year: number; month: number } | null {
 const MAX_TIME_GAP_SECONDS = 3600;
 const CONSECUTIVE_NON_MATCH_THRESHOLD = 3;
 
+/**
+ * Walks player archives before/after the seed game to collect all games in a
+ * full match or partner series, stopping on time-gap or consecutive non-match limits.
+ */
 async function discoverMatchGames(
   initialGame: ChessGame,
   partnerGame: ChessGame | null,
@@ -394,6 +412,7 @@ async function discoverMatchGames(
 /* Main                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** CLI entry: discovers match games from a seed id and writes fixtures + index. */
 async function main() {
   const args = process.argv.slice(2);
 

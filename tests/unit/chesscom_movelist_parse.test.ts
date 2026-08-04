@@ -1,3 +1,9 @@
+/**
+ * Unit tests for chess.com compressed move-list parsing (`chesscom_movelist_parse.ts`).
+ *
+ * Validates TCN decoding against recorded live-game fixtures: pawn moves, drops,
+ * castling, promotions, and empty input edge cases.
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { parseChessComCompressedMoveList } from "../../app/chesscom_movelist_parse";
 import { readFileSync } from "fs";

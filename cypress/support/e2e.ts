@@ -1,10 +1,10 @@
 /**
- * E2E Test Support File
+ * Cypress E2E test support entry point.
  *
- * This file runs before every E2E test and sets up global configuration,
- * custom commands, and event handlers.
+ * Registers Firebase emulator commands, domain-specific custom commands
+ * (`mockChessComGame`, `loadGame`, `signInAndVerify`), and global exception
+ * filters for Firebase Analytics and Next.js hydration noise.
  */
-
 import "./commands";
 import { registerFirebaseCommands } from "./firebase";
 

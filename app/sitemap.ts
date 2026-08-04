@@ -1,6 +1,13 @@
+/**
+ * @module app/sitemap
+ *
+ * Static sitemap generation for publicly indexable routes. Dynamic viewer URLs
+ * (per-game `?gameid=` links) are intentionally excluded because they are unbounded.
+ */
 import type { MetadataRoute } from "next";
 import { siteUrl } from "./utils/platform/siteMetadata";
 
+/** Routes that should appear in `sitemap.xml` for crawlers. */
 const publicRoutes = [
   "/",
   "/shared-games",

@@ -10,8 +10,14 @@
  * This file is intentionally framework-agnostic and fully unit-testable.
  */
 
+/**
+ * @module gameLoadSession
+ *
+ * Session-scoped deduplication for the global "games loaded" metric counter.
+ */
 const STORAGE_KEY_PREFIX = "bughouse:metrics:gameLoaded:";
 
+/** Builds the sessionStorage/localStorage key for a given Chess.com game id. */
 function buildKey(gameId: string): string {
   return `${STORAGE_KEY_PREFIX}${gameId}`;
 }

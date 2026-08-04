@@ -1,3 +1,9 @@
+/**
+ * Unit tests for bughouse move ordering and game processing (`moveOrdering.ts`).
+ *
+ * Interleaves board-A/board-B half-moves from chess.com fixtures into combined
+ * chronological replay order.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { processGameData } from "@/app/utils/board/moveOrdering";
 import type { ChessGame } from "@/app/actions";

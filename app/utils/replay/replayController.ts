@@ -37,16 +37,24 @@ import {
 import type { BughousePieceType } from "@/app/types/analysis";
 
 interface BughouseHistoryState {
+  /** FEN of board A before the most recently applied global move. */
   fenA: string;
+  /** FEN of board B before the most recently applied global move. */
   fenB: string;
+  /** Deep-cloned reserve counts at that point in the replay. */
   pieceReserves: PieceReserves;
+  /** Length of board A's applied-moves array (used to trim on undo). */
   boardAMoveCount: number;
+  /** Length of board B's applied-moves array (used to trim on undo). */
   boardBMoveCount: number;
+  /** Deep-cloned capture-material ledger at that point in the replay. */
   captureMaterial: BughouseGameState["captureMaterial"];
+  /** Promoted-square lists serialized for history restoration. */
   promotedSquares: {
     A: string[];
     B: string[];
   };
+  /** Last-move highlight state before the most recently applied global move. */
   lastMoveHighlightsByBoard: LastMoveHighlightsByBoard;
 }
 
@@ -62,8 +70,11 @@ export interface LastMoveHighlight {
   to: Square;
 }
 
+/** Last-move highlight state for both boards at the current replay position. */
 export type LastMoveHighlightsByBoard = {
+  /** Highlight for board A, or null when no move has been applied on A yet. */
   A: Omit<LastMoveHighlight, "board"> | null;
+  /** Highlight for board B, or null when no move has been applied on B yet. */
   B: Omit<LastMoveHighlight, "board"> | null;
 };
 
@@ -91,6 +102,7 @@ export class BughouseReplayController {
   private gameState: BughouseGameState;
   private history: BughouseHistoryState[] = [];
   private lastMoveHighlightsByBoard: LastMoveHighlightsByBoard = { A: null, B: null };
+  /** Narrow a string to a bughouse capturable piece type (excludes king). */
   private isBughousePieceType(piece: string): piece is BughousePieceType {
     return piece === "p" || piece === "n" || piece === "b" || piece === "r" || piece === "q";
   }
@@ -119,6 +131,12 @@ export class BughouseReplayController {
     return { pieceChar: match[1], square: match[2] as Square };
   }
 
+  /**
+   * Initialize replay state from processed chess.com game data.
+   *
+   * Builds the clock timeline, sanitizes move strings on a scratch copy, and positions
+   * both boards at the starting FEN with empty reserves.
+   */
   constructor(processedData: ProcessedGameData) {
     this.boardA = new Chess();
     this.boardB = new Chess();
@@ -165,6 +183,7 @@ export class BughouseReplayController {
     this.sanitizeMoves();
   }
 
+  /** Serialize promoted-piece Sets into array form for game-state snapshots. */
   private clonePromotedPieces(): { A: string[]; B: string[] } {
     return {
       A: Array.from(this.promotedPieces.A),
@@ -172,6 +191,10 @@ export class BughouseReplayController {
     };
   }
 
+  /**
+   * Look up the precomputed clock snapshot after `globalMoveIndex` global plies.
+   * Index -1 maps to the start position (`clockTimeline[0]`).
+   */
   private getClockSnapshotAtGlobalMoveIndex(globalMoveIndex: number): BughouseClocksSnapshotByBoard {
     if (!this.clockTimeline.length) {
       return { A: { white: 0, black: 0 }, B: { white: 0, black: 0 } };
@@ -183,6 +206,7 @@ export class BughouseReplayController {
     return this.clockTimeline[clampedIndex];
   }
 
+  /** Sync `gameState.boardA/B.clocks` from the precomputed timeline at the current index. */
   private refreshClocks() {
     const snapshot = this.getClockSnapshotAtGlobalMoveIndex(this.currentMoveIndex);
     this.gameState.boardA.clocks = snapshot.A;
@@ -233,6 +257,10 @@ export class BughouseReplayController {
     }
   }
 
+  /**
+   * Replay a drop on a temporary board during the upfront sanitization pass.
+   * Mutates `move.move` in place to canonical SAN with bughouse-aware `+/#`.
+   */
   private applyDropMoveOnBoard(board: Chess, move: BughouseMove) {
     const parsed = this.parseDropMove(move.move);
     if (!parsed) return;
@@ -287,6 +315,7 @@ export class BughouseReplayController {
     };
   }
 
+  /** Deep-cloned reserve counts suitable for external consumers. */
   public getCurrentPieceReserves(): PieceReserves {
     return JSON.parse(JSON.stringify(this.pieceReserves));
   }
@@ -300,14 +329,20 @@ export class BughouseReplayController {
     return this.lastMoveHighlightsByBoard;
   }
 
+  /** True when another global move can be applied forward. */
   public canMoveForward(): boolean {
     return this.currentMoveIndex < this.combinedMoves.length - 1;
   }
 
+  /** True when at least one global move has been applied and can be undone. */
   public canMoveBackward(): boolean {
     return this.currentMoveIndex >= 0;
   }
 
+  /**
+   * Advance one global ply, pushing current state onto the history stack first.
+   * Returns false when already at the end of the move list or execution fails.
+   */
   public moveForward(): boolean {
     if (!this.canMoveForward()) return false;
 
@@ -331,6 +366,10 @@ export class BughouseReplayController {
     return this.executeMove(move);
   }
 
+  /**
+   * Undo one global ply by restoring the most recent history snapshot.
+   * Returns false when no history is available.
+   */
   public moveBackward(): boolean {
     if (!this.canMoveBackward()) return false;
     if (this.history.length === 0) return false;
@@ -361,6 +400,10 @@ export class BughouseReplayController {
     return true;
   }
 
+  /**
+   * Seek to a specific global move index (-1 = start position).
+   * Uses repeated forward/backward steps; not optimized for large jumps but correct.
+   */
   public jumpToMove(moveIndex: number): boolean {
     // If target is -1 (start), we want to go back past 0
     if (moveIndex < -1 || moveIndex >= this.combinedMoves.length) return false;
@@ -464,6 +507,10 @@ export class BughouseReplayController {
     return false;
   }
 
+  /**
+   * Apply a bughouse drop move, decrementing reserves and toggling turn manually.
+   * Proceeds even when reserves appear empty (PGN is treated as authoritative).
+   */
   private executeDropMove(move: BughouseMove): boolean {
     const board = move.board === 'A' ? this.boardA : this.boardB;
     const moveStr = move.move; // e.g., "P@e4" or "P@e4+"
@@ -530,6 +577,7 @@ export class BughouseReplayController {
     return false;
   }
 
+  /** Apply a castling move, normalizing 0/O notation and bughouse check suffixes. */
   private executeCastleMove(move: BughouseMove): boolean {
     const board = move.board === 'A' ? this.boardA : this.boardB;
 
@@ -556,6 +604,7 @@ export class BughouseReplayController {
     return false;
   }
 
+  /** Push the applied move onto the per-board moves array and refresh derived state. */
   private updateGameState(move: BughouseMove) {
     if (move.board === 'A') {
       this.gameState.boardA.moves.push(move.move);
@@ -569,6 +618,10 @@ export class BughouseReplayController {
     this.gameState.promotedSquares = this.clonePromotedPieces();
   }
 
+  /**
+   * Locate the captured piece's square for reserve accounting.
+   * En-passant captures occur off the destination square.
+   */
   private resolveCapturedSquare(result: {
     captured?: string;
     flags: string;
@@ -587,22 +640,27 @@ export class BughouseReplayController {
     return result.to;
   }
 
+  /** True when the move string uses bughouse drop notation (`@`). */
   private isDropMove(move: string): boolean {
     return move.includes('@');
   }
 
+  /** True for kingside or queenside castling in either O/0 notation variant. */
   private isCastleMove(move: string): boolean {
     return move === 'O-O' || move === 'O-O-O' || move === '0-0' || move === '0-0-0';
   }
 
+  /** Current global move index (-1 = start position, before any moves applied). */
   public getCurrentMoveIndex(): number {
     return this.currentMoveIndex;
   }
 
+  /** Total number of moves in the interleaved combined move list. */
   public getTotalMoves(): number {
     return this.combinedMoves.length;
   }
 
+  /** The move at the current global index, or null when at the start position. */
   public getCurrentMove(): BughouseMove | null {
     if (this.currentMoveIndex >= 0 && this.currentMoveIndex < this.combinedMoves.length) {
       return this.combinedMoves[this.currentMoveIndex];
@@ -610,6 +668,7 @@ export class BughouseReplayController {
     return null;
   }
 
+  /** Shallow copy of the combined move list (sanitized SAN, normalized suffixes). */
   public getCombinedMoves(): BughouseMove[] {
     // Return a shallow copy so callers don't accidentally mutate controller internals.
     return this.combinedMoves.slice();
@@ -624,6 +683,7 @@ export class BughouseReplayController {
     return this.moveDurationsSincePreviousMoveOnSameBoardByGlobalIndex.slice();
   }
 
+  /** Human-readable debug dump of the move timeline with the current position marked. */
   public getDebugInfo(): string {
     let debugInfo = `BPGN (Bughouse Portable Game Notation)\n`;
     debugInfo += `Players: ${this.players.aWhite.username} & ${this.players.bBlack.username} vs ${this.players.aBlack.username} & ${this.players.bWhite.username}\n\n`;

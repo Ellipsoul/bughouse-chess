@@ -1,3 +1,8 @@
+/**
+ * Unit tests for live-replay auto-advance scheduling (`liveReplayAutoAdvance.ts`).
+ *
+ * Uses fake timers to verify debounced advance callbacks across match game lists.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MatchGame } from "@/app/types/match";
 import {
@@ -6,6 +11,7 @@ import {
 } from "@/app/utils/replay/liveReplayAutoAdvance";
 import type { ChessGame } from "@/app/actions";
 
+/** Minimal {@link ChessGame} stub identified by string id. */
 function createChessGame(id: string): ChessGame {
   return {
     game: {
@@ -18,6 +24,7 @@ function createChessGame(id: string): ChessGame {
   } as unknown as ChessGame;
 }
 
+/** Synthetic {@link MatchGame} row referencing stub payloads. */
 function createMatchGame(gameId: string, partnerGameId: string): MatchGame {
   return {
     gameId,

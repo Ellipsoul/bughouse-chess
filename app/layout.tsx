@@ -1,3 +1,10 @@
+/**
+ * @module app/layout
+ *
+ * Root Next.js layout: global fonts, SEO metadata, viewport constraints, and the
+ * {@link AppShell} chrome that wraps every page. The document is clamped to the
+ * viewport height so only inner regions (move list, modals) scroll.
+ */
 import type { Metadata, Viewport } from "next";
 import { Fira_Code, Inter, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
@@ -24,7 +31,10 @@ const firaCode = Fira_Code({
   display: "swap",
 });
 
+/** Default `<title>` and Open Graph title for the marketing home page. */
 const siteTitle = "Relay - Bughouse Analysis";
+
+/** Short description reused across metadata, Open Graph, and Twitter cards. */
 const siteDescription = "A minimalistic elegant tool for analyzing and replaying Bughouse Chess matches";
 
 export const metadata: Metadata = {

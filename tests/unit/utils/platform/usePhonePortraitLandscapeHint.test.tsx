@@ -1,3 +1,10 @@
+/**
+ * Unit tests for phone portrait → landscape hint hook
+ * (`usePhonePortraitLandscapeHint.ts`).
+ *
+ * Stubs `matchMedia` to simulate the private portrait-hint media query and
+ * verifies subscribe/unsubscribe on layout changes.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import {
@@ -5,6 +12,7 @@ import {
   __private__PHONE_PORTRAIT_LANDSCAPE_HINT_MEDIA_QUERY,
 } from "../../../../app/utils/platform/usePhonePortraitLandscapeHint";
 
+/** Minimal component exposing hook state for RTL assertions. */
 function HintProbe() {
   const { shouldSuggestLandscape } = usePhonePortraitLandscapeHint();
   return <span data-testid="hint-state">{shouldSuggestLandscape ? "show" : "hide"}</span>;
@@ -14,6 +22,7 @@ function HintProbe() {
 let portraitHintMatches = false;
 const portraitHintListeners = new Set<() => void>();
 
+/** Notifies all portrait-hint `matchMedia` listeners — simulates rotation/resize. */
 function emitPortraitHintChange() {
   portraitHintListeners.forEach((listener) => {
     listener();

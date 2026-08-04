@@ -1,3 +1,8 @@
+/**
+ * Unit tests for vertical piece reserve sizing (`PieceReserveVertical.tsx`).
+ *
+ * {@link computeReservePiecePx} scales piece glyphs by viewport height and density.
+ */
 import { describe, it, expect } from "vitest";
 import { computeReservePiecePx } from "../../../app/components/board/PieceReserveVertical";
 

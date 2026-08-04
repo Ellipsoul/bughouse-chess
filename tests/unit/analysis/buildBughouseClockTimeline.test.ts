@@ -1,3 +1,10 @@
+/**
+ * Unit tests for bughouse clock timeline construction
+ * (`buildBughouseClockTimeline.ts`).
+ *
+ * Verifies initial snapshots, increment application, and per-move clock decay
+ * across both boards from processed game data.
+ */
 import { describe, it, expect } from "vitest";
 import { buildBughouseClockTimeline } from "@/app/utils/analysis/buildBughouseClockTimeline";
 import type { ProcessedGameData } from "../../../app/types/bughouse";

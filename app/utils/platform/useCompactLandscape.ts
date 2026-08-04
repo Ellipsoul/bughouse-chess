@@ -1,4 +1,9 @@
 /**
+ * @module useCompactLandscape
+ *
+ * Media-query hook for phone landscape compact layout (see inline design goals).
+ */
+/**
  * `useCompactLandscape` identifies “phone-like landscape” viewports where we intentionally
  * trade vertical density for usability.
  *

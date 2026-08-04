@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/viewer/BughouseAnalysis
+ *
+ * Full analysis + live-replay viewer: interactive boards, variation tree move list,
+ * clocks, reserves, annotations, and keyboard-driven navigation.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Chess, type Square } from "chess.js";
@@ -65,6 +71,7 @@ import {
 import { clampPlyToMainlineBounds } from "../../utils/discovery/gameViewerUrlState";
 import { usePieceValuePreset } from "../../utils/preferences/usePieceValuePreset";
 
+/** Props for the main dual-board analysis surface. */
 interface BughouseAnalysisProps {
   gameData?: {
     original: ChessGame;
@@ -145,6 +152,7 @@ interface BughouseAnalysisProps {
   autoStartLiveReplay?: boolean;
 }
 
+/** Placeholder player names shown before a game is loaded. */
 const PLACEHOLDER_PLAYERS: {
   aWhite: BughousePlayer;
   aBlack: BughousePlayer;

@@ -1,3 +1,9 @@
+/**
+ * User-drawn board annotations: circles and directed arrows.
+ *
+ * Annotations are ephemeral analysis overlays, stored per position and toggled
+ * immutably so React state updates remain predictable.
+ */
 import type { Square } from "chess.js";
 
 /**
@@ -16,6 +22,7 @@ export interface BoardAnnotations {
   arrows: ArrowKey[];
 }
 
+/** Shared empty annotation object reused when no drawings exist for a position. */
 export const EMPTY_BOARD_ANNOTATIONS: BoardAnnotations = Object.freeze({
   circles: [],
   arrows: [],

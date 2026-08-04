@@ -1,7 +1,15 @@
+/**
+ * Unit tests for capture-material tracking in {@link BughouseReplayController}.
+ *
+ * Ensures forward/backward replay steps update and restore ledger snapshots.
+ */
 import { describe, expect, it } from "vitest";
 import { BughouseReplayController } from "@/app/utils/replay/replayController";
 import type { ProcessedGameData } from "@/app/types/bughouse";
 
+/**
+ * Minimal {@link ProcessedGameData} factory — only `combinedMoves` varies per test.
+ */
 function createMinimalProcessedGameData(params: {
   combinedMoves: ProcessedGameData["combinedMoves"];
 }): ProcessedGameData {

@@ -1,14 +1,14 @@
 /**
- * Mock `useRouter` for Cypress component tests.
+ * Mock Next.js App Router navigation hooks for Cypress component tests.
  *
  * Next.js App Router hooks require the router context which isn't available
- * in Cypress component tests. This provides a minimal mock that tracks
- * navigation calls for testing.
+ * in Cypress component tests. Provides minimal stubs that track navigation
+ * calls for test inspection.
  */
 
 /**
  * Mock router implementation that captures navigation calls.
- * Test code can spy on `push` to verify navigation behavior.
+ * Test code can read `window.__lastPush` / `__lastReplace` after interactions.
  */
 export function useRouter() {
   return {

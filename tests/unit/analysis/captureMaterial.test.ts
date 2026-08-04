@@ -1,3 +1,9 @@
+/**
+ * Unit tests for capture-material ledger utilities (`captureMaterial.ts`).
+ *
+ * Validates bughouse vs standard piece values, ledger mutation, and signed
+ * display formatting.
+ */
 import { describe, expect, it } from "vitest";
 import {
   applyCaptureToLedger,

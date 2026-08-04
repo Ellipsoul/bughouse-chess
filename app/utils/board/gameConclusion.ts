@@ -1,5 +1,14 @@
+/**
+ * Derive a human-readable game conclusion from chess.com live-game payloads.
+ *
+ * Bughouse matches link two boards; termination metadata may appear on only one of them.
+ * This module normalizes Result + Termination into a single summary for the UI.
+ */
 import type { ChessGame } from "@/app/actions";
 
+/**
+ * Normalized game outcome extracted from chess.com termination metadata.
+ */
 export type GameConclusionSummary = {
   /**
    * Primary result string, typically PGN `Result` (e.g. `1-0`, `0-1`, `1/2-1/2`).
@@ -17,6 +26,10 @@ export type GameConclusionSummary = {
   sourceBoard: "A" | "B";
 };
 
+/**
+ * Map chess.com / PGN termination strings to display-friendly labels.
+ * Falls back to title-casing unknown values after normalizing separators.
+ */
 function humanizeReason(raw: string): string {
   const normalized = raw.trim();
   if (!normalized) return "";
@@ -51,6 +64,10 @@ function humanizeReason(raw: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/**
+ * Extract Result + reason from a single chess.com board payload.
+ * Returns null when either field is missing after all fallbacks.
+ */
 function deriveSummaryFromSingleGame(game: ChessGame, sourceBoard: "A" | "B"): GameConclusionSummary | null {
   const result =
     game.game.pgnHeaders?.Result?.trim() ||

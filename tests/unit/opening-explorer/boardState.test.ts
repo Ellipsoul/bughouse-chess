@@ -1,3 +1,10 @@
+/**
+ * Unit tests for opening-explorer board replay ({@link replayOpeningPrefix}).
+ *
+ * Ensures TCN move-token prefixes replay to the correct FEN, human-readable
+ * labels, and last-move highlight metadata — including first-class Bughouse drops
+ * (`&` tokens) that standard chess parsers omit.
+ */
 import { describe, expect, it } from "vitest";
 import { replayOpeningPrefix } from "@/app/components/opening-explorer/boardState";
 

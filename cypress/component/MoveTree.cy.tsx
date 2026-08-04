@@ -1,8 +1,15 @@
+/**
+ * Cypress component tests for {@link MoveTree}.
+ *
+ * Exercises collapsible tree navigation, current-node highlighting, and click
+ * handlers on a synthetic mainline.
+ */
 import MoveTree from "../../app/components/moves/MoveTree";
 import type { AnalysisTree } from "../../app/types/analysis";
 import { createInitialPositionSnapshot } from "../../app/utils/analysis/applyMove";
 
 describe("MoveTree", () => {
+  /** Minimal two-move mainline for tree interaction tests. */
   const createTreeWithMoves = (): AnalysisTree => {
     const rootPosition = createInitialPositionSnapshot();
     const afterE4 = createInitialPositionSnapshot();

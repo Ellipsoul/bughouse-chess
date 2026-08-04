@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/shared/SharedGameCard
+ *
+ * Grid card for the shared-games browser: metadata, result, owner delete affordance.
+ */
 import React, { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";

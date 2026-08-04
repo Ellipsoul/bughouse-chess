@@ -1,3 +1,9 @@
+/**
+ * Unit tests for chess.com → chess.js move conversion (`moveConverter.ts`).
+ *
+ * Covers SAN normalization, drop notation, promotion, and validation against a
+ * live board position.
+ */
 import { describe, it, expect } from "vitest";
 import { Chess } from "chess.js";
 import {

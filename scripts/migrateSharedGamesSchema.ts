@@ -92,10 +92,12 @@ const TARGET_SCHEMA_VERSION = 2;
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Timestamped stdout logger for migration progress. */
 function log(message: string, ...args: unknown[]): void {
   console.log(`[${new Date().toISOString()}] ${message}`, ...args);
 }
 
+/** Timestamped stderr logger for migration failures. */
 function logError(message: string, ...args: unknown[]): void {
   console.error(`[${new Date().toISOString()}] ERROR: ${message}`, ...args);
 }
@@ -112,6 +114,10 @@ interface MigrationStats {
   errors: Array<{ id: string; error: string }>;
 }
 
+/**
+ * Migrates one v1 shared-game document: writes `games/*` subdocs, sets
+ * `schemaVersion=2`, and deletes inline `gameData`. Uses a batch for atomicity.
+ */
 async function migrateDocument(
   db: FirebaseFirestore.Firestore,
   docData: SharedGameDocumentLegacy,
@@ -184,6 +190,7 @@ async function migrateDocument(
   return true;
 }
 
+/** Scans the sharedGames collection and migrates legacy v1 documents to v2. */
 async function runMigration(dryRun: boolean): Promise<MigrationStats> {
   const stats: MigrationStats = {
     total: 0,
@@ -303,6 +310,7 @@ async function runMigration(dryRun: boolean): Promise<MigrationStats> {
 /* Main                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** CLI entry; honors `DRY_RUN` env (defaults to dry run). */
 async function main(): Promise<void> {
   const dryRun = process.env.DRY_RUN !== "false";
 

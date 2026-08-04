@@ -1,3 +1,9 @@
+/**
+ * @module sharedGameOrientation
+ *
+ * Baseline board orientation when loading shared match/partner-series content.
+ * Keeps the viewer's flip state consistent with how the sharer experienced the first game.
+ */
 import type { MatchGame, PartnerPair } from "@/app/types/match";
 import type { SharedContentType } from "@/app/types/sharedGame";
 import type { PairKey } from "@/app/utils/board/matchBoardOrientation";

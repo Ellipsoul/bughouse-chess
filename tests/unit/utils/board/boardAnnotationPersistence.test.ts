@@ -1,3 +1,8 @@
+/**
+ * Unit tests for board annotation persistence keyed by FEN (`boardAnnotationPersistence.ts`).
+ *
+ * Covers FEN key normalization, per-FEN annotation get/set, and empty-state defaults.
+ */
 import { describe, it, expect } from "vitest";
 import {
   createEmptyBoardAnnotationsByFen,

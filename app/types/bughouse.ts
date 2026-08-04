@@ -1,12 +1,29 @@
 /**
- * Move within an interleaved bughouse timeline.
+ * Core bughouse domain types shared across replay, analysis, and UI layers.
+ *
+ * These types describe the interleaved two-board move timeline, clock snapshots,
+ * player identities, reserves, and the processed shape produced when loading
+ * chess.com live-game payloads.
+ */
+
+/**
+ * A single half-move in the global (interleaved) bughouse timeline.
+ *
+ * `timestamp` is elapsed time since game start in **deciseconds**, as reconstructed
+ * from chess.com's per-move remaining-time series.
  */
 export interface BughouseMove {
+  /** Logical board on which the move was played. */
   board: 'A' | 'B';
+  /** Full-move number on that board (1-based). */
   moveNumber: number;
+  /** SAN-ish move string, including bughouse drops (`P@e4`). */
   move: string;
+  /** Elapsed time (deciseconds) when this move occurred in the global timeline. */
   timestamp: number;
+  /** Color of the player who made this move. */
   side: 'white' | 'black';
+  /** Optional FEN after the move; populated by some code paths for caching. */
   fen?: string;
 }
 
@@ -25,7 +42,7 @@ export type BughouseCaptureMaterialLedger = {
 };
 
 /**
- * Snapshot of both clocks (deciseconds) for a single board.
+ * Remaining clock time (deciseconds) for both players on a single board.
  */
 export interface BoardClocks {
   white: number;
@@ -45,7 +62,7 @@ export interface BughouseClocksSnapshotByBoard {
 }
 
 /**
- * UI-friendly representation of two boards plus shared data.
+ * A player identity as shown in chess.com live-game payloads.
  */
 export interface BughousePlayer {
   /**
@@ -67,6 +84,12 @@ export interface BughousePlayer {
   chessTitle?: string;
 }
 
+/**
+ * UI-friendly snapshot of both boards plus shared bughouse state.
+ *
+ * Used by the replay controller and board components for rendering FEN, move history,
+ * clocks, reserves, and capture-material HUD counters.
+ */
 export interface BughouseGameState {
   boardA: {
     fen: string;
@@ -84,6 +107,7 @@ export interface BughouseGameState {
     speed: number;
     clocks: BoardClocks;
   };
+  /** Squares occupied by promoted pieces, tracked for "promoted captures count as pawn" rule. */
   promotedSquares: {
     A: string[];
     B: string[];
@@ -105,17 +129,26 @@ export interface BughouseGameState {
   };
 }
 
+/**
+ * Normalized output of {@link processGameData}: per-board move lists, interleaved timeline,
+ * player identities, and clock configuration extracted from chess.com payloads.
+ */
 export interface ProcessedGameData {
+  /** Board A (original game) moves and raw timestamp series. */
   originalGame: {
     moves: string[];
     timestamps: number[];
   };
+  /** Board B (partner game) moves and raw timestamp series. */
   partnerGame: {
     moves: string[];
     timestamps: number[];
   };
+  /** Chronologically merged move list used for replay and live analysis. */
   combinedMoves: BughouseMove[];
+  /** Initial clock time per player in seconds (from chess.com `baseTime1`). */
   initialTime: number;
+  /** Increment per move in seconds (from chess.com `timeIncrement1`). */
   timeIncrement: number;
   players: {
     aWhite: BughousePlayer;
@@ -126,7 +159,10 @@ export interface ProcessedGameData {
 }
 
 /**
- * Piece reserves keyed by board and color; counts represent capturable drops.
+ * Captured-piece reserves available for drops, keyed by board and color.
+ *
+ * Counts represent pieces currently held in hand; captures on one board feed the
+ * partner board's reserves for the opposing color.
  */
 export interface PieceReserves {
   A: {

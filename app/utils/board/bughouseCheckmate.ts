@@ -83,6 +83,10 @@ export function normalizeSanSuffixForBughouse(params: { san: string; board: Ches
   return `${base}${getBughouseCheckSuffix(params.board)}`;
 }
 
+/**
+ * Locate the king square for a given color on the board.
+ * Returns null when the position is malformed (missing or duplicate kings).
+ */
 function findKingSquare(board: Chess, color: Color): Square | null {
   // `findPiece` is a public API in chess.js@1.4.0.
   const squares = board.findPiece({ type: "k", color });
@@ -90,6 +94,10 @@ function findKingSquare(board: Chess, color: Color): Square | null {
   return squares[0] as Square;
 }
 
+/**
+ * List squares strictly between `from` and `to` on a rook/bishop/queen ray.
+ * Returns empty when the squares are not aligned (e.g. knight jump) or are adjacent.
+ */
 function squaresStrictlyBetweenOnRay(from: Square, to: Square): Square[] {
   const { file: fFile, rank: fRank } = squareToCoords(from);
   const { file: tFile, rank: tRank } = squareToCoords(to);
@@ -124,18 +132,21 @@ function squaresStrictlyBetweenOnRay(from: Square, to: Square): Square[] {
   return squares;
 }
 
+/** Convert an algebraic square like `e4` into zero-based file/rank coordinates. */
 function squareToCoords(square: Square): { file: number; rank: number } {
   const fileChar = square[0];
   const rankChar = square[1];
   return { file: fileChar.charCodeAt(0) - "a".charCodeAt(0), rank: Number(rankChar) - 1 };
 }
 
+/** Convert zero-based file/rank coordinates back to an algebraic square. */
 function coordsToSquare(file: number, rank: number): Square {
   const fileChar = String.fromCharCode("a".charCodeAt(0) + file);
   const rankChar = String(rank + 1);
   return `${fileChar}${rankChar}` as Square;
 }
 
+/** Integer sign helper for ray-walking between two squares. */
 function sign(n: number): -1 | 0 | 1 {
   if (n === 0) return 0;
   return n > 0 ? 1 : -1;

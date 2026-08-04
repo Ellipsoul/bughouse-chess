@@ -1,4 +1,9 @@
 /**
+ * @module sharedGameDescription
+ *
+ * Tooltip copy helpers for optional shared-game descriptions shown on browse cards.
+ */
+/**
  * Builds the tooltip text for a shared game/match description.
  *
  * The tooltip should:

@@ -1,3 +1,8 @@
+/**
+ * @module profile/page
+ *
+ * Server entry for `/profile`; delegates all interactivity to {@link ProfilePageClient}.
+ */
 import ProfilePageClient from "./ProfilePageClient";
 
 /**

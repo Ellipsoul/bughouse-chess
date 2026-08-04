@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/moves/MoveListWithVariations
+ *
+ * Primary analysis move list: four-column mainline grid plus inline parenthesized
+ * variations, context menus, and optional share-from-move actions.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftRight } from "lucide-react";
 import type { BughouseMove, BughousePlayer } from "../../types/bughouse";
@@ -13,6 +19,7 @@ import {
 } from "../../utils/board/boardOrderMapping";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 
+/** Props for {@link MoveListWithVariations}. */
 interface MoveListWithVariationsProps {
   tree: AnalysisTree;
   cursorNodeId: string;
@@ -76,6 +83,7 @@ interface MoveListWithVariationsProps {
   canShareGameFromNode?: (nodeId: string) => boolean;
 }
 
+/** One mainline table row derived from the analysis tree walk. */
 type MainlineRow = {
   nodeId: string;
   nodeBeforeId: string;
@@ -125,12 +133,14 @@ export default function MoveListWithVariations({
     y: number;
   } | null>(null);
 
+  /** Close the right-click context menu without taking an action. */
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const { leftBoardId, rightBoardId } = getBoardOrder(isBoardOrderSwapped);
   const leftBoardPlayers = getPlayersForBoard(players, leftBoardId);
   const rightBoardPlayers = getPlayersForBoard(players, rightBoardId);
   const canToggleBoardOrder = Boolean(onToggleBoardOrder);
 
+  /** True when the node's variation head is not already the parent's main child. */
   const canPromoteNode = useCallback(
     (nodeId: string) => {
       const headId = findContainingVariationHeadNodeId(tree.nodesById, nodeId);
@@ -145,6 +155,7 @@ export default function MoveListWithVariations({
     [tree.nodesById],
   );
 
+  /** True when the node is not root and has at least one child (exclusive truncate). */
   const canTruncateNode = useCallback(
     (nodeId: string) => {
       if (nodeId === tree.rootId) return false;
@@ -154,6 +165,7 @@ export default function MoveListWithVariations({
     [tree.nodesById, tree.rootId],
   );
 
+  /** True when the node is not the tree root (inclusive truncate). */
   const canTruncateNodeInclusive = useCallback(
     (nodeId: string) => {
       if (nodeId === tree.rootId) return false;
@@ -162,6 +174,7 @@ export default function MoveListWithVariations({
     [tree.nodesById, tree.rootId],
   );
 
+  /** Walk the analysis mainline into table rows for the four-column grid. */
   const mainline = useMemo<MainlineRow[]>(() => {
     const rows: MainlineRow[] = [];
     let nodeId = tree.rootId;

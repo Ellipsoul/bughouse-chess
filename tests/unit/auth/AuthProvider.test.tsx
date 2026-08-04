@@ -1,3 +1,9 @@
+/**
+ * Unit tests for {@link AuthProvider} and {@link useAuth}.
+ *
+ * Uses a controllable fake {@link AuthAdapter} to verify loading/sign-in/sign-out
+ * lifecycle, error propagation, and auth-state subscription cleanup.
+ */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import { AuthProvider } from "../../../app/auth/AuthProvider";
@@ -6,6 +12,9 @@ import type { AuthAdapter, AuthUser } from "../../../app/auth/types";
 
 /**
  * Creates a fake AuthAdapter for testing.
+ *
+ * Exposes `triggerAuthChange` so tests can simulate Firebase auth events without
+ * a real SDK. Delay on `onAuthStateChanged` models async initialization.
  *
  * @param options - Configuration for the fake adapter behavior
  */
@@ -57,6 +66,8 @@ function createFakeAdapter(options: {
 
 /**
  * Test component that consumes auth context and displays state.
+ *
+ * Renders status, user fields, and sign-in/out triggers for RTL assertions.
  */
 function AuthConsumer() {
   const { status, user, signInWithGoogle, signOut } = useAuth();

@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @module app/components/board/ChessBoard
+ *
+ * React wrapper around chessboard.js with bughouse-specific overlays: promotion
+ * markers, last-move highlights, legal-move hints, annotations (circles/arrows),
+ * and reserve-piece drag/drop targets.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Square } from "chess.js";
 // Import CSS from the package
@@ -14,6 +21,7 @@ import {
   toggleSquareInList,
 } from "../../utils/board/boardAnnotations";
 
+/** Minimal chessboard.js instance surface used by this wrapper. */
 interface ChessBoardInstance {
   destroy: () => void;
   // `animated` mirrors chessboard.js docs: position(fen, useAnimation?)
@@ -35,14 +43,17 @@ interface ChessBoardInstance {
   resize: () => void;
 }
 
+/** chessboard.js factory signature (loaded dynamically on the client). */
 type ChessBoardFactory = (id: string, config: Record<string, unknown>) => ChessBoardInstance;
 
+/** Window globals required by the legacy chessboard.js CommonJS bundle. */
 interface CustomWindow extends Window {
   $: unknown;
   jQuery: unknown;
   ChessBoard: ChessBoardFactory | undefined;
 }
 
+/** Public props for {@link ChessBoard}. */
 interface ChessBoardProps {
   fen?: string;
   boardName: BughouseBoardId;
@@ -136,10 +147,13 @@ interface ChessBoardProps {
   interactionsEnabled?: boolean;
 }
 
+/** Piece color inferred from FEN character casing. */
 type PieceColor = "w" | "b";
 
+/** 0..100 viewBox coordinate used by the SVG annotation overlay. */
 type ViewBoxPoint = { x: number; y: number };
 
+/** Cached geometry for aligning SVG annotations with chessboard.js squares. */
 interface AnnotationGeometry {
   /**
    * ViewBox coordinates (0..100) of square centers.
@@ -259,6 +273,7 @@ export default function ChessBoard(
   const hasAnnotations =
     effectiveAnnotations.circles.length > 0 || effectiveAnnotations.arrows.length > 0;
 
+  /** Routes annotation updates to controlled or uncontrolled local state. */
   const applyAnnotationsUpdate = useCallback(
     (updater: (prev: BoardAnnotations) => BoardAnnotations) => {
       if (annotations !== undefined) {

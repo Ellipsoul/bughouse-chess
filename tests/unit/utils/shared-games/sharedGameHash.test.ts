@@ -1,3 +1,9 @@
+/**
+ * Unit tests for deterministic shared-game content hashing (`sharedGameHash.ts`).
+ *
+ * Ensures hashes are stable across game order, sensitive to user/content type,
+ * and align single-game vs match input builders.
+ */
 import { describe, expect, it } from "vitest";
 import type { ChessGame } from "@/app/actions";
 import type { MatchGame, PartnerPair } from "@/app/types/match";
@@ -8,6 +14,7 @@ import {
   createShareHashInputFromSingleGame,
 } from "@/app/utils/shared-games/sharedGameHash";
 
+/** Minimal {@link ChessGame} stub identified by string id and placeholder headers. */
 function createChessGame(id: string): ChessGame {
   return {
     game: {
@@ -20,6 +27,7 @@ function createChessGame(id: string): ChessGame {
   } as unknown as ChessGame;
 }
 
+/** Pair of board games referencing stub chess.com payloads by id. */
 function createMatchGame(gameId: string, partnerGameId: string): MatchGame {
   return {
     gameId,

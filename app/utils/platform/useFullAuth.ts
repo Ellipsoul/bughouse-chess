@@ -1,3 +1,8 @@
+/**
+ * @module useFullAuth
+ *
+ * Composes Firebase Auth with username reservation status for feature gating (e.g. sharing).
+ */
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -75,7 +80,7 @@ export interface FullAuthState {
 export function useFullAuth(): FullAuthState {
   const { status: authStatus, user } = useAuth();
 
-  // Username state: { status, value } combined to allow atomic updates
+  /** Tracks username fetch lifecycle per signed-in uid to avoid stale cross-user updates. */
   type UsernameState =
     | { status: "idle" }
     | { status: "loading"; forUserId: string }

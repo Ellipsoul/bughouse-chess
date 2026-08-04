@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/match/MatchNavigation
+ *
+ * Match replay controls: discover related games, step prev/next, and pick games
+ * from a dropdown with stable team/pair positioning and running scores.
+ */
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
@@ -486,6 +492,7 @@ export default function MatchNavigation({
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    /** Dismiss game picker when the user clicks outside the dropdown anchor. */
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
@@ -500,6 +507,7 @@ export default function MatchNavigation({
 
   // Close dropdown on escape key
   useEffect(() => {
+    /** Close the game picker without selecting when Escape is pressed. */
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsDropdownOpen(false);
@@ -540,6 +548,7 @@ export default function MatchNavigation({
     isCompact ? "text-xs" : "text-sm",
   ].join(" ");
 
+  /** Select a game from the dropdown and notify the parent. */
   const handleSelectGame = (index: number) => {
     setIsDropdownOpen(false);
     onSelectGame?.(index);
@@ -666,8 +675,8 @@ export default function MatchNavigation({
 }
 
 /**
- * Dropdown component showing all games in a match with consistent team positioning.
- * For partner pair mode, shows the selected pair on the left and opponents on the right.
+ * Scrollable game list inside the match navigation dropdown.
+ * Renders either full-match team rows or partner-pair rows depending on mode.
  */
 function MatchDropdown({
   games,

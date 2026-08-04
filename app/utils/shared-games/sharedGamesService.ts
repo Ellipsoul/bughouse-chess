@@ -1,3 +1,15 @@
+/**
+ * @module sharedGamesService
+ *
+ * Client-side Firestore CRUD for the shared-games library.
+ *
+ * Data model (high level):
+ * - `sharedGames/{id}` — metadata document (no embedded PGN payloads).
+ * - `sharedGames/{id}/games/{index}` — per-game sub-documents (single or match row).
+ * - `users/{uid}/sharedGames/{id}` — per-user index with content hash for deduplication.
+ *
+ * Match uploads are chunked ({@link MATCH_UPLOAD_BATCH_SIZE}) to stay within Firestore batch limits.
+ */
 "use client";
 
 import {
@@ -258,6 +270,7 @@ export function buildMatchMetadata(
     const firstGame = matchGames[0]!;
 
     // Get chess titles for the selected pair from the first game
+    /** Resolves chess title for a username by scanning both boards of the first match game. */
     const getTitle = (username: string): string | undefined => {
       const lowerUsername = username.toLowerCase();
       const original = firstGame.original;

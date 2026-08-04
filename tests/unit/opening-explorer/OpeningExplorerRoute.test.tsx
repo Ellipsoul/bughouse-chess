@@ -1,3 +1,10 @@
+/**
+ * Unit tests for the `/opening-explorer` App Router page shell.
+ *
+ * Ensures the route always renders the client explorer component without
+ * gating on availability env vars — the page is a thin wrapper that delegates
+ * all behavior to {@link OpeningExplorerPageClient}.
+ */
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";

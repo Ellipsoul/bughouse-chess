@@ -11,6 +11,8 @@ describe("Game Loading", () => {
    */
   const SINGLE_GAME_ID = "160064848971";
   const SECOND_GAME_ID = "160064848973";
+
+  /** Narrows Cypress network intercept call objects for URL assertions. */
   const toInterceptCalls = (calls: unknown): Array<{ request: { url: string } }> =>
     calls as unknown as Array<{ request: { url: string } }>;
   const countCallsForGameId = (

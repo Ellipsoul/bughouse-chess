@@ -1,3 +1,10 @@
+/**
+ * Unit tests for the bughouse move application engine (`applyMove.ts`).
+ *
+ * Covers initial position snapshots, reserve initialization, allowed-actor
+ * derivation, checkmate termination, half-move validation (normal/drop/promotion),
+ * and SAN/notation application paths.
+ */
 import { describe, it, expect } from "vitest";
 import { Chess } from "chess.js";
 import {

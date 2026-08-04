@@ -1,3 +1,9 @@
+/**
+ * Analysis-tree variation navigation.
+ *
+ * Maps any node inside a side line back to the variation head (the first non-main child
+ * on the path to the root), which is the unit of "promote variation" operations.
+ */
 import type { AnalysisNode } from "@/app/types/analysis";
 
 /**

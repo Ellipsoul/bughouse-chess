@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/board/PromotionPicker
+ *
+ * Square-anchored promotion UI rendered over chessboard.js when a pawn reaches
+ * the back rank with multiple legal promotion pieces.
+ */
 import Image from "next/image";
 import React, { useEffect, useMemo, useState } from "react";
 import type { BughousePromotionPiece } from "../../types/analysis";
@@ -7,6 +13,7 @@ import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 import type { BughouseBoardId } from "../../types/analysis";
 import type { Square } from "chess.js";
 
+/** Props for the square-anchored promotion picker overlay. */
 interface PromotionPickerProps {
   board: BughouseBoardId;
   /**
@@ -34,6 +41,7 @@ interface PromotionPickerProps {
  *   picker stays correctly positioned even if the board container changes layout.
  */
 export default function PromotionPicker({ board, to, side, allowed, onPick, onCancel }: PromotionPickerProps) {
+  /** Human-readable labels keyed by promotion piece code. */
   const pieceLabels: Record<BughousePromotionPiece, string> = {
     q: "Queen",
     r: "Rook",
@@ -53,6 +61,7 @@ export default function PromotionPicker({ board, to, side, allowed, onPick, onCa
   const orderedAllowed = useMemo(() => {
     const base: BughousePromotionPiece[] = ["q", "n", "r", "b"];
     const filtered = base.filter((p) => allowed.includes(p));
+    // Fall back to server-provided order when the preferred stack is empty.
     return filtered.length ? filtered : allowed;
   }, [allowed]);
 
@@ -129,12 +138,14 @@ export default function PromotionPicker({ board, to, side, allowed, onPick, onCa
     );
   }
 
+  /** chessboard.js piece code (e.g. `wQ`) for Wikipedia theme URLs. */
   const pieceImgCode = (p: BughousePromotionPiece) => {
     const color = side === "white" ? "w" : "b";
     const letter: Record<BughousePromotionPiece, string> = { q: "Q", r: "R", b: "B", n: "N" };
     return `${color}${letter[p]}`;
   };
 
+  /** Full CDN URL for a promotion option image. */
   const pieceImgUrl = (p: BughousePromotionPiece) =>
     `https://chessboardjs.com/img/chesspieces/wikipedia/${pieceImgCode(p)}.png`;
 

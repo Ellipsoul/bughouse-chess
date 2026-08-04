@@ -1,3 +1,9 @@
+/**
+ * Next.js application configuration for bughouse-chess.
+ *
+ * Enables React cache components and whitelists remote image hosts used by the
+ * chess board (chessboardjs piece sprites) and Firebase Auth profile avatars.
+ */
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {

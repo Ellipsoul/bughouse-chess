@@ -1,3 +1,15 @@
+/**
+ * Unit tests for the Next.js opening-explorer proxy route
+ * (`app/api/opening-explorer/[...path]/route.ts`).
+ *
+ * Covers the server-side boundary between the browser and the opening dataset
+ * service: loopback forwarding in development, HTTPS allowlist + bearer token in
+ * production, conditional request header passthrough (ETag / 304), and hard
+ * rejection of unsafe upstream URLs without issuing fetch.
+ *
+ * Each test re-imports the route module after env/global stubs so module-level
+ * config is evaluated against the scenario under test.
+ */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("opening explorer local proxy", () => {

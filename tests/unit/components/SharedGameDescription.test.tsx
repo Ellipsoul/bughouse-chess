@@ -1,3 +1,8 @@
+/**
+ * Unit tests for {@link SharedGameDescription} presentation component.
+ *
+ * Trims whitespace and exposes full description text for tooltip overflow cases.
+ */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import SharedGameDescription from "../../../app/components/shared/SharedGameDescription";

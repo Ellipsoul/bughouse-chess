@@ -1,19 +1,10 @@
-// ***********************************************************
-// This example support/component.ts is processed and
-// loaded automatically before your test files.
-//
-// This is a great place to put global configuration and
-// behavior that modifies Cypress.
-//
-// You can change the location of this file or turn off
-// automatically serving support files with the
-// 'supportFile' configuration option.
-//
-// You can read more here:
-// https://on.cypress.io/configuration
-// ***********************************************************
-
-// Import commands.js using ES2015 syntax:
+/**
+ * Cypress Component Testing support entry point.
+ *
+ * Wraps `cy.mount` with app providers ({@link AuthProvider},
+ * {@link SharedGameHashesProvider}), registers Firebase emulator commands, and
+ * suppresses benign Firebase Analytics uncaught exceptions from fake API keys.
+ */
 import "./commands";
 
 import React from "react";

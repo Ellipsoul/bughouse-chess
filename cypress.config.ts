@@ -1,3 +1,10 @@
+/**
+ * Cypress configuration for bughouse-chess component and E2E testing.
+ *
+ * Component tests run via Vite with Next.js module aliases and repo-owned test
+ * env vars. E2E tests target `localhost:3000` with Firebase Emulator Suite
+ * credentials and Node tasks to reset emulator state between runs.
+ */
 import { defineConfig } from "cypress";
 import react from "@vitejs/plugin-react";
 import path from "path";

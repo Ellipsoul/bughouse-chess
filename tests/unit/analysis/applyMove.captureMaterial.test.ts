@@ -1,3 +1,10 @@
+/**
+ * Unit tests for capture-material ledger updates inside
+ * {@link validateAndApplyBughouseHalfMove}.
+ *
+ * Ensures captures and drops accumulate bughouse piece values on the correct
+ * board/color ledger entries.
+ */
 import { describe, expect, it } from "vitest";
 import type { BughousePositionSnapshot } from "../../../app/types/analysis";
 import { createEmptyReserves, validateAndApplyBughouseHalfMove } from "@/app/utils/analysis/applyMove";

@@ -1,3 +1,9 @@
+/**
+ * @module app/components/moves/MoveList
+ *
+ * Classic four-column move table for replay mode (no analysis variations).
+ * Interleaves board A/B moves and optionally shows per-board move timings.
+ */
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArrowLeftRight } from "lucide-react";
 import { BughouseMove } from "../../types/bughouse";
@@ -9,6 +15,7 @@ import {
 } from "../../utils/board/boardOrderMapping";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
 
+/** Props for the replay {@link MoveList} table. */
 interface MoveListProps {
   moves: BughouseMove[];
   currentMoveIndex: number;
@@ -72,6 +79,7 @@ const MoveList: React.FC<MoveListProps> = ({
     });
   }, [moves, providedMoveDurations]);
 
+  /** Formats deciseconds as `M:SS.t` or `X.Xs` for move-time badges. */
   const formatMoveTime = useCallback((deciseconds?: number) => {
     if (!Number.isFinite(deciseconds)) return "—";
 
@@ -87,6 +95,7 @@ const MoveList: React.FC<MoveListProps> = ({
     return `${(safeValue / 10).toFixed(1)}s`;
   }, []);
 
+  /** Renders a truncated username cell for a column header. */
   const renderPlayerHeader = useCallback(
     (player: BughousePlayer) => {
       return (

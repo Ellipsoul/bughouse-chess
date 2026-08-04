@@ -1,3 +1,9 @@
+/**
+ * Unit tests for shared-match baseline orientation (`sharedGameOrientation.ts`).
+ *
+ * Uses recorded match fixtures to verify persisted bottom-pair keys align with
+ * live {@link matchBoardOrientation} helpers for shared-game replay.
+ */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -28,18 +34,21 @@ type PartnerSeriesIndex = {
   games: MatchIndexEntry[];
 };
 
+/** Loads a chess.com live-game JSON fixture from `tests/fixtures/chesscom/`. */
 function loadFixture(filename: string): ChessGame {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
   ) as ChessGame;
 }
 
+/** Loads a match or partner-series index JSON fixture. */
 function loadIndex<T>(filename: string): T {
   return JSON.parse(
     readFileSync(join(process.cwd(), "tests", "fixtures", "chesscom", filename), "utf-8"),
   ) as T;
 }
 
+/** Hydrates {@link MatchGame} rows from index entries plus on-disk game fixtures. */
 function loadMatchGames(entries: MatchIndexEntry[]): MatchGame[] {
   return entries.map((entry) => {
     const original = loadFixture(`${entry.gameId}.json`);

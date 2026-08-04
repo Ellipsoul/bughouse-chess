@@ -1,3 +1,8 @@
+/**
+ * @module ProfilePageClient
+ *
+ * Profile route UI: Google sign-in/out, username reservation entry point, analytics.
+ */
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -176,6 +181,7 @@ export default function ProfilePageClient() {
 /* Sub-components                                                             */
 /* -------------------------------------------------------------------------- */
 
+/** Spinner placeholder while {@link AuthProvider} resolves initial auth state. */
 function LoadingState() {
   return (
     <>
@@ -187,6 +193,7 @@ function LoadingState() {
   );
 }
 
+/** Shown when Firebase client env is missing or auth subscription failed. */
 function UnavailableState() {
   return (
     <>
@@ -201,6 +208,7 @@ function UnavailableState() {
   );
 }
 
+/** Anonymous-user CTA with Google sign-in button. */
 function SignedOutState({
   onSignIn,
   isSigningIn,
@@ -238,6 +246,7 @@ function SignedOutState({
   );
 }
 
+/** Authenticated profile summary with username management and sign-out. */
 function SignedInState({
   user,
   onSignOut,

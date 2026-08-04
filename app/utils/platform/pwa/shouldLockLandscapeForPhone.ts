@@ -1,4 +1,9 @@
 /**
+ * @module shouldLockLandscapeForPhone
+ *
+ * PWA manifest orientation heuristic — landscape lock for Android phones only.
+ */
+/**
  * Decide whether the PWA should request a landscape-only orientation lock via the Web App Manifest.
  *
  * Important limitations:

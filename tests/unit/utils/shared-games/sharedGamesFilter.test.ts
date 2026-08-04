@@ -1,9 +1,16 @@
+/**
+ * Unit tests for shared-games list filtering (`sharedGamesFilter.ts`).
+ *
+ * Covers text search, content-type filters, date ranges, and team/player matching.
+ */
 import { describe, it, expect } from "vitest";
 import { filterSharedGames } from "@/app/utils/shared-games/sharedGamesFilter";
 import type { SharedGameSummary } from "@/app/types/sharedGame";
 
 /**
- * Creates a mock SharedGameSummary for testing.
+ * Creates a mock {@link SharedGameSummary} for filter tests.
+ *
+ * Defaults to a four-player game share; override team/sharer fields per scenario.
  */
 function createMockGame(overrides: {
   id?: string;

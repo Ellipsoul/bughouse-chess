@@ -1,3 +1,8 @@
+/**
+ * @module providers
+ *
+ * Root client provider tree: toasts, tooltips, Firebase bootstrap, auth, preferences, share-hash cache.
+ */
 "use client";
 
 import { Toaster } from "react-hot-toast";

@@ -1,3 +1,9 @@
+/**
+ * @module actions
+ *
+ * Next.js server actions for Chess.com live-game fetch, partner lookup, archive queries,
+ * and cache revalidation. These run on the server and are callable from client components.
+ */
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -5,8 +11,11 @@ import type { PublicGameRecord, PublicGamesResponse } from "./types/match";
 
 /**
  * Shape of the chess.com live game payload used by the viewer.
+ *
+ * Mirrors Chess.com callback JSON; nested under `game` (position/state) and `players` (UI metadata).
  */
 export interface ChessGame {
+  /** Core game record from Chess.com live callback. */
   game: {
     id: number;
     uuid: string;
@@ -45,6 +54,7 @@ export interface ChessGame {
     baseTime1: number;
     timeIncrement1: number;
   };
+  /** Top/bottom player slots as returned by Chess.com (color may differ per slot). */
   players: {
     top: {
       id: number;

@@ -1,11 +1,19 @@
+/**
+ * Live-replay helpers: monotonic timestamps, per-board move counts, and continuous clock snapshots.
+ *
+ * These primitives let the UI seek to arbitrary elapsed times while both boards' clocks
+ * run simultaneously, without replaying every move from the start.
+ */
 import type { AnalysisTree } from "@/app/types/analysis";
 import type { BughouseClocksSnapshotByBoard, BughouseMove } from "@/app/types/bughouse";
 
+/** Per-board move counts after a given number of global (interleaved) plies. */
 export interface BughouseBoardMoveCounts {
   A: number;
   B: number;
 }
 
+/** Shallow-clone a clock snapshot so downstream decrement logic cannot mutate shared state. */
 function cloneSnapshot(snapshot: BughouseClocksSnapshotByBoard): BughouseClocksSnapshotByBoard {
   return {
     A: { white: snapshot.A.white, black: snapshot.A.black },
@@ -13,6 +21,7 @@ function cloneSnapshot(snapshot: BughouseClocksSnapshotByBoard): BughouseClocksS
   };
 }
 
+/** Coerce elapsed-time inputs to a non-negative finite integer (deciseconds). */
 function clampNonNegativeFiniteNumber(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, value);
@@ -83,6 +92,10 @@ export function getLiveReplayElapsedDecisecondsAtGlobalPly(params: {
   return monotonicMoveTimestamps[ply - 1] ?? 0;
 }
 
+/**
+ * Binary-search the last move whose monotonic timestamp is ≤ the target elapsed time.
+ * Returns -1 when no move has occurred yet (elapsed is before the first move).
+ */
 function findLastMoveIndexAtOrBeforeElapsed(params: {
   monotonicMoveTimestamps: number[];
   elapsedDeciseconds: number;

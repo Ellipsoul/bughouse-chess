@@ -1,4 +1,10 @@
 /**
+ * @module app/components/ui/CenteredLoadingSpinner
+ *
+ * Full-viewport loading affordance used as Suspense fallbacks and route-level waits.
+ */
+
+/**
  * Props for the CenteredLoadingSpinner component.
  */
 export type CenteredLoadingSpinnerProps = {

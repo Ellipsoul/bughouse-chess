@@ -1,3 +1,10 @@
+/**
+ * Global bughouse clock timeline builder.
+ *
+ * Simulates both boards' clocks running in parallel, driven by chess.com's interleaved
+ * move timestamps. Produces discrete snapshots after each global ply plus per-move
+ * clock decrements for the move list.
+ */
 import type {
   BoardClocks,
   BughouseClocksSnapshotByBoard,
@@ -42,14 +49,20 @@ export interface BughouseClockTimelineResult {
   meta: BughouseClockTimelineMeta;
 }
 
+/** Shallow-clone a single board's white/black clock pair. */
 function cloneBoardClocks(clocks: BoardClocks): BoardClocks {
   return { white: clocks.white, black: clocks.black };
 }
 
+/** Shallow-clone both boards' clock pairs into a new snapshot object. */
 function cloneSnapshot(snapshot: BughouseClocksSnapshotByBoard): BughouseClocksSnapshotByBoard {
   return { A: cloneBoardClocks(snapshot.A), B: cloneBoardClocks(snapshot.B) };
 }
 
+/**
+ * Subtract `deltaDeciseconds` from the side-to-move's clock on one board.
+ * Clamps to zero rather than allowing negative remaining time.
+ */
 function decrementRunningClock(
   clocks: BoardClocks,
   toMove: "white" | "black",

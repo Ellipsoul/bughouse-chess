@@ -1,9 +1,16 @@
+/**
+ * Cypress component tests for {@link ProfilePageClient}.
+ *
+ * Uses a fake {@link AuthAdapter} to exercise signed-in/out profile UI, sign-in
+ * errors, and navigation without Google OAuth.
+ */
 import ProfilePageClient from "../../app/profile/ProfilePageClient";
 import { AuthProvider } from "../../app/auth/AuthProvider";
 import type { AuthAdapter, AuthUser } from "../../app/auth/types";
 
 /**
- * Creates a fake AuthAdapter with configurable behavior.
+ * Configurable fake {@link AuthAdapter} for profile page component tests.
+ * Supports delayed auth emission and injected sign-in/sign-out failures.
  */
 function createFakeAdapter(options: {
   user: AuthUser | null;

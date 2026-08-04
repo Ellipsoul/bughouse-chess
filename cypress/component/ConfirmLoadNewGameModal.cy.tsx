@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link ConfirmLoadNewGameModal}.
+ *
+ * Covers open/closed rendering, confirm/cancel callbacks, and copy when
+ * replacing an in-progress loaded game.
+ */
 import ConfirmLoadNewGameModal from "../../app/components/modals/ConfirmLoadNewGameModal";
 
 describe("ConfirmLoadNewGameModal", () => {

@@ -1,7 +1,20 @@
+/**
+ * Unit tests for {@link OpeningExplorerPageClient}.
+ *
+ * Validates the hosted opening-explorer page client contract against mocked
+ * API boundaries: neighborhood prefetch/cache reuse, TCN-to-SAN move decoding,
+ * keyboard navigation, player-filter overlay reloads, bounded-cache ancestor
+ * pinning, sole-game/source-game link behavior, layout regions, and idle
+ * frontier refill stability.
+ *
+ * Mocks isolate Next.js routing and the opening-explorer HTTP client so tests
+ * exercise UI/state invariants without a live dataset service.
+ */
 import React from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Hoisted mock handles shared across vi.mock factories and test bodies. */
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   metadata: vi.fn(),
@@ -31,6 +44,10 @@ vi.mock("@/app/components/opening-explorer/api", () => ({
 
 import OpeningExplorerPageClient from "@/app/components/opening-explorer/OpeningExplorerPageClient";
 
+/**
+ * Minimal neighborhood fixture: root with one child (`mC` → e4).
+ * Reused as the default mock response so most tests start from a known tree shape.
+ */
 const neighborhoodResponse = {
   anchor_node_id: 0,
   dataset_version: "dataset-1",

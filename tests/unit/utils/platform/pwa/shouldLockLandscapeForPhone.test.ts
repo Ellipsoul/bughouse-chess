@@ -1,3 +1,9 @@
+/**
+ * Unit tests for PWA landscape-lock eligibility (`shouldLockLandscapeForPhone.ts`).
+ *
+ * Matches user-agent heuristics for phone form factors that benefit from forced
+ * landscape during bughouse analysis.
+ */
 import { describe, expect, it } from "vitest";
 import { shouldLockLandscapeForPhone } from "@/app/utils/platform/pwa/shouldLockLandscapeForPhone";
 

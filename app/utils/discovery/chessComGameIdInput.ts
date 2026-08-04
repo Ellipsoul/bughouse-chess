@@ -1,4 +1,9 @@
 /**
+ * @module chessComGameIdInput
+ *
+ * Normalizes pasted Chess.com game ids and bughouse share URLs into raw numeric ids.
+ */
+/**
  * Sanitizes a "game id" input value that may be either a raw chess.com game id
  * or a full URL (or any other string containing `/` path segments).
  *
@@ -45,7 +50,8 @@ export function isValidChessComGameId(gameId: string): boolean {
 }
 
 /**
- * Extracts the `gameId` query value from a URL-like input, if present.
+ * Parses a `gameId` / `gameid` query param from pasted bughouse share URLs.
+ * Returns null when the input does not look like a query-string share link.
  */
 function extractChessComGameIdFromQuery(input: string): string | null {
   if (!/[?&]gameid=/i.test(input)) return null;

@@ -1,11 +1,20 @@
 "use client";
 
+/**
+ * @module app/components/board/PieceReserveVertical
+ *
+ * Ten-slot vertical reserve strip (both players) with optional click/drag drop UX.
+ */
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
+/** Reserve piece types shown in the vertical strip (pawn through queen). */
 type ReservePiece = "p" | "n" | "b" | "r" | "q";
+
+/** Which side owns a reserve slot. */
 type ReserveColor = "white" | "black";
 
+/** Props for {@link PieceReserveVertical}. */
 interface PieceReserveVerticalProps {
   whiteReserves: { [piece: string]: number };
   blackReserves: { [piece: string]: number };
@@ -130,6 +139,7 @@ const PieceReserveVertical: React.FC<PieceReserveVerticalProps> = ({
     });
   });
 
+  /** Wikipedia-theme piece image URL for a reserve slot. */
   const getPieceImage = (piece: ReservePiece, color: ReserveColor) => {
     const code = color === "white" ? `w${piece.toUpperCase()}` : `b${piece.toUpperCase()}`;
     return `https://chessboardjs.com/img/chesspieces/wikipedia/${code}.png`;

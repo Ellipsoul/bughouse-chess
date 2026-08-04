@@ -1,3 +1,11 @@
+/**
+ * @module sharedGamesFilter
+ *
+ * Client-side filtering and sorting for the shared-games browse page.
+ *
+ * Player filters use team-aware backtracking because bughouse teams are stored as
+ * `team1`/`team2` but filter inputs are position-agnostic (Player 1–4).
+ */
 import type { SharedContentType, SharedGameSummary } from "@/app/types/sharedGame";
 
 /**
@@ -212,8 +220,15 @@ export function filterSharedGames(
       teamBFilters.map((_, idx) => teamAFilters.length + idx),
     );
 
-    // Try to assign each filter to a distinct player
-    // Track which team each filter group is assigned to
+    /**
+     * Backtracking search: assign each filter to a distinct player index (0–3)
+     * while enforcing same-team / opposite-team constraints.
+     *
+     * @param filterIndex - Next filter slot to assign.
+     * @param usedPlayers - Player indices already claimed.
+     * @param teamATeam - Resolved team index (0=team1, 1=team2) for Team A filters, or null.
+     * @param teamBTeam - Resolved team index for Team B filters, or null.
+     */
     function canAssignFilters(
       filterIndex: number,
       usedPlayers: Set<number>,

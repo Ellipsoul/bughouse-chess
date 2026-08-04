@@ -1,3 +1,8 @@
+/**
+ * Unit tests for bughouse game conclusion derivation (`gameConclusion.ts`).
+ *
+ * Uses chess.com fixtures to infer match-ending results from paired board outcomes.
+ */
 import { describe, it, expect } from "vitest";
 import { deriveBughouseConclusionSummary } from "@/app/utils/board/gameConclusion";
 import type { ChessGame } from "@/app/actions";

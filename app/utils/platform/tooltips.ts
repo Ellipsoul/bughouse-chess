@@ -1,4 +1,9 @@
 /**
+ * @module tooltips
+ *
+ * Shared react-tooltip instance id for the whole app (single Tooltip mount in Providers).
+ */
+/**
  * Shared tooltip id for `react-tooltip`.
  *
  * Any element can opt into tooltips by providing:

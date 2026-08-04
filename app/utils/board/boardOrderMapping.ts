@@ -1,11 +1,19 @@
+/**
+ * Board layout and move-list column mapping.
+ *
+ * Internal data always uses logical board ids (A/B); these helpers translate to
+ * left/right display order when the user swaps boards in the UI.
+ */
 import type { BughouseBoardId, BughouseSide } from "@/app/types/analysis";
 import type { BughousePlayer } from "@/app/types/bughouse";
 
+/** Resolved left/right board ids for the current UI swap state. */
 export type BoardOrder = {
   leftBoardId: BughouseBoardId;
   rightBoardId: BughouseBoardId;
 };
 
+/** The four players keyed by logical board and color. */
 export type BughousePlayers = {
   aWhite: BughousePlayer;
   aBlack: BughousePlayer;

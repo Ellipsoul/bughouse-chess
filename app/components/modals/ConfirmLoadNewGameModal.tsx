@@ -1,12 +1,23 @@
 "use client";
 
+/**
+ * @module app/components/modals/ConfirmLoadNewGameModal
+ *
+ * Replaces `window.confirm` when loading a new game would discard in-progress analysis.
+ * Supports a persistent "Don't show again" preference via local storage.
+ */
 import React, { useEffect, useRef, useState } from "react";
 
 export interface ConfirmLoadNewGameModalProps {
+  /** Whether the dialog is visible. */
   open: boolean;
+  /** Human-readable label for the currently loaded game (shown in the warning copy). */
   existingLabel: string;
+  /** Sanitized chess.com game id the user is attempting to load. */
   newGameId: string;
+  /** Called when the user confirms; `dontShowAgain` reflects the checkbox state. */
   onConfirm: (options: { dontShowAgain: boolean }) => void;
+  /** Called when the user cancels or presses Escape. */
   onCancel: () => void;
 }
 
@@ -47,6 +58,7 @@ export default function ConfirmLoadNewGameModal({
 
   if (!open) return null;
 
+  /** Dismiss dialog and reset ephemeral checkbox state. */
   const handleCancel = () => {
     // Reset so the next open starts from a clean slate even if this component
     // is rendered in a "hidden" state rather than unmounted.
@@ -54,6 +66,7 @@ export default function ConfirmLoadNewGameModal({
     onCancel();
   };
 
+  /** Accept load and forward the "don't show again" preference to the parent. */
   const handleConfirm = () => {
     const choice = dontShowAgain;
     // Reset for the same reason as `handleCancel`.

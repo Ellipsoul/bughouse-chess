@@ -1,3 +1,8 @@
+/**
+ * Cypress component tests for {@link DeleteConfirmationModal}.
+ *
+ * Validates destructive-action copy, confirm/cancel wiring, and focus trap when open.
+ */
 import DeleteConfirmationModal from "../../app/components/modals/DeleteConfirmationModal";
 
 describe("DeleteConfirmationModal", () => {

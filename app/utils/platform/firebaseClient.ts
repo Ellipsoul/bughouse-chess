@@ -1,3 +1,9 @@
+/**
+ * @module firebaseClient
+ *
+ * Browser Firebase initialization (App, App Check, Analytics, Auth, Firestore).
+ * Singleton accessors connect to local emulators when `NEXT_PUBLIC_*_EMULATOR_HOST` is set.
+ */
 "use client";
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
@@ -38,6 +44,10 @@ import {
  *
  * These values can be found in your Firebase Console under Project Settings > General > Your apps.
  * The `measurementId` is created automatically when you enable Analytics for your web app.
+ */
+/**
+ * Reads and validates `NEXT_PUBLIC_FIREBASE_*` env vars for web app bootstrap.
+ * @throws when any required core field is missing.
  */
 function getFirebaseConfig() {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -89,6 +99,7 @@ let appCheckInitialized = false;
 /** Cached App Check instance (singleton). */
 let cachedAppCheck: AppCheck | null = null;
 
+/** Reads reCAPTCHA v3 site key required for App Check attestation. */
 function getAppCheckSiteKey() {
   const siteKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
 

@@ -1,10 +1,22 @@
+/**
+ * Capture-material scoring for bughouse analysis and replay.
+ *
+ * Tracks signed point totals per board and per player when pieces are captured.
+ * Drops do not affect the ledger; only captures increment/decrement the running totals.
+ */
 import type { BughouseCaptureMaterialLedger } from "@/app/types/bughouse";
 import type { BughouseBoardId, BughousePieceType, BughouseSide } from "@/app/types/analysis";
 
+/** Named preset controlling how many points each captured piece type is worth. */
 export type PieceValuePreset = "bughouse" | "standard";
 
+/** Default scoring preset used when callers do not specify one explicitly. */
 export const DEFAULT_PIECE_VALUE_PRESET: PieceValuePreset = "bughouse";
 
+/**
+ * Lookup table of piece values for each supported preset.
+ * Bughouse values differ from standard chess (e.g. pawn = 1.5, queen = 7).
+ */
 export const PIECE_VALUE_PRESETS: Record<
   PieceValuePreset,
   Record<BughousePieceType, number>
@@ -25,6 +37,7 @@ export const PIECE_VALUE_PRESETS: Record<
   },
 };
 
+/** Type guard for validating user/settings input before applying a piece-value preset. */
 export function isPieceValuePreset(value: unknown): value is PieceValuePreset {
   return value === "bughouse" || value === "standard";
 }

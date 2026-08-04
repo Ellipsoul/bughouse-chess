@@ -1,3 +1,8 @@
+/**
+ * @module firebaseAuthAdapter
+ *
+ * Thin Firebase Auth wrapper implementing {@link AuthAdapter} for test injection.
+ */
 "use client";
 
 import {
@@ -13,6 +18,7 @@ import type { AuthAdapter, AuthUser } from "./types";
 // Re-export for backwards compatibility
 export type { AuthAdapter } from "./types";
 
+/** Maps Firebase `User` to the app's stable {@link AuthUser} shape. */
 function toAuthUser(user: User): AuthUser {
   return {
     uid: user.uid,
@@ -22,6 +28,7 @@ function toAuthUser(user: User): AuthUser {
   };
 }
 
+/** Cached singleton adapter instance. */
 let cachedAdapter: AuthAdapter | null = null;
 
 /**

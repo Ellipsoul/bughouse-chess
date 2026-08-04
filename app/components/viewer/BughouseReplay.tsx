@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/viewer/BughouseReplay
+ *
+ * Legacy-style linear replay UI (boards + move list) driven by {@link BughouseReplayController}.
+ * Retained as a simpler playback path alongside the full analysis viewer.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCcw, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import ChessBoard from "../board/ChessBoard";
@@ -21,6 +27,7 @@ import {
   toFenKey,
 } from "../../utils/board/boardAnnotationPersistence";
 
+/** Loaded chess.com game pair consumed by the replay controller. */
 interface BughouseReplayProps {
   gameData: {
     original: ChessGame;

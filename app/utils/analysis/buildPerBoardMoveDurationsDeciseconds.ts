@@ -1,3 +1,9 @@
+/**
+ * Per-board move-list timing derived from chess.com elapsed timestamps.
+ *
+ * Unlike global clock simulation, this measures time since the previous move on the
+ * *same* board — the value shown as a subscript beside each move in the UI.
+ */
 import type { BughouseMove } from "@/app/types/bughouse";
 
 /**

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * @module app/components/modals/DeleteConfirmationModal
+ *
+ * Accessible alert-dialog for irreversible delete actions (shared games, etc.).
+ */
 import React, { useCallback, useEffect, useRef } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 

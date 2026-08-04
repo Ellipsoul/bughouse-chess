@@ -1,13 +1,22 @@
+/**
+ * @module api/metrics/game-load
+ *
+ * Public read / authenticated-style write endpoint for a single global `gamesLoaded` counter.
+ * `gameId` in POST body is validated but intentionally not persisted (low-cardinality metric).
+ */
 import { NextResponse, type NextRequest } from "next/server";
 import admin from "firebase-admin";
 import { getAdminFirestore } from "../../../utils/platform/firebaseAdmin";
 
+/** Firestore document path for the global metrics blob. */
 const METRICS_DOC_PATH = "metrics/global";
 
+/** JSON shape returned by GET and POST handlers. */
 type MetricsResponse = {
   gamesLoaded: number;
 };
 
+/** Accepts only finite non-negative integers from Firestore field reads. */
 function coerceNonNegativeInteger(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   if (!Number.isInteger(value)) return null;
@@ -15,6 +24,7 @@ function coerceNonNegativeInteger(value: unknown): number | null {
   return value;
 }
 
+/** Trims and bounds-checks client-supplied game ids (telemetry boundary only). */
 function validateGameId(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -24,6 +34,7 @@ function validateGameId(value: unknown): string | null {
   return trimmed;
 }
 
+/** Reads counter, initializing the metrics doc to zero when missing. */
 async function readOrInitializeGamesLoaded(): Promise<number> {
   const db = getAdminFirestore();
   const docRef = db.doc(METRICS_DOC_PATH);
@@ -44,6 +55,7 @@ async function readOrInitializeGamesLoaded(): Promise<number> {
   });
 }
 
+/** Atomically increments `gamesLoaded` by one and returns the new value. */
 async function incrementGamesLoaded(): Promise<number> {
   const db = getAdminFirestore();
   const docRef = db.doc(METRICS_DOC_PATH);

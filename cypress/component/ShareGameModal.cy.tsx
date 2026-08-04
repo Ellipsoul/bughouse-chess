@@ -1,9 +1,15 @@
+/**
+ * Cypress component tests for {@link ShareGameModal}.
+ *
+ * Exercises modal copy, validation messaging, and share action wiring with
+ * mocked game payloads (no live Firestore).
+ */
 import ShareGameModal from "../../app/components/shared/ShareGameModal";
 import type { SingleGameData } from "../../app/types/sharedGame";
 import type { ChessGame } from "../../app/actions";
 
 /**
- * Creates a minimal mock ChessGame for testing.
+ * Minimal {@link ChessGame} stub for share modal preview text and eligibility UI.
  */
 function createMockChessGame(overrides?: {
   white?: string;
@@ -54,7 +60,7 @@ function createMockChessGame(overrides?: {
 }
 
 /**
- * Creates mock single game data for testing.
+ * {@link SingleGameData} payload pairing two mock board games for share tests.
  */
 function createMockSingleGameData(): SingleGameData {
   return {

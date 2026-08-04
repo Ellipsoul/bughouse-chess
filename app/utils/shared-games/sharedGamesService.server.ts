@@ -1,3 +1,9 @@
+/**
+ * @module sharedGamesService.server
+ *
+ * Server-side shared-games reads via Firebase Admin SDK.
+ * Used by the `/shared-games` RSC page; results are cached with Next.js `"use cache"`.
+ */
 import "server-only";
 
 import { cacheLife } from "next/cache";

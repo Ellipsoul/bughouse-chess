@@ -1,3 +1,12 @@
+/**
+ * @module sharedGameHash
+ *
+ * Deterministic content hashing for share deduplication.
+ *
+ * Hashes are scoped per user (`userId`) so two users may share identical games independently.
+ * Normalization (sorted game pairs, lowercase partner usernames) prevents order/format drift
+ * from creating false negatives.
+ */
 import { sha256 } from "js-sha256";
 import type { ChessGame } from "@/app/actions";
 import type { MatchGame, PartnerPair } from "@/app/types/match";
@@ -44,13 +53,17 @@ export interface ShareContentHashInput {
 /* Constants                                                                  */
 /* -------------------------------------------------------------------------- */
 
+/** Bump when canonical hash string format changes (invalidates prior dedup keys). */
 const HASH_VERSION = "v2";
+
+/** Prefix segment in the canonical preimage — aids debugging hash collisions. */
 const HASH_PREFIX = "bh-share";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Returns Board A game id or throws — hashes require stable Chess.com identifiers. */
 function getRequiredGameId(game: ChessGame): string {
   const id = game?.game?.id;
   if (id === null || id === undefined) {
@@ -59,6 +72,7 @@ function getRequiredGameId(game: ChessGame): string {
   return String(id);
 }
 
+/** Prefers explicit partner id; falls back to embedded partner game payload. */
 function resolvePartnerGameId(partnerId: string | null, partner: ChessGame | null): string | null {
   if (partnerId) {
     return partnerId;
@@ -67,6 +81,7 @@ function resolvePartnerGameId(partnerId: string | null, partner: ChessGame | nul
   return fallback === null || fallback === undefined ? null : String(fallback);
 }
 
+/** Canonical string for one board pair; partner id sorts with game id for stability. */
 function normalizePair(pair: ShareGamePair): string {
   const gameId = pair.gameId;
   const partnerId = pair.partnerGameId ?? "none";
@@ -74,6 +89,7 @@ function normalizePair(pair: ShareGamePair): string {
   return `${first}|${second}`;
 }
 
+/** Lowercases and sorts partner usernames; required only for `partnerGames` shares. */
 function normalizeSelectedPair(
   contentType: SharedContentType,
   selectedPairUsernames?: [string, string] | null,
@@ -95,6 +111,7 @@ function sha256Hex(input: string): string {
   return sha256(input);
 }
 
+/** Builds the pipe-delimited preimage that is hashed — changes require HASH_VERSION bump. */
 function buildCanonicalShareString(input: ShareContentHashInput): string {
   if (!input.userId) {
     throw new Error("Missing user ID for share hash");

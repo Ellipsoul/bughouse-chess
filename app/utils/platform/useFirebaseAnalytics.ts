@@ -1,3 +1,8 @@
+/**
+ * @module useFirebaseAnalytics
+ *
+ * Client hook and helpers for Firebase Analytics event logging with graceful no-op fallback.
+ */
 "use client";
 
 import { useEffect, useRef, useState } from "react";

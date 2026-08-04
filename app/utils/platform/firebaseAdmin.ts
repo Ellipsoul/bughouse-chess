@@ -1,3 +1,8 @@
+/**
+ * @module firebaseAdmin
+ *
+ * Server-only Firebase Admin bootstrap for privileged Firestore access.
+ */
 import "server-only";
 
 import admin from "firebase-admin";

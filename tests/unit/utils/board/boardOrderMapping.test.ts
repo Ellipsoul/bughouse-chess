@@ -1,3 +1,8 @@
+/**
+ * Unit tests for board display order mapping (`boardOrderMapping.ts`).
+ *
+ * Maps logical board ids to UI column order, labels, and player name lookups.
+ */
 import { describe, expect, it } from "vitest";
 import {
   getBoardOrder,

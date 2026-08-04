@@ -1,3 +1,9 @@
+/**
+ * Unit tests for analysis tree state (`useAnalysisState.ts`).
+ *
+ * Covers cursor navigation, variation creation, simultaneous-checkmate reordering,
+ * and integration with real chess.com fixture move lists.
+ */
 import { describe, it, expect } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";

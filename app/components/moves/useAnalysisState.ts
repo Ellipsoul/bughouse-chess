@@ -63,18 +63,21 @@ import {
   type PieceValuePreset,
 } from "../../utils/analysis/captureMaterial";
 
+/** Reserve piece currently armed for click-to-drop on the analysis boards. */
 export interface PendingDropSelection {
   board: BughouseBoardId;
   side: "white" | "black";
   piece: "p" | "n" | "b" | "r" | "q";
 }
 
+/** UI state for the inline variation picker at a branching node. */
 export interface VariationSelectorState {
   open: boolean;
   nodeId: string;
   selectedChildIndex: number;
 }
 
+/** Pending normal move awaiting promotion piece selection. */
 export interface PendingPromotionState {
   board: BughouseBoardId;
   from: Square;
@@ -82,6 +85,7 @@ export interface PendingPromotionState {
   allowed: BughousePromotionPiece[];
 }
 
+/** Public reducer state exposed to analysis UI components. */
 export interface AnalysisState {
   tree: AnalysisTree;
   cursorNodeId: string;
@@ -99,6 +103,7 @@ export interface AnalysisState {
   pendingPromotion: PendingPromotionState | null;
 }
 
+/** Payload for atomically replacing the analysis tree and cursor/selection. */
 type ReplaceTreePayload = {
   tree: AnalysisTree;
   cursorNodeId: string;
@@ -111,6 +116,7 @@ type ReplaceTreePayload = {
   clockAnchorNodeId?: string;
 };
 
+/** Discriminated union of all reducer actions. */
 type Action =
   | { type: "REPLACE_TREE"; payload: ReplaceTreePayload }
   | { type: "SET_CURSOR"; nodeId: string }
@@ -123,6 +129,7 @@ type Action =
   | { type: "APPLY_MOVE_EDGE"; move: BughouseHalfMove; next: BughousePositionSnapshot }
   | { type: "RECALCULATE_CAPTURE_MATERIAL"; pieceValuePreset: PieceValuePreset };
 
+/** Maps a persisted {@link BughouseHalfMove} into the attempt shape used by validation. */
 function toAttemptedMove(move: BughouseHalfMove): AttemptedBughouseHalfMove | null {
   if (move.kind === "normal" && move.normal) {
     return {
@@ -200,6 +207,7 @@ function recalculateCaptureMaterial(
   return { ...tree, nodesById };
 }
 
+/** Creates monotonic node id strings without requiring `crypto.randomUUID`. */
 function createIdFactory() {
   let counter = 0;
   return () => {
@@ -213,6 +221,7 @@ function createIdFactory() {
   };
 }
 
+/** Empty two-board tree with a single root position node. */
 function createInitialTree(): AnalysisTree {
   const rootId = "root";
   const rootPosition = createInitialPositionSnapshot();
@@ -243,6 +252,7 @@ function isNodeOnMainline(tree: AnalysisTree, nodeId: string): boolean {
   return false;
 }
 
+/** True when `nodeId` exists in the tree map. */
 function isValidNodeId(tree: AnalysisTree, nodeId: string): boolean {
   return Boolean(tree.nodesById[nodeId]);
 }
@@ -253,6 +263,7 @@ function isValidNodeId(tree: AnalysisTree, nodeId: string): boolean {
  */
 type InternalState = AnalysisState & { _internalCreateId: () => string };
 
+/** Pure reducer implementing all analysis tree mutations. */
 function reducer(state: InternalState, action: Action): InternalState {
   switch (action.type) {
     case "REPLACE_TREE": {
@@ -817,6 +828,7 @@ export function useAnalysisState(
   };
 }
 
+/** Collect all descendant node ids below `nodeId` (excluding `nodeId` itself). */
 function collectDescendants(nodesById: Record<string, AnalysisNode>, nodeId: string): string[] {
   const node = nodesById[nodeId];
   if (!node) return [];

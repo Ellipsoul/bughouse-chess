@@ -1,11 +1,18 @@
 "use client";
 
+/**
+ * @module app/components/badges/GameLoadCounterBadge
+ *
+ * Client-side UI for the global "games analysed" counter. Fetches/increments via
+ * `/api/metrics/game-load` and deduplicates POSTs per browser session per game id.
+ */
 import { useEffect, useMemo, useState } from "react";
 import {
   hasRecordedGameLoadThisSession,
   markRecordedGameLoadThisSession,
 } from "../../utils/platform/metrics/gameLoadSession";
 
+/** JSON shape returned by `/api/metrics/game-load`. */
 type MetricsResponse = {
   gamesLoaded: number;
 };
@@ -100,6 +107,9 @@ export function useGameLoadCounterLabel(loadedGameId?: string | null): {
   return { gamesLoaded, isLoading, hasError, label };
 }
 
+/**
+ * Fixed-position badge shell (bottom-right) that renders a preformatted counter label.
+ */
 export function GameLoadCounterFloating({ label }: { label: string }) {
   return (
     <div className="fixed bottom-3 right-3 z-50 select-none">
@@ -110,6 +120,9 @@ export function GameLoadCounterFloating({ label }: { label: string }) {
   );
 }
 
+/**
+ * Inline variant of the games-loaded label for embedding in headers/toolbars.
+ */
 export function GameLoadCounterInline({
   label,
   className,
@@ -124,6 +137,9 @@ export function GameLoadCounterInline({
   );
 }
 
+/**
+ * Convenience component: fetches the counter label and renders {@link GameLoadCounterFloating}.
+ */
 export function GameLoadCounterBadge({
   loadedGameId,
 }: {

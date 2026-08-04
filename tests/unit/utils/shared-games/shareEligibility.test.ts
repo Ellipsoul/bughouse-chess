@@ -1,7 +1,14 @@
+/**
+ * Unit tests for share-button eligibility rules (`shareEligibility.ts`).
+ *
+ * Combines auth, load state, match discovery progress, and shared-id presence
+ * into a single `canShare` / reason contract.
+ */
 import { describe, expect, it } from "vitest";
 import type { ShareEligibilityInput } from "@/app/utils/shared-games/shareEligibility";
 import { getShareEligibility } from "@/app/utils/shared-games/shareEligibility";
 
+/** Baseline eligible input; spread `overrides` to reach specific guard branches. */
 function createInput(overrides: Partial<ShareEligibilityInput> = {}): ShareEligibilityInput {
   return {
     isFullyAuthenticated: true,

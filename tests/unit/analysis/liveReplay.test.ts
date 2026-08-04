@@ -1,3 +1,10 @@
+/**
+ * Unit tests for live-replay clock and mainline helpers (`liveReplay.ts`).
+ *
+ * Builds synthetic processed games and analysis trees to verify monotonic
+ * timestamps, board-local move counts, elapsed-time snapshots, and pristine
+ * mainline detection.
+ */
 import { describe, expect, it } from "vitest";
 import { createInitialPositionSnapshot, validateAndApplyMoveFromNotation } from "@/app/utils/analysis/applyMove";
 import type { AnalysisNode, AnalysisTree } from "../../../app/types/analysis";
@@ -11,6 +18,10 @@ import {
   isPristineLoadedMainline,
 } from "@/app/utils/analysis/liveReplay";
 
+/**
+ * Minimal {@link ProcessedGameData} factory for clock/replay tests.
+ * Only populates fields consumed by live-replay helpers.
+ */
 function buildProcessedGame(params: {
   initialTime: number;
   combinedMoves: BughouseMove[];
@@ -30,6 +41,10 @@ function buildProcessedGame(params: {
   };
 }
 
+/**
+ * Replays `combinedMoves` onto a fresh analysis tree via SAN application.
+ * Mirrors viewer mainline construction so clock helpers see realistic node ids.
+ */
 function buildTreeFromCombinedMovesSanitized(combinedMoves: BughouseMove[]): AnalysisTree {
   const rootId = "root";
   const rootPosition = createInitialPositionSnapshot();

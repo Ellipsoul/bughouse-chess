@@ -1,3 +1,9 @@
+/**
+ * Unit tests for chess.com game type validation (`chesscomGameValidation.ts`).
+ *
+ * Ensures non-bughouse payloads produce user-facing error messages while bughouse
+ * games pass through silently.
+ */
 import { describe, expect, it } from "vitest";
 import { getNonBughouseGameErrorMessage } from "@/app/utils/discovery/chesscomGameValidation";
 

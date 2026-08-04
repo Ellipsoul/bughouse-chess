@@ -1,8 +1,14 @@
+/**
+ * Cypress component tests for {@link SharedGameCard}.
+ *
+ * Validates card metadata presentation, chess titles, links, and delete affordances
+ * for shared-game browse UI.
+ */
 import SharedGameCard from "../../app/components/shared/SharedGameCard";
 import type { SharedGameSummary, SharedGameMetadata } from "../../app/types/sharedGame";
 
 /**
- * Creates mock metadata for a SharedGameSummary.
+ * Synthetic {@link SharedGameMetadata} for card layout tests.
  */
 function createMockMetadata(overrides?: Partial<SharedGameMetadata>): SharedGameMetadata {
   return {
@@ -21,8 +27,8 @@ function createMockMetadata(overrides?: Partial<SharedGameMetadata>): SharedGame
 }
 
 /**
- * Creates a mock SharedGameSummary for testing.
- * Card only needs summary data, not full game data.
+ * Synthetic {@link SharedGameSummary} for card list/browse UI tests.
+ * Omits heavy game payloads — cards consume summary metadata only.
  */
 function createMockSharedGameSummary(overrides?: Partial<SharedGameSummary>): SharedGameSummary {
   return {

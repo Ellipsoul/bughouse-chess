@@ -1,3 +1,9 @@
+/**
+ * Unit tests for {@link useUserPreferences} hook.
+ *
+ * Verifies preference loading keyed off auth state and propagation of Firestore/
+ * localStorage values into React state.
+ */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useUserPreferences } from "@/app/utils/preferences/useUserPreferences";
@@ -14,6 +20,10 @@ vi.mock("@/app/utils/preferences/userPreferencesService", () => ({
   DEFAULT_BOARD_ANNOTATION_COLOR: "rgb(52, 168, 83, 0.95)",
 }));
 
+/**
+ * Auth adapter that immediately invokes `onAuthStateChanged` with a fixed user.
+ * Keeps hook tests independent of Firebase emulator timing.
+ */
 function createMockAuthAdapter(user: AuthUser | null): AuthAdapter {
   return {
     onAuthStateChanged: (callback) => {

@@ -1,9 +1,15 @@
 "use client";
 
+/**
+ * @module app/components/layout/AppShell
+ *
+ * Two-column application chrome: fixed sidebar + flexible main content region.
+ */
 import React from "react";
 import Sidebar from "./Sidebar";
 
 export interface AppShellProps {
+  /** Page content rendered to the right of the global sidebar. */
   children: React.ReactNode;
 }
 

@@ -1,3 +1,13 @@
+/**
+ * Bughouse move validation and application for the analysis tree.
+ *
+ * This module is the single source of truth for “is this half-move legal, and what
+ * position does it produce?” It mirrors replay/reserve rules but operates on immutable
+ * `BughousePositionSnapshot` values rather than mutating chess.js instances in place.
+ *
+ * Consumers include interactive board entry, loading chess.com games into the tree,
+ * and variation construction.
+ */
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from "chess.js";
 import type { PieceReserves } from "@/app/types/bughouse";
 import type {
@@ -18,14 +28,23 @@ import {
   type PieceValuePreset,
 } from "@/app/utils/analysis/captureMaterial";
 
+/** Successful validation: the applied half-move and the resulting position snapshot. */
 type ValidationOk = { type: "ok"; move: BughouseHalfMove; next: BughousePositionSnapshot };
+
+/** Validation failure with a user-facing rejection message. */
 type ValidationError = { type: "error"; message: string };
+
+/**
+ * Pawn reached the back rank without an explicit promotion piece.
+ * The UI should prompt the user to choose among `allowed` options.
+ */
 type ValidationNeedsPromotion = {
   type: "needs_promotion";
   message: string;
   allowed: BughousePromotionPiece[];
 };
 
+/** Discriminated union returned by all validate-and-apply entry points in this module. */
 export type ValidateAndApplyResult = ValidationOk | ValidationError | ValidationNeedsPromotion;
 
 /**
@@ -340,6 +359,12 @@ export function validateAndApplyMoveFromNotation(
   }, options);
 }
 
+/**
+ * Merge a single-board FEN update with cloned reserves/promotions into a new snapshot.
+ *
+ * Only the board that moved is replaced; the partner board FEN is copied verbatim.
+ * Promoted-square sets are serialized back to arrays for JSON-safe storage.
+ */
 function buildNextSnapshot(
   previous: BughousePositionSnapshot,
   boardKey: BughouseBoardId,
@@ -360,6 +385,7 @@ function buildNextSnapshot(
   };
 }
 
+/** Shallow-clone each side's piece-count map so mutations do not alias caller state. */
 function cloneReserves(reserves: PieceReserves): PieceReserves {
   // Deep clone but keep it explicit + predictable for TS.
   const cloneSide = (obj: Record<string, number>) => ({ ...obj });
@@ -369,6 +395,10 @@ function cloneReserves(reserves: PieceReserves): PieceReserves {
   };
 }
 
+/**
+ * Convert persisted promoted-square arrays into mutable Sets for in-place updates
+ * during move application.
+ */
 function clonePromotedSquares(promotedSquares: BughousePositionSnapshot["promotedSquares"]): {
   A: Set<Square>;
   B: Set<Square>;
@@ -379,6 +409,10 @@ function clonePromotedSquares(promotedSquares: BughousePositionSnapshot["promote
   };
 }
 
+/**
+ * Stable deduplication key for a normal (non-drop) half-move in the analysis tree.
+ * Includes optional promotion suffix so e7-e8=Q and e7-e8=R are distinct edges.
+ */
 function buildNormalKey(
   board: BughouseBoardId,
   from: Square,
@@ -388,6 +422,7 @@ function buildNormalKey(
   return `${board}:normal:${from}-${to}${promotion ? `=${promotion}` : ""}`;
 }
 
+/** Stable deduplication key for a bughouse drop half-move. */
 function buildDropKey(
   board: BughouseBoardId,
   side: BughouseSide,
@@ -397,6 +432,12 @@ function buildDropKey(
   return `${board}:drop:${side}:${piece}@${to}`;
 }
 
+/**
+ * Manually flip active color and clear en-passant after a bughouse drop.
+ *
+ * chess.js has no drop primitive, so `put()` leaves side-to-move unchanged and may
+ * retain a stale EP target square from the prior ply.
+ */
 function forceToggleTurnAndClearEnPassant(chess: Chess) {
   const fenParts = chess.fen().split(" ");
   // Active color
@@ -406,6 +447,10 @@ function forceToggleTurnAndClearEnPassant(chess: Chess) {
   chess.load(fenParts.join(" "));
 }
 
+/**
+ * Parse SAN-style drop notation (`P@e4`, optionally suffixed with `+` or `#`).
+ * Returns null when the string is not a drop.
+ */
 function parseDropMove(move: string): { piece: BughousePieceType; to: Square } | null {
   const cleaned = move.replace(/[+#]$/, "");
   const match = cleaned.match(/^([PNBRQpnbrq])@([a-h][1-8])$/);
@@ -415,6 +460,10 @@ function parseDropMove(move: string): { piece: BughousePieceType; to: Square } |
   return { piece: pieceChar, to };
 }
 
+/**
+ * Enumerate legal promotion pieces for a pawn move that reaches the back rank.
+ * Used when the caller did not specify `promotion` but one is required.
+ */
 function findLegalPromotions(
   chess: Chess,
   from: Square,
@@ -431,6 +480,10 @@ function findLegalPromotions(
   return promotions;
 }
 
+/**
+ * Determine the square of the captured piece for reserve/promotion bookkeeping.
+ * En-passant captures occur off the destination square, unlike normal captures.
+ */
 function resolveCapturedSquare(result: Pick<Move, "captured" | "flags" | "to" | "color">): Square | null {
   if (!result.captured) return null;
   // En-passant is the only case where the captured piece is not on `to`.

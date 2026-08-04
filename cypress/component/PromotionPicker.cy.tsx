@@ -1,7 +1,14 @@
+/**
+ * Cypress component tests for {@link PromotionPicker}.
+ *
+ * Verifies promotion piece selection UI, keyboard dismissal, and board-anchor
+ * positioning against a mocked board element.
+ */
 import PromotionPicker from "../../app/components/board/PromotionPicker";
 import type { BughousePromotionPiece } from "../../app/types/analysis";
 
 describe("PromotionPicker", () => {
+  /** Default stub props reused across picker interaction scenarios. */
   const getDefaultProps = () => ({
     board: "A" as const,
     to: "e8" as const,

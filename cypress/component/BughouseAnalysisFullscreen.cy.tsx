@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link BughouseAnalysis} fullscreen affordance.
+ *
+ * Stubs `matchMedia` and the Fullscreen API to assert desktop-only fullscreen
+ * entry/exit without a real browser chrome session.
+ */
 import BughouseAnalysis from "../../app/components/viewer/BughouseAnalysis";
 import {
   ViewerOrientationStore,
@@ -6,6 +12,10 @@ import {
 
 const DESKTOP_FULLSCREEN_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
 
+/**
+ * Patches `window.matchMedia` and Fullscreen API on the AUT window so tests can
+ * force desktop pointer/hover eligibility and track fullscreen requests.
+ */
 function installFullscreenMock(win: Cypress.AUTWindow, desktopPointer: boolean) {
   const nativeMatchMedia = win.matchMedia.bind(win);
 
@@ -53,6 +63,7 @@ function installFullscreenMock(win: Cypress.AUTWindow, desktopPointer: boolean) 
   });
 }
 
+/** Sized wrapper mounting {@link BughouseAnalysis} for fullscreen layout tests. */
 function AnalysisFixture({ height, width }: { height: number; width: number }) {
   const orientationStore = new ViewerOrientationStore(0);
 

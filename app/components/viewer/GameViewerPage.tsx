@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @module app/components/viewer/GameViewerPage
+ *
+ * Top-level game viewer shell: URL/query loading, match discovery, share flows,
+ * orientation session store, and the {@link BughouseAnalysis} workspace.
+ */
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -79,6 +85,9 @@ import {
   shouldSyncGameViewerUrl,
 } from "../../utils/discovery/gameViewerUrlState";
 
+/**
+ * Client-side `matchMedia` hook for responsive layout branches in the viewer shell.
+ */
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
 
@@ -103,6 +112,7 @@ function buildNoGameFoundMessage(gameId: string): string {
   return `No game found with ID ${gameId}. The game may not exist or may still be in progress.`;
 }
 
+/** Prefetch state machine for chess.com game loads initiated from the URL bar. */
 type PrefetchedGameLoad =
   | { status: "idle" }
   | { status: "invalid"; sanitizedId: string; message: string }
@@ -114,12 +124,17 @@ type PrefetchedGameLoad =
     }
   | { status: "error"; sanitizedId: string; message: string };
 
+/** Deferred load request waiting on the "overwrite analysis?" confirmation modal. */
 type PendingLoadGameRequest = {
   sanitizedId: string;
   clearInput: boolean;
   existingLabel: string;
 };
 
+/**
+ * Maps thrown load errors to user-facing toast copy.
+ * Next.js server-action failures are rewritten to the friendly not-found message.
+ */
 function normalizeLoadGameErrorMessage(params: { err: unknown; sanitizedId: string }): string {
   const { err, sanitizedId } = params;
 

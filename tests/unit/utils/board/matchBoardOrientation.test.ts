@@ -1,3 +1,9 @@
+/**
+ * Unit tests for match board orientation (`matchBoardOrientation.ts`).
+ *
+ * Ensures baseline flip, effective flip with user overrides, and bottom-pair
+ * stability across full-match and partner-series viewing modes.
+ */
 import { describe, expect, it } from "vitest";
 import type { ChessGame } from "@/app/actions";
 import type { PairKey } from "@/app/utils/board/matchBoardOrientation";
@@ -7,6 +13,7 @@ import {
   getBottomPairKeyForGame,
 } from "@/app/utils/board/matchBoardOrientation";
 
+/** Minimal {@link ChessGame} stub — only PGN headers affect orientation logic. */
 function makeChessGame(headers: { White: string; Black: string }): ChessGame {
   // We only need the PGN headers for these tests. Everything else is irrelevant to orientation.
   return {
@@ -19,6 +26,7 @@ function makeChessGame(headers: { White: string; Black: string }): ChessGame {
   } as unknown as ChessGame;
 }
 
+/** Pair of board-A/board-B games with the given player names on each color. */
 function makeGameData(params: {
   aWhite: string;
   aBlack: string;

@@ -1,3 +1,8 @@
+/**
+ * Unit tests for chess.com game id input sanitization (`chessComGameIdInput.ts`).
+ *
+ * Strips URL fragments and whitespace so pasted chess.com links resolve to raw ids.
+ */
 import { describe, expect, it } from "vitest";
 import { sanitizeChessComGameIdInput } from "@/app/utils/discovery/chessComGameIdInput";
 

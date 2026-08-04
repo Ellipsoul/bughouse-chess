@@ -1,3 +1,9 @@
+/**
+ * FEN-keyed persistence for user-drawn board annotations (circles and arrows).
+ *
+ * Annotations are stored separately per logical board (A/B) so swapping board order
+ * in the UI does not collide keys.
+ */
 import type { BughouseBoardId } from "@/app/types/analysis";
 import {
   EMPTY_BOARD_ANNOTATIONS,
@@ -10,10 +16,13 @@ import {
  * This intentionally stores *two separate maps*, one for each bughouse board.
  */
 export interface BoardAnnotationsByFen {
+  /** Annotation map for logical board A, keyed by FEN string. */
   A: Record<string, BoardAnnotations>;
+  /** Annotation map for logical board B, keyed by FEN string. */
   B: Record<string, BoardAnnotations>;
 }
 
+/** Create an empty annotation store with no entries for either board. */
 export function createEmptyBoardAnnotationsByFen(): BoardAnnotationsByFen {
   return { A: {}, B: {} };
 }

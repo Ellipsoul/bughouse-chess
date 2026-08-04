@@ -1,3 +1,9 @@
+/**
+ * Cypress component tests for {@link PieceReserveVertical}.
+ *
+ * Asserts reserve piece counts, compact sizing, and color ordering for captured
+ * material display beside boards.
+ */
 import PieceReserveVertical from "../../app/components/board/PieceReserveVertical";
 
 describe("PieceReserveVertical", () => {

@@ -1,3 +1,9 @@
+/**
+ * Board-orientation helpers for multi-game bughouse match viewing.
+ *
+ * Keeps a baseline partner pair anchored on the bottom of the UI across games in a
+ * match, regardless of which board chess.com labels as "original" vs "partner".
+ */
 import type { ChessGame } from "@/app/actions";
 
 /**
@@ -8,17 +14,23 @@ import type { ChessGame } from "@/app/actions";
  */
 export type PairKey = readonly [string, string];
 
+/** Minimal game payload shape required for pair-key extraction. */
 type MinimalBughouseGameData = {
   original: ChessGame;
   partner: ChessGame | null;
 };
 
+/**
+ * Normalize two usernames into a sorted, lowercased pair key for stable comparison.
+ * Order of arguments does not affect the result.
+ */
 function normalizePairKey(a: string, b: string): PairKey {
   const x = a.toLowerCase();
   const y = b.toLowerCase();
   return (x <= y ? [x, y] : [y, x]) as PairKey;
 }
 
+/** Safely read a PGN header value, returning null when missing or blank. */
 function safeHeader(game: ChessGame | null | undefined, key: "White" | "Black"): string | null {
   const value = game?.game?.pgnHeaders?.[key];
   if (typeof value !== "string") return null;
@@ -56,6 +68,7 @@ export function extractABlackBWhitePairKey(gameData: MinimalBughouseGameData): P
   return normalizePairKey(aBlack, bWhite);
 }
 
+/** Compare two normalized pair keys for equality. */
 function pairKeysEqual(a: PairKey, b: PairKey): boolean {
   return a[0] === b[0] && a[1] === b[1];
 }

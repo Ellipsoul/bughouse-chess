@@ -1,3 +1,13 @@
+/**
+ * @module sharedGameHashesStore
+ *
+ * React context that caches the current user's shared-game content hashes.
+ *
+ * Why a client-side cache?
+ * - Share flows need O(1) duplicate detection without re-querying Firestore on every click.
+ * - After a successful share, {@link SharedGameHashesProvider} can optimistically add the new hash
+ *   via {@link SharedGameHashesContextValue.addHash} so the UI stays in sync before the next fetch.
+ */
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -8,16 +18,24 @@ import { getUserSharedGameHashes } from "@/app/utils/shared-games/sharedGamesSer
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Lifecycle of the hash cache relative to auth and Firestore fetch. */
 export type SharedGameHashesStatus = "idle" | "loading" | "loaded" | "error";
 
+/** Values exposed by {@link SharedGameHashesProvider} and {@link useSharedGameHashes}. */
 export interface SharedGameHashesContextValue {
+  /** Content hashes the user has already shared (for duplicate detection). */
   hashes: Set<string>;
+  /** Fetch lifecycle for the hash set. */
   status: SharedGameHashesStatus;
+  /** User-facing error when the Firestore read fails. */
   error: string | null;
+  /** Re-fetch hashes (e.g. after sign-in or manual refresh). */
   refresh: () => Promise<void>;
+  /** Optimistically insert a hash after a successful share without waiting for refresh. */
   addHash: (hash: string) => void;
 }
 
+/** Internal React context; consumers must use {@link useSharedGameHashes}. */
 const SharedGameHashesContext = createContext<SharedGameHashesContextValue | null>(null);
 
 /* -------------------------------------------------------------------------- */
@@ -33,6 +51,10 @@ export function SharedGameHashesProvider({ children }: { children: React.ReactNo
   const [status, setStatus] = useState<SharedGameHashesStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Fetches hashes from Firestore and transitions status to `loaded` on success.
+   * Does not catch errors — callers decide whether to surface them.
+   */
   const loadHashes = useCallback(async (userId: string) => {
     setStatus("loading");
     setError(null);

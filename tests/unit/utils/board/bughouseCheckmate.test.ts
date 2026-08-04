@@ -1,3 +1,9 @@
+/**
+ * Unit tests for bughouse check/checkmate detection (`bughouseCheckmate.ts`).
+ *
+ * Distinguishes true checkmate from stale positions and normalizes SAN suffixes
+ * for dual-board termination rules.
+ */
 import { describe, it, expect } from "vitest";
 import { Chess } from "chess.js";
 import {

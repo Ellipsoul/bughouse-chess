@@ -1,3 +1,8 @@
+/**
+ * @module RequireAuth
+ *
+ * Lightweight client guard that hides children until Firebase reports `signed_in`.
+ */
 "use client";
 
 import React from "react";
