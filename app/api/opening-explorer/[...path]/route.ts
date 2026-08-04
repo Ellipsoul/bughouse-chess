@@ -159,6 +159,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
   try {
     const validator = request.headers.get("if-none-match");
+    const upstreamStarted = performance.now();
 
     const response = await fetch(upstream, {
       headers: {
@@ -168,6 +169,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
     });
+    const upstreamDurationMs = performance.now() - upstreamStarted;
 
     const responseHeaders = new Headers();
 
@@ -178,6 +180,14 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         responseHeaders.set(name, value);
       }
     }
+
+    const readerTiming = responseHeaders.get("server-timing");
+    const proxyTiming = `proxy-upstream;dur=${upstreamDurationMs.toFixed(3)}`;
+
+    responseHeaders.set(
+      "server-timing",
+      readerTiming ? `${readerTiming}, ${proxyTiming}` : proxyTiming,
+    );
 
     if (!responseHeaders.has("content-type") && response.status !== 304) {
       responseHeaders.set("content-type", "application/json");

@@ -39,6 +39,15 @@ import type {
 /** Unfiltered seat filter used on first load and after Clear. */
 const EMPTY_FILTER: ExplorerFilter = { white: null, black: null };
 
+/** Seat occupied by the single preparation target. */
+type PlayerSeat = "white" | "black";
+
+/** State of the latest corpus-backed player lookup. */
+type PlayerLookup = {
+  query: string;
+  status: "idle" | "loading" | "ready" | "error";
+};
+
 /**
  * Chess.com-style result strings treated as draws for the outcome bar.
  *
@@ -163,6 +172,20 @@ function errorCopy(code: ExplorerErrorCode): string {
   return "The opening request was rejected by its safety limits.";
 }
 
+/** Publishes one low-cardinality diagnostic mark without affecting page behavior. */
+function markOpeningExplorerPhase(name: string, detail?: Record<string, number>): void {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") return;
+
+  try {
+    performance.mark(
+      `opening-explorer:${name}`,
+      detail === undefined ? undefined : { detail },
+    );
+  } catch {
+    // Performance diagnostics must never make the explorer unavailable.
+  }
+}
+
 /**
  * Formats a game example as a short score string for source-link rows.
  *
@@ -198,10 +221,13 @@ export default function OpeningExplorerPageClient() {
   const [currentNodeId, setCurrentNodeId] = useState<number | null>(null);
   const [path, setPath] = useState<Array<{ move_token: string | null; node_id: number }>>([]);
   const [filter, setFilter] = useState<ExplorerFilter>(EMPTY_FILTER);
-  const [draftWhite, setDraftWhite] = useState("");
-  const [draftBlack, setDraftBlack] = useState("");
+  const [draftPlayer, setDraftPlayer] = useState("");
+  const [filterSeat, setFilterSeat] = useState<PlayerSeat>("white");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [playerLookup, setPlayerLookup] = useState<PlayerLookup>({ query: "", status: "idle" });
   const [examples, setExamples] = useState<GameExamplesResponse | null>(null);
+  const [sourceGameStatus, setSourceGameStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ExplorerErrorCode | null>(null);
@@ -225,12 +251,26 @@ export default function OpeningExplorerPageClient() {
   const navigationController = useRef<AbortController | null>(null);
   const idleController = useRef<AbortController | null>(null);
   const gameDetailsController = useRef<AbortController | null>(null);
+  const playerSearchGeneration = useRef(0);
+  const firstUsefulPaintScheduled = useRef(false);
   /** Identities of idle frontier refills already attempted this session. */
   const attemptedIdleRefills = useRef(new Set<string>());
   const continuationButtons = useRef(new Map<number, HTMLButtonElement>());
-  /** Dedupes automatic support-one game-detail fetches across renders. */
-  const automaticLeafRequest = useRef<string | null>(null);
   const boardArea = useRef<HTMLElement | null>(null);
+
+  const normalizedDraftPlayer = draftPlayer.trim().toLocaleLowerCase();
+  const playerIsKnown = normalizedDraftPlayer.length > 0
+    && playerLookup.status === "ready"
+    && playerLookup.query === normalizedDraftPlayer
+    && suggestions.some((username) => username.toLocaleLowerCase() === normalizedDraftPlayer);
+  const playerIsInvalid = normalizedDraftPlayer.length > 0
+    && playerLookup.status === "ready"
+    && playerLookup.query === normalizedDraftPlayer
+    && !playerIsKnown;
+
+  useEffect(() => {
+    markOpeningExplorerPhase("hydrated");
+  }, []);
 
   /**
    * Keeps the board square within the available layout slot on resize.
@@ -277,7 +317,11 @@ export default function OpeningExplorerPageClient() {
     response: Awaited<ReturnType<OpeningExplorerApi["neighborhood"]>>,
     requestKind: "foreground" | "prefetch",
   ) => {
+    const mergeStarted = performance.now();
     cache.merge(response);
+    markOpeningExplorerPhase("cache-merge", {
+      duration_ms: performance.now() - mergeStarted,
+    });
     setRevision((value) => value + 1);
     setMetrics((value) => ({
       ...value,
@@ -336,12 +380,14 @@ export default function OpeningExplorerPageClient() {
     setError(null);
 
     try {
+      markOpeningExplorerPhase("neighborhood-request-start");
       const response = await api.neighborhood({
         datasetVersion: dataset.dataset_version,
         nodeId,
         filter: nextFilter,
         signal: controller.signal,
       });
+      markOpeningExplorerPhase("neighborhood-response");
 
       if (requestGeneration !== generation.current) return;
 
@@ -380,7 +426,9 @@ export default function OpeningExplorerPageClient() {
       setLoading(true);
 
       try {
+        markOpeningExplorerPhase("metadata-request-start");
         const dataset = await api.metadata(controller.signal);
+        markOpeningExplorerPhase("metadata-response");
 
         if (!mounted) return;
 
@@ -423,9 +471,19 @@ export default function OpeningExplorerPageClient() {
 
   /** Display FEN/moves for the current prefix, or `null` if TCN replay fails. */
   const position = useMemo(() => {
+    const replayStarted = performance.now();
+
     try {
-      return replayOpeningPrefix(prefixTokens);
+      const replayed = replayOpeningPrefix(prefixTokens);
+
+      markOpeningExplorerPhase("replay", {
+        duration_ms: performance.now() - replayStarted,
+      });
+      return replayed;
     } catch {
+      markOpeningExplorerPhase("replay", {
+        duration_ms: performance.now() - replayStarted,
+      });
       return null;
     }
   }, [prefixTokens]);
@@ -436,6 +494,30 @@ export default function OpeningExplorerPageClient() {
   const currentOverlay = metadata && currentNodeId !== null
     ? cache.getOverlay(metadata.dataset_version, currentNodeId, filter)
     : undefined;
+
+  useEffect(() => {
+    if (
+      loading
+      || !metadata
+      || currentNodeId === null
+      || !currentNode
+      || !currentOverlay
+      || !position
+      || firstUsefulPaintScheduled.current
+    ) return;
+
+    firstUsefulPaintScheduled.current = true;
+    let recorded = false;
+    const handle = window.requestAnimationFrame(() => {
+      recorded = true;
+      markOpeningExplorerPhase("first-useful-paint");
+    });
+
+    return () => {
+      window.cancelAnimationFrame(handle);
+      if (!recorded) firstUsefulPaintScheduled.current = false;
+    };
+  }, [currentNode, currentNodeId, currentOverlay, loading, metadata, position]);
 
   /** Immediate child edges still resident in cache for the current node. */
   const children = useMemo(
@@ -710,35 +792,51 @@ export default function OpeningExplorerPageClient() {
   }, [continuations, locksUniqueLine, navigate, navigateToBreadcrumb, path.length, selectedContinuationId]);
 
   /**
-   * Applies the draft White/Black usernames as the active filter and refetches overlays.
+   * Applies the selected player in exactly one seat and refetches overlays.
    */
   const applyFilter = useCallback(() => {
-    if (!metadata || currentNodeId === null) return;
+    if (!metadata || currentNodeId === null || !playerIsKnown) return;
 
-    const nextFilter = {
-      white: draftWhite.trim() || null,
-      black: draftBlack.trim() || null,
-    };
+    const player = draftPlayer.trim() || null;
+    const nextFilter = filterSeat === "white"
+      ? { white: player, black: null }
+      : { white: null, black: player };
 
     setFilter(nextFilter);
     void loadNeighborhood(metadata, currentNodeId, nextFilter, false);
-  }, [currentNodeId, draftBlack, draftWhite, loadNeighborhood, metadata]);
+  }, [currentNodeId, draftPlayer, filterSeat, loadNeighborhood, metadata, playerIsKnown]);
 
   /**
-   * Typeahead player search; requires at least two characters.
+   * Typeahead player search with stale-response protection.
    *
    * @param value - Current draft username input.
    */
   const findPlayers = useCallback(async (value: string) => {
-    if (!metadata || value.trim().length < 2) {
+    const query = value.trim().toLocaleLowerCase();
+    const requestGeneration = playerSearchGeneration.current + 1;
+
+    playerSearchGeneration.current = requestGeneration;
+
+    if (!metadata || !query) {
       setSuggestions([]);
+      setPlayerLookup({ query: "", status: "idle" });
       return;
     }
 
+    setPlayerLookup({ query, status: "loading" });
+
     try {
-      setSuggestions(await api.searchPlayers(metadata.dataset_version, value.trim()));
+      const players = await api.searchPlayers(metadata.dataset_version, query);
+
+      if (playerSearchGeneration.current !== requestGeneration) return;
+
+      setSuggestions(players);
+      setPlayerLookup({ query, status: "ready" });
     } catch {
+      if (playerSearchGeneration.current !== requestGeneration) return;
+
       setSuggestions([]);
+      setPlayerLookup({ query, status: "error" });
     }
   }, [api, metadata]);
 
@@ -751,34 +849,34 @@ export default function OpeningExplorerPageClient() {
   useEffect(() => {
     gameDetailsController.current?.abort();
     setExamples(null);
+    setSourceGameStatus("idle");
 
     if (!shouldLoadUniqueGame || !metadata || currentNodeId === null) {
-      automaticLeafRequest.current = null;
       return;
     }
 
-    const identity =
-      `${metadata.dataset_version}:${currentNodeId}:${filter.white ?? ""}:${filter.black ?? ""}`;
-
-    if (automaticLeafRequest.current === identity) return;
-
-    automaticLeafRequest.current = identity;
-
     const controller = new AbortController();
+    let disposed = false;
 
     gameDetailsController.current = controller;
+    setSourceGameStatus("loading");
 
     void api.gameExamples(metadata.dataset_version, currentNodeId, filter, 1, controller.signal)
       .then((response) => {
-        if (automaticLeafRequest.current === identity) setExamples(response);
+        if (disposed) return;
+        setExamples(response);
+        setSourceGameStatus(response.games.length > 0 ? "loaded" : "error");
       })
       .catch((caught) => {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
-        if (automaticLeafRequest.current === identity) setError(errorCode(caught));
+        if (disposed || (caught instanceof Error && caught.name === "AbortError")) return;
+        setSourceGameStatus("error");
       });
 
-    return () => controller.abort();
-  }, [api, currentNodeId, filter, metadata, shouldLoadUniqueGame, uniqueContinuation]);
+    return () => {
+      disposed = true;
+      controller.abort();
+    };
+  }, [api, currentNodeId, filter, metadata, shouldLoadUniqueGame]);
 
   if (loading) {
     return (
@@ -830,7 +928,7 @@ export default function OpeningExplorerPageClient() {
       <header className="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
         <div>
           <div className="flex items-center gap-2"><Database className="h-4 w-4 text-cyan-300" /><h1 className="font-semibold">Opening explorer</h1><span className="rounded bg-cyan-950 px-2 py-0.5 text-[11px] text-cyan-200">HOSTED EXPERIMENT</span></div>
-          <p className="mt-1 text-xs text-slate-400">Dataset {metadata.dataset_version.slice(0, 10)} · {metadata.coverage.accepted_games.toLocaleString()} representative games · {metadata.adapter_policy}</p>
+          <p className="mt-1 text-xs text-slate-400">Dataset {metadata.dataset_version.slice(0, 10)} · {metadata.coverage.accepted_games.toLocaleString()} accepted games · {metadata.adapter_policy}</p>
         </div>
         {refreshing ? <span className="flex items-center text-xs text-slate-400"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Refilling cache</span> : null}
       </header>
@@ -916,13 +1014,53 @@ export default function OpeningExplorerPageClient() {
 
         <aside aria-label="Explorer controls" className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-2 lg:min-h-0 lg:overflow-hidden xl:col-start-3 xl:row-start-1">
           <section className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-            <h2 className="text-sm font-semibold text-slate-200">Player filters</h2>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="text-xs text-slate-400">White<input value={draftWhite} onChange={(event) => { setDraftWhite(event.target.value); void findPlayers(event.target.value); }} list="opening-player-suggestions" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white" /></label>
-              <label className="text-xs text-slate-400">Black<input value={draftBlack} onChange={(event) => { setDraftBlack(event.target.value); void findPlayers(event.target.value); }} list="opening-player-suggestions" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white" /></label>
-              <datalist id="opening-player-suggestions">{suggestions.map((username) => <option key={username} value={username} />)}</datalist>
+            <h2 className="text-sm font-semibold text-slate-200">Player filter</h2>
+            <div className="mt-3 flex items-end gap-2">
+              <label className="min-w-0 flex-1 text-xs text-slate-400">Player
+                <span className="relative mt-1 block">
+                  <input
+                    value={draftPlayer}
+                    onChange={(event) => { setDraftPlayer(event.target.value); setSuggestionsOpen(true); void findPlayers(event.target.value); }}
+                    onFocus={() => setSuggestionsOpen(true)}
+                    onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 100)}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="opening-player-suggestions"
+                    aria-expanded={suggestionsOpen && suggestions.length > 0}
+                    aria-invalid={playerIsInvalid}
+                    aria-describedby={playerIsInvalid ? "opening-player-error" : undefined}
+                    className={`w-full rounded border bg-slate-950 px-2 py-2 text-sm text-white outline-none transition-colors ${playerIsInvalid ? "border-red-500 ring-1 ring-red-500/30 focus:border-red-400" : "border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20"}`}
+                  />
+                  {suggestionsOpen && suggestions.length > 0 ? <span
+                    id="opening-player-suggestions"
+                    role="listbox"
+                    aria-label="Player suggestions"
+                    className="absolute top-full z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl"
+                  >{suggestions.map((username) => <button
+                    key={username}
+                    type="button"
+                    role="option"
+                    aria-selected={draftPlayer.trim().toLowerCase() === username.toLowerCase()}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => { setDraftPlayer(username); setPlayerLookup({ query: username.toLocaleLowerCase(), status: "ready" }); setSuggestionsOpen(false); }}
+                    className="block w-full rounded px-2 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:outline-none"
+                  >{username}</button>)}</span> : null}
+                </span>
+              </label>
+              <button type="button" disabled={!playerIsKnown} onClick={applyFilter} className="shrink-0 rounded bg-cyan-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">Apply filter</button>
+              <button type="button" onClick={() => { playerSearchGeneration.current += 1; setDraftPlayer(""); setSuggestions([]); setSuggestionsOpen(false); setPlayerLookup({ query: "", status: "idle" }); setFilter(EMPTY_FILTER); void loadNeighborhood(metadata, currentNodeId, EMPTY_FILTER, false); }} className="shrink-0 rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button>
             </div>
-            <div className="mt-3 flex gap-2"><button type="button" onClick={applyFilter} className="rounded bg-cyan-600 px-3 py-2 text-sm font-medium hover:bg-cyan-500">Apply filter</button><button type="button" onClick={() => { setDraftWhite(""); setDraftBlack(""); setFilter(EMPTY_FILTER); void loadNeighborhood(metadata, currentNodeId, EMPTY_FILTER, false); }} className="rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button></div>
+            {playerIsInvalid ? <p id="opening-player-error" className="mt-2 text-xs text-red-400">Choose a player from the indexed corpus.</p> : null}
+            {playerLookup.status === "error" ? <p className="mt-2 text-xs text-amber-300">Player suggestions are temporarily unavailable.</p> : null}
+            <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Player seat">
+              {(["white", "black"] as const).map((seat) => <button
+                key={seat}
+                type="button"
+                aria-pressed={filterSeat === seat}
+                onClick={() => setFilterSeat(seat)}
+                className={`rounded border px-3 py-2 text-sm font-medium transition-colors ${filterSeat === seat ? "border-cyan-400 bg-cyan-950/70 text-cyan-100 ring-1 ring-cyan-400/20" : "border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-500 hover:text-slate-200"}`}
+              >{seat === "white" ? "White" : "Black"}</button>)}
+            </div>
           </section>
 
           {error ? <div role="alert" className="shrink-0 rounded-xl border border-amber-400/30 bg-amber-950/20 p-4 text-sm text-amber-100">{errorCopy(error)}</div> : null}
@@ -946,11 +1084,11 @@ export default function OpeningExplorerPageClient() {
                 </span>
                 <span aria-hidden="true" className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-cyan-200">↗</span>
               </a> : <div
-                aria-label={`${uniqueContinuation.label}, loading source game`}
-                className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-slate-400"
+                aria-label={`${uniqueContinuation.label}, ${sourceGameStatus === "error" ? "source game unavailable" : "loading source game"}`}
+                className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${sourceGameStatus === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}
               >
                 <span className="font-mono text-sm text-slate-200">{uniqueContinuation.label}</span>
-                <span className="flex-1 text-center text-xs">Loading source game…</span>
+                <span className="flex-1 text-center text-xs">{sourceGameStatus === "error" ? "Source game could not be loaded." : "Loading source game…"}</span>
               </div>) : continuations.map(({ edge, label, overlay }) => {
                 const selected = edge.child_id === selectedContinuationId;
                 return <button key={edge.child_id} ref={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} ${overlay.support === 1 ? "game" : "games"}`} onFocus={() => setSelectedContinuationId(edge.child_id)} onMouseEnter={() => setSelectedContinuationId(edge.child_id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>;
@@ -969,7 +1107,7 @@ export default function OpeningExplorerPageClient() {
                   <span className="truncate text-slate-200">{uniqueGame.black_username}</span>
                 </span>
                 <span aria-hidden="true" className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-cyan-200">↗</span>
-              </a> : <div aria-label="Loading source game" className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-slate-400"><span className="font-mono text-sm text-slate-200">Game</span><span className="flex-1 text-center text-xs">Loading source game…</span></div>) : null}
+              </a> : <div aria-label={sourceGameStatus === "error" ? "Source game unavailable" : "Loading source game"} className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${sourceGameStatus === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}><span className="font-mono text-sm text-slate-200">Game</span><span className="flex-1 text-center text-xs">{sourceGameStatus === "error" ? "Source game could not be loaded." : "Loading source game…"}</span></div>) : null}
               {currentOverlay && currentOverlay.actual_ending_count > 0 ? <div aria-label={`${currentOverlay.actual_ending_count} ${currentOverlay.actual_ending_count === 1 ? "game ends" : "games end"} at this position`} className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-slate-400"><span className="min-w-0 flex-1 font-mono text-sm text-slate-300">-</span><span className="text-xs"><strong className="text-slate-200">{currentOverlay.actual_ending_count}</strong></span><span className="w-44 text-right text-[10px] uppercase tracking-wide text-slate-500">ended here</span></div> : null}
               {continuations.length === 0 && !locksUniqueLine && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No continuations from this position.</p> : null}
             </div>

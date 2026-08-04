@@ -98,19 +98,90 @@ describe("OpeningExplorerPageClient", () => {
     mocks.players.mockResolvedValue([]);
   });
 
+  it("publishes first-load phases to the browser performance timeline", async () => {
+    const mark = vi.spyOn(performance, "mark");
+
+    render(<OpeningExplorerPageClient />);
+
+    await screen.findByRole("heading", { name: "Opening explorer" });
+    await waitFor(() => expect(mark.mock.calls.map(([name]) => name)).toEqual(
+      expect.arrayContaining([
+        "opening-explorer:hydrated",
+        "opening-explorer:metadata-response",
+        "opening-explorer:neighborhood-response",
+        "opening-explorer:cache-merge",
+        "opening-explorer:replay",
+        "opening-explorer:first-useful-paint",
+      ]),
+    ));
+
+    mark.mockRestore();
+  });
+
   it("renders one board and navigates an already-prefetched child without another request", async () => {
     render(<OpeningExplorerPageClient />);
 
     await screen.findByRole("heading", { name: "Opening explorer" });
     expect(screen.getByText("HOSTED EXPERIMENT")).toBeInTheDocument();
+    expect(screen.getByText(/7 accepted games/)).toBeInTheDocument();
     expect(screen.getAllByTestId("single-opening-board")).toHaveLength(1);
-    expect(mocks.neighborhood).toHaveBeenCalledTimes(1);
+    const requestsBeforeClick = mocks.neighborhood.mock.calls.length;
+    expect(requestsBeforeClick).toBeGreaterThanOrEqual(1);
 
     fireEvent.click(screen.getByRole("button", { name: /e4/ }));
 
     await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("4P3"));
-    expect(mocks.neighborhood).toHaveBeenCalledTimes(1);
+    expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeClick);
     expect(mocks.push).toHaveBeenCalledWith("/opening-explorer?node=1&dataset=dataset-1");
+  });
+
+  it("offers one player input with a separate White or Black seat choice", async () => {
+    render(<OpeningExplorerPageClient />);
+
+    const controls = await screen.findByRole("complementary", { name: "Explorer controls" });
+    expect(within(controls).getAllByRole("combobox")).toHaveLength(1);
+    expect(within(controls).getByRole("combobox", { name: "Player" })).toBeInTheDocument();
+    expect(within(controls).getByRole("button", { name: "White" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(controls).getByRole("button", { name: "Black" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("shows matching player suggestions while the user types", async () => {
+    mocks.players.mockResolvedValue(["alice", "alicia"]);
+    render(<OpeningExplorerPageClient />);
+
+    const input = await screen.findByRole("combobox", { name: "Player" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "al" } });
+
+    const suggestions = await screen.findByRole("listbox", { name: "Player suggestions" });
+    expect(within(suggestions).getByRole("option", { name: "alice" })).toBeInTheDocument();
+    expect(within(suggestions).getByRole("option", { name: "alicia" })).toBeInTheDocument();
+    expect(mocks.players).toHaveBeenLastCalledWith("dataset-1", "al");
+  });
+
+  it("blocks an unknown player and applies a valid player to the selected seat", async () => {
+    mocks.players.mockImplementation((_datasetVersion: string, prefix: string) => (
+      Promise.resolve(prefix.toLowerCase() === "alice" ? ["alice"] : [])
+    ));
+    render(<OpeningExplorerPageClient />);
+
+    const input = await screen.findByRole("combobox", { name: "Player" });
+    const apply = screen.getByRole("button", { name: "Apply filter" });
+
+    fireEvent.change(input, { target: { value: "not-a-player" } });
+    expect(await screen.findByText("Choose a player from the indexed corpus.")).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(apply).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "alice" } });
+    await waitFor(() => expect(input).toHaveAttribute("aria-invalid", "false"));
+    expect(apply).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Black" }));
+    fireEvent.click(apply);
+    await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      filter: { white: null, black: "alice" },
+    })));
   });
 
   it("shows decoded moves without TCN and sorts the move list by descending game count", async () => {
@@ -174,7 +245,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(fireEvent.keyDown(window, { key: "ArrowDown" })).toBe(false);
     await waitFor(() => expect(d4).toHaveAttribute("aria-current", "true"));
 
-    expect(fireEvent.keyDown(screen.getByLabelText("White"), { key: "ArrowUp" })).toBe(true);
+    expect(fireEvent.keyDown(screen.getByLabelText("Player"), { key: "ArrowUp" })).toBe(true);
     expect(d4).toHaveAttribute("aria-current", "true");
 
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
@@ -246,6 +317,7 @@ describe("OpeningExplorerPageClient", () => {
   });
 
   it("loads a missing filtered overlay when backtracking to a structurally cached ancestor", async () => {
+    mocks.players.mockResolvedValue(["alice"]);
     const filteredChild = {
       ...neighborhoodResponse,
       anchor_node_id: 1,
@@ -275,7 +347,8 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
-    fireEvent.change(screen.getByLabelText("White"), { target: { value: "alice" } });
+    fireEvent.change(screen.getByLabelText("Player"), { target: { value: "alice" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply filter" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
     await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
       nodeId: 1,
@@ -384,6 +457,89 @@ describe("OpeningExplorerPageClient", () => {
     );
   });
 
+  it("keeps loading the filtered source game while a background neighborhood refill merges", async () => {
+    mocks.players.mockResolvedValue(["alice"]);
+    const filteredResponse = {
+      ...neighborhoodResponse,
+      filter: { white_username: "alice", black_username: null },
+      frontiers: [{ has_more: true, node_id: 0, reason: "budget" as const }],
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+      },
+    };
+    mocks.neighborhood.mockImplementation(({ filter }: { filter?: { white?: string | null } }) => (
+      Promise.resolve(filter?.white === "alice" ? filteredResponse : neighborhoodResponse)
+    ));
+
+    let resolveGame: ((response: unknown) => void) | undefined;
+    mocks.games.mockImplementation((
+      _datasetVersion: string,
+      _nodeId: number,
+      _filter: unknown,
+      _limit: number,
+      signal: AbortSignal,
+    ) => new Promise((resolve, reject) => {
+      resolveGame = resolve;
+      signal.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted", "AbortError"));
+      }, { once: true });
+    }));
+
+    render(<OpeningExplorerPageClient />);
+
+    fireEvent.change(await screen.findByLabelText("Player"), { target: { value: "alice" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply filter" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
+    await waitFor(() => expect(mocks.games).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.neighborhood.mock.calls.length).toBeGreaterThanOrEqual(3));
+
+    resolveGame?.({
+      actual_ending_count: 0,
+      dataset_version: "dataset-1",
+      games: [{
+        actual_ending: false,
+        black_rating: 2100,
+        black_result: "resigned",
+        black_username: "Bob",
+        ordinal: 0,
+        provenance_flags: [],
+        source: "chess.com",
+        url: "https://www.chess.com/game/live/123",
+        uuid: "game-1",
+        white_rating: 2200,
+        white_result: "win",
+        white_username: "Alice",
+      }],
+      limit: 1,
+      node_id: 0,
+      total_matching: 1,
+    });
+
+    expect(await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i })).toHaveAttribute(
+      "href",
+      "https://www.chess.com/game/live/123",
+    );
+    expect(screen.queryByText("Loading source game…")).not.toBeInTheDocument();
+  });
+
+  it("ends the loading state when a source game cannot be loaded", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+      },
+    });
+    mocks.games.mockRejectedValue(new Error("source lookup failed"));
+
+    render(<OpeningExplorerPageClient />);
+
+    expect(await screen.findByText("Source game could not be loaded.")).toBeInTheDocument();
+    expect(screen.queryByText("Loading source game…")).not.toBeInTheDocument();
+    expect(screen.queryByText("The opening artifact or response could not be read safely.")).not.toBeInTheDocument();
+  });
+
   it("renders a sole-game terminal as the ending row without loading a separate game card", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,
@@ -455,7 +611,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
     expect(within(playedMoves).getByText("Prototype instrumentation")).toBeInTheDocument();
     expect(within(playedMoves).queryByRole("region", { name: "Opening Tree" })).not.toBeInTheDocument();
-    expect(within(controls).getByText("Player filters")).toBeInTheDocument();
+    expect(within(controls).getByText("Player filter")).toBeInTheDocument();
     expect(within(controls).getByRole("region", { name: "Opening Tree" })).toBeInTheDocument();
     expect(within(controls).queryByText("Prototype instrumentation")).not.toBeInTheDocument();
     // Position context belongs in the move list; the board pane should not repeat the last ply.

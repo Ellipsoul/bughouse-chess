@@ -148,8 +148,7 @@ chess.com).
 
 ### Architecture map (where to look)
 
-- **Local opening-explorer experiment**:
-  `app/opening-explorer/page.tsx`,
+- **Local opening-explorer experiment**: `app/opening-explorer/page.tsx`,
   `app/components/opening-explorer/`. This is a separate one-board surface and
   does not share viewer replay, analysis, move-tree, or URL state.
 
@@ -191,19 +190,14 @@ that service.
 ```bash
 cd ~/Desktop/Coding_Adventures/bughouse-opening-explorer
 
-.venv/bin/python -m bughouse_explorer.opening.service \
-  artifacts/opening/representative-mod71-v2-a \
-  --port 8765
+.venv/bin/python -m bughouse_explorer.opening.service artifacts/opening/full-post-qualification-20260802-v2-a --port 8765
 ```
 
-The second argument is the packed artifact directory under
-`artifacts/opening/`. That path changes as newer validated builds are published
-(for example `representative-mod71-a` vs `representative-mod71-v2-a`). List
-`artifacts/opening/` in the sibling repo and pass the directory you intend to
-serve; keep `--port 8765` unless you also change
-`OPENING_EXPLORER_SERVICE_URL` below.
+Replace the second argument with whatever artifact you want to build the tree
+on; keep `--port 8765` unless you also change `OPENING_EXPLORER_SERVICE_URL`
+below.
 
-2. Start this application (from `bughouse-chess`):
+1. Start this application (from `bughouse-chess`):
 
 ```bash
 cd ~/Desktop/Coding_Adventures/bughouse/bughouse-chess
@@ -227,24 +221,28 @@ server-only `OPENING_EXPLORER_SERVICE_*` variables. Never expose them through a
 `NEXT_PUBLIC_*` variable. Unknown proxy operations return not-found behavior;
 unavailable upstream services return a bounded `503` response.
 
-The next scale-up slice is documented in the sibling repository at
-`bughouse-opening-explorer/docs/FULL_OPENING_TREE_SCALE_UP_PLAN_2026-08-03.md`.
-It will instrument the representative cold/warm first-load phases before any
-full local build or separately approved full production publication.
+The full local scale-up is complete and documented in the sibling repository at
+`bughouse-opening-explorer/docs/FULL_OPENING_TREE_SCALE_UP_RESULT_2026-08-04.md`.
+The page now emits low-cardinality browser performance marks and the proxy adds
+its upstream duration to `Server-Timing`. The 6,516,478-game full artifact has
+not been uploaded; a protected Vercel Large Functions Preview and any later
+Production switch remain separate approval gates.
 
 Possible next moves are ordered by descending game support and use White-win,
-draw, and Black-win bars. Use Up/Down to select a continuation, Right to play it,
-and Left to return along the cached prefix. At desktop widths the board expands
-beside a dedicated played-line move list; the far-right controls stack player
-filters, possible next moves, and instrumentation. A game ending at the current
-prefix appears as an unclickable `-`
-row. Once a prefix contains exactly one game and one continuation, that move
-becomes the source Chess.com link and shows both players plus the result;
-keyboard navigation deliberately stops at that boundary. If the packed
-terminal policy has already stopped materializing at the first global
-support-one prefix, the same bounded metadata lookup appears as a `Game` source
-row instead. The earlier bounded multi-game inspection panel is intentionally
-omitted from the user-facing UI.
+draw, and Black-win bars. Use Up/Down to select a continuation, Right to play
+it, and Left to return along the cached prefix. At desktop widths the board
+expands beside a dedicated played-line move list; the far-right controls stack
+the player filter, possible next moves, and instrumentation. The filter accepts
+one corpus-backed player and a White/Black seat choice; autocomplete remains
+visible while typing, and Apply stays disabled until the input exactly matches
+an indexed username. A game ending at the
+current prefix appears as an unclickable `-` row. Once a prefix contains exactly
+one game and one continuation, that move becomes the source Chess.com link and
+shows both players plus the result; keyboard navigation deliberately stops at
+that boundary. If the packed terminal policy has already stopped materializing
+at the first global support-one prefix, the same bounded metadata lookup appears
+as a `Game` source row instead. The earlier bounded multi-game inspection panel
+is intentionally omitted from the user-facing UI.
 
 ### Firebase (optional, for metrics + analytics + user features)
 
