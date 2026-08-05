@@ -9,7 +9,16 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, ChessKnight, GitFork, HeartPlus, House, Settings, UserRound } from "lucide-react";
+import {
+  BookMarked,
+  ChartNoAxesCombined,
+  ChessKnight,
+  GitFork,
+  HeartPlus,
+  House,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import { TooltipAnchor } from "../ui/TooltipAnchor";
 import { useAuth } from "../../auth/useAuth";
 import SettingsModal from "../modals/SettingsModal";
@@ -148,6 +157,21 @@ export default function Sidebar() {
             ].join(" ")}
           >
             <GitFork className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
+          </Link>
+        </TooltipAnchor>
+
+        <TooltipAnchor content="Player Insights">
+          <Link
+            href="/player-insights"
+            aria-label="Player Insights"
+            className={[
+              "inline-flex items-center justify-center rounded-md",
+              "h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10",
+              "text-gray-200 hover:text-white hover:bg-gray-700/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900",
+            ].join(" ")}
+          >
+            <ChartNoAxesCombined className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" aria-hidden="true" />
           </Link>
         </TooltipAnchor>
 

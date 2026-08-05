@@ -151,6 +151,9 @@ chess.com).
 - **Local opening-explorer experiment**: `app/opening-explorer/page.tsx`,
   `app/components/opening-explorer/`. This is a separate one-board surface and
   does not share viewer replay, analysis, move-tree, or URL state.
+- **Player Insights**: `app/player-insights/page.tsx`,
+  `app/components/player-insights/`, and the checked static projection at
+  `app/data/player-material-insights.json`. This route has no runtime data API.
 
 - **Core bughouse rules / move application**: `app/utils/analysis/applyMove.ts`
 - **Analysis tree + navigation + promotions/variations**:
@@ -235,14 +238,47 @@ expands beside a dedicated played-line move list; the far-right controls stack
 the player filter, possible next moves, and instrumentation. The filter accepts
 one corpus-backed player and a White/Black seat choice; autocomplete remains
 visible while typing, and Apply stays disabled until the input exactly matches
-an indexed username. A game ending at the
-current prefix appears as an unclickable `-` row. Once a prefix contains exactly
-one game and one continuation, that move becomes the source Chess.com link and
-shows both players plus the result; keyboard navigation deliberately stops at
-that boundary. If the packed terminal policy has already stopped materializing
-at the first global support-one prefix, the same bounded metadata lookup appears
-as a `Game` source row instead. The earlier bounded multi-game inspection panel
-is intentionally omitted from the user-facing UI.
+an indexed username. A game ending at the current prefix appears as an
+unclickable `-` row. Once a prefix contains exactly one game and one
+continuation, that move becomes the source Chess.com link and shows both players
+plus the result; keyboard navigation deliberately stops at that boundary. If the
+packed terminal policy has already stopped materializing at the first global
+support-one prefix, the same bounded metadata lookup appears as a `Game` source
+row instead. The earlier bounded multi-game inspection panel is intentionally
+omitted from the user-facing UI.
+
+### Player Insights
+
+`/player-insights` is an isolated, searchable leaderboard for the permanently
+tracked player cohort. Its first two insight chips show lifetime net material
+and net material per analyzed game. The page follows the user's Bughouse or
+Standard piece-value preference. Its Net and individual piece columns are
+click-to-sort controls: the first click ranks the most won, and a second click
+reverses toward the most lost. In the per-game view, each piece's won, lost, and
+net figures use the same analyzed-game denominator as the overall score.
+
+The route imports `app/data/player-material-insights.json` at build time. The
+current 1,013-player file is 194,309 bytes uncompressed and approximately 54 KB
+with gzip, so the browser needs no SQLite reader, runtime database, route
+handler, or opening-explorer service request. Desktop rows use a full table; the
+same semantic rows reflow into compact five-piece ledgers on smaller screens.
+
+The source of truth remains the checked material-insights SQLite artifact in the
+sibling `bughouse-opening-explorer` repository. After building and validating a
+future database, refresh this tracked frontend projection from that repository
+with its recorded checksum:
+
+```bash
+.venv/bin/python scripts/export_player_insights.py \
+  artifacts/insights/<snapshot>/material-insights.db \
+  ../bughouse/bughouse-chess/app/data/player-material-insights.json \
+  --database-sha256 <material-insights-db-sha256> \
+  --replace
+```
+
+The exporter reads the database immutably, validates its row shape, and
+atomically replaces the static JSON. Review the JSON metadata and checksum, then
+run this repository's tests, lint, and build before publication.
 
 ### Firebase (optional, for metrics + analytics + user features)
 

@@ -10,6 +10,7 @@ import { siteUrl } from "./utils/platform/siteMetadata";
 /** Routes that should appear in `sitemap.xml` for crawlers. */
 const publicRoutes = [
   "/",
+  "/player-insights",
   "/shared-games",
 ];
 
