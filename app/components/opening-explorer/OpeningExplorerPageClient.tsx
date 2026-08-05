@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Database, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronsUpDown, Database, Loader2, Search } from "lucide-react";
 import type { Square } from "chess.js";
 import ChessBoard from "../board/ChessBoard";
 import { OpeningExplorerApi, OpeningExplorerApiError } from "./api";
@@ -32,7 +32,6 @@ import type {
   ExplorerErrorCode,
   ExplorerFilter,
   GameExample,
-  GameExamplesResponse,
   StructuralEdge,
 } from "./types";
 
@@ -46,6 +45,12 @@ type PlayerSeat = "white" | "black";
 type PlayerLookup = {
   query: string;
   status: "idle" | "loading" | "ready" | "error";
+};
+
+/** Bounded source-game detail loaded for one support-one child. */
+type SourceGameEntry = {
+  game: GameExample | null;
+  status: "loading" | "loaded" | "error";
 };
 
 /**
@@ -205,6 +210,59 @@ function gameResultLabel(game: GameExample): string {
   return "*";
 }
 
+/** One lifted support-one move or terminal source-game row. */
+function SourceGameRow({
+  entry,
+  label,
+  onSelect,
+  register,
+  selected = false,
+}: {
+  entry: SourceGameEntry | undefined;
+  label: string;
+  onSelect?: () => void;
+  register?: (element: HTMLAnchorElement | null) => void;
+  selected?: boolean;
+}) {
+  const game = entry?.game;
+
+  if (!game?.url) {
+    return (
+      <div
+        aria-label={`${label}, ${entry?.status === "error" ? "source game unavailable" : "loading source game"}`}
+        className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${entry?.status === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}
+      >
+        <span className="font-mono text-sm text-slate-200">{label}</span>
+        <span className="flex-1 text-center text-xs">{entry?.status === "error" ? "Source game could not be loaded." : "Loading source game…"}</span>
+      </div>
+    );
+  }
+
+  const accessiblePrefix = label === "Game" ? "Source game" : label;
+
+  return (
+    <a
+      ref={register}
+      href={game.url}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-current={selected ? "true" : undefined}
+      aria-label={`${accessiblePrefix}, ${game.white_username}, ${gameResultLabel(game)}, ${game.black_username}; open game on Chess.com`}
+      onFocus={onSelect}
+      onMouseEnter={onSelect}
+      className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors hover:bg-slate-700 ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-cyan-400/70 bg-slate-800"}`}
+    >
+      <span className="shrink-0 font-mono text-sm font-medium text-white">{label}</span>
+      <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
+        <span className="truncate text-right text-cyan-100">{game.white_username}</span>
+        <strong className="whitespace-nowrap text-cyan-300">{gameResultLabel(game)}</strong>
+        <span className="truncate text-slate-200">{game.black_username}</span>
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-cyan-200">↗</span>
+    </a>
+  );
+}
+
 /**
  * Client page for `/opening-explorer`.
  *
@@ -222,12 +280,12 @@ export default function OpeningExplorerPageClient() {
   const [path, setPath] = useState<Array<{ move_token: string | null; node_id: number }>>([]);
   const [filter, setFilter] = useState<ExplorerFilter>(EMPTY_FILTER);
   const [draftPlayer, setDraftPlayer] = useState("");
+  const [playerQuery, setPlayerQuery] = useState("");
   const [filterSeat, setFilterSeat] = useState<PlayerSeat>("white");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [playerLookup, setPlayerLookup] = useState<PlayerLookup>({ query: "", status: "idle" });
-  const [examples, setExamples] = useState<GameExamplesResponse | null>(null);
-  const [sourceGameStatus, setSourceGameStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [sourceGames, setSourceGames] = useState<Record<number, SourceGameEntry>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ExplorerErrorCode | null>(null);
@@ -255,22 +313,29 @@ export default function OpeningExplorerPageClient() {
   const firstUsefulPaintScheduled = useRef(false);
   /** Identities of idle frontier refills already attempted this session. */
   const attemptedIdleRefills = useRef(new Set<string>());
-  const continuationButtons = useRef(new Map<number, HTMLButtonElement>());
+  const continuationButtons = useRef(new Map<number, HTMLElement>());
   const boardArea = useRef<HTMLElement | null>(null);
+  const playerPicker = useRef<HTMLDivElement | null>(null);
 
-  const normalizedDraftPlayer = draftPlayer.trim().toLocaleLowerCase();
-  const playerIsKnown = normalizedDraftPlayer.length > 0
-    && playerLookup.status === "ready"
-    && playerLookup.query === normalizedDraftPlayer
-    && suggestions.some((username) => username.toLocaleLowerCase() === normalizedDraftPlayer);
-  const playerIsInvalid = normalizedDraftPlayer.length > 0
-    && playerLookup.status === "ready"
-    && playerLookup.query === normalizedDraftPlayer
-    && !playerIsKnown;
+  const playerIsKnown = draftPlayer.trim().length > 0;
 
   useEffect(() => {
     markOpeningExplorerPhase("hydrated");
   }, []);
+
+  /** Closes the player picker without changing its selected value. */
+  useEffect(() => {
+    if (!suggestionsOpen) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !playerPicker.current?.contains(event.target)) {
+        setSuggestionsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [suggestionsOpen]);
 
   /**
    * Keeps the board square within the available layout slot on resize.
@@ -400,7 +465,7 @@ export default function OpeningExplorerPageClient() {
         dataset.dataset_version,
         response.path.map((entry) => entry.node_id),
       );
-      setExamples(null);
+      setSourceGames({});
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === "AbortError") return;
       if (requestGeneration === generation.current) setError(errorCode(caught));
@@ -563,19 +628,24 @@ export default function OpeningExplorerPageClient() {
 
   /** True when the active filter collapses the prefix to a single game. */
   const locksUniqueLine = currentOverlay?.support === 1;
-  const uniqueContinuation = locksUniqueLine && continuations.length === 1
-    ? continuations[0]
-    : null;
-  /**
-   * Whether to auto-fetch the sole matching game detail for a source link.
-   *
-   * Covers both a unique continuation edge and a support-one leaf with no
-   * further materialized children (terminal policy already collapsed the path).
-   */
-  const shouldLoadUniqueGame = locksUniqueLine && (
-    uniqueContinuation !== null
-    || currentOverlay?.actual_ending_count === 0
-  );
+
+  /** Support-one child nodes whose source links should be lifted into this list. */
+  const sourceGameNodeIds = useMemo(() => {
+    const nodeIds = continuations
+      .filter(({ overlay }) => overlay.support === 1)
+      .map(({ edge }) => edge.child_id);
+
+    if (
+      nodeIds.length === 0
+      && locksUniqueLine
+      && currentNodeId !== null
+      && currentOverlay?.actual_ending_count === 0
+    ) {
+      nodeIds.push(currentNodeId);
+    }
+
+    return nodeIds;
+  }, [continuations, currentNodeId, currentOverlay?.actual_ending_count, locksUniqueLine]);
 
   /**
    * Keeps keyboard/mouse selection aligned with the visible continuation list.
@@ -680,7 +750,7 @@ export default function OpeningExplorerPageClient() {
     gameDetailsController.current?.abort();
     setCurrentNodeId(edge.child_id);
     setPath((previous) => [...previous, { move_token: edge.move_token, node_id: edge.child_id }]);
-    setExamples(null);
+    setSourceGames({});
     pinCachedPathNeighborhoods(
       metadata.dataset_version,
       [...path.map((entry) => entry.node_id), edge.child_id],
@@ -721,7 +791,7 @@ export default function OpeningExplorerPageClient() {
     setPath(nextPath);
     setCurrentNodeId(nodeId);
     setSelectedContinuationId(returnChildId);
-    setExamples(null);
+    setSourceGames({});
     pinCachedPathNeighborhoods(
       metadata.dataset_version,
       nextPath.map((entry) => entry.node_id),
@@ -752,7 +822,7 @@ export default function OpeningExplorerPageClient() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
 
-      if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) {
+      if (target instanceof Element && target.closest("input, textarea, select, [role='combobox'], [contenteditable='true']")) {
         return;
       }
 
@@ -773,7 +843,7 @@ export default function OpeningExplorerPageClient() {
 
         const selected = continuations.find(({ edge }) => edge.child_id === selectedContinuationId);
 
-        if (!selected) return;
+        if (!selected || selected.overlay.support === 1) return;
 
         event.preventDefault();
         navigate(selected.edge);
@@ -794,17 +864,30 @@ export default function OpeningExplorerPageClient() {
   /**
    * Applies the selected player in exactly one seat and refetches overlays.
    */
-  const applyFilter = useCallback(() => {
+  const applyPlayerFilter = useCallback((seat: PlayerSeat) => {
     if (!metadata || currentNodeId === null || !playerIsKnown) return;
 
     const player = draftPlayer.trim() || null;
-    const nextFilter = filterSeat === "white"
+    const nextFilter = seat === "white"
       ? { white: player, black: null }
       : { white: null, black: player };
 
     setFilter(nextFilter);
     void loadNeighborhood(metadata, currentNodeId, nextFilter, false);
-  }, [currentNodeId, draftPlayer, filterSeat, loadNeighborhood, metadata, playerIsKnown]);
+  }, [currentNodeId, draftPlayer, loadNeighborhood, metadata, playerIsKnown]);
+
+  /** Applies the selected player using the currently selected seat. */
+  const applyFilter = useCallback(() => {
+    applyPlayerFilter(filterSeat);
+  }, [applyPlayerFilter, filterSeat]);
+
+  /** Changes seat and immediately reapplies an active player filter. */
+  const changeFilterSeat = useCallback((seat: PlayerSeat) => {
+    setFilterSeat(seat);
+    if (seat !== filterSeat && (filter.white !== null || filter.black !== null)) {
+      applyPlayerFilter(seat);
+    }
+  }, [applyPlayerFilter, filter, filterSeat]);
 
   /**
    * Typeahead player search with stale-response protection.
@@ -840,18 +923,14 @@ export default function OpeningExplorerPageClient() {
     }
   }, [api, metadata]);
 
-  /**
-   * Auto-loads the sole matching game when the prefix collapses to support one.
-   *
-   * Request identity dedupes identical fetches across re-renders; aborts cancel
-   * in-flight work when the user navigates away.
-   */
+  /** Auto-loads bounded game details for every visible support-one child. */
   useEffect(() => {
     gameDetailsController.current?.abort();
-    setExamples(null);
-    setSourceGameStatus("idle");
+    setSourceGames(Object.fromEntries(
+      sourceGameNodeIds.map((nodeId) => [nodeId, { game: null, status: "loading" }]),
+    ));
 
-    if (!shouldLoadUniqueGame || !metadata || currentNodeId === null) {
+    if (sourceGameNodeIds.length === 0 || !metadata) {
       return;
     }
 
@@ -859,24 +938,31 @@ export default function OpeningExplorerPageClient() {
     let disposed = false;
 
     gameDetailsController.current = controller;
-    setSourceGameStatus("loading");
 
-    void api.gameExamples(metadata.dataset_version, currentNodeId, filter, 1, controller.signal)
-      .then((response) => {
-        if (disposed) return;
-        setExamples(response);
-        setSourceGameStatus(response.games.length > 0 ? "loaded" : "error");
-      })
-      .catch((caught) => {
-        if (disposed || (caught instanceof Error && caught.name === "AbortError")) return;
-        setSourceGameStatus("error");
-      });
+    for (const nodeId of sourceGameNodeIds) {
+      void api.gameExamples(metadata.dataset_version, nodeId, filter, 1, controller.signal)
+        .then((response) => {
+          if (disposed) return;
+          const game = response.games[0] ?? null;
+          setSourceGames((current) => ({
+            ...current,
+            [nodeId]: { game, status: game?.url ? "loaded" : "error" },
+          }));
+        })
+        .catch((caught) => {
+          if (disposed || (caught instanceof Error && caught.name === "AbortError")) return;
+          setSourceGames((current) => ({
+            ...current,
+            [nodeId]: { game: null, status: "error" },
+          }));
+        });
+    }
 
     return () => {
       disposed = true;
       controller.abort();
     };
-  }, [api, currentNodeId, filter, metadata, shouldLoadUniqueGame]);
+  }, [api, filter, metadata, sourceGameNodeIds]);
 
   if (loading) {
     return (
@@ -917,7 +1003,6 @@ export default function OpeningExplorerPageClient() {
   }
 
   const cacheMetrics = cache.metrics();
-  const uniqueGame = examples?.games[0] ?? null;
   const playedMoves = position.moves.map((move, index) => ({
     label: move.label,
     nodeId: path[index + 1].node_id,
@@ -939,7 +1024,6 @@ export default function OpeningExplorerPageClient() {
           <div className="flex items-center gap-2"><Database className="h-4 w-4 text-cyan-300" /><h1 className="font-semibold">Opening explorer</h1><span className="rounded bg-cyan-950 px-2 py-0.5 text-[11px] text-cyan-200">HOSTED EXPERIMENT</span></div>
           <p className="mt-1 text-xs text-slate-400">Dataset {metadata.dataset_version.slice(0, 10)} · {metadata.coverage.accepted_games.toLocaleString()} accepted games · {metadata.adapter_policy}</p>
         </div>
-        {refreshing ? <span className="flex items-center text-xs text-slate-400"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Refilling cache</span> : null}
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,390px)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(240px,300px)_minmax(330px,390px)] xl:grid-rows-[minmax(0,1fr)]">
@@ -966,17 +1050,8 @@ export default function OpeningExplorerPageClient() {
               <h2 className="font-semibold">Move list</h2>
               <span className="text-xs text-slate-500">{playedMoves.length} {playedMoves.length === 1 ? "ply" : "plies"}</span>
             </div>
-            <button
-              type="button"
-              aria-label="Go to starting position"
-              aria-current={playedMoves.length === 0 ? "true" : undefined}
-              onClick={() => navigateToBreadcrumb(0)}
-              className={`mt-3 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${playedMoves.length === 0 ? "border-cyan-400/70 bg-slate-800 text-cyan-100" : "border-slate-700 bg-slate-950 text-slate-400 hover:border-cyan-500/60 hover:bg-slate-800 hover:text-white"}`}
-            >
-              Starting position
-            </button>
             <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              {moveRows.length === 0 ? <p className="rounded-lg border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">No moves played yet</p> : <ol className="space-y-1.5">
+              {moveRows.length === 0 ? <p className="flex h-full min-h-24 items-center justify-center text-center text-sm text-slate-600">No moves yet</p> : <ol className="space-y-1.5">
                 {moveRows.map((row) => <li key={row.moveNumber} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1.5">
                   <span className="text-right font-mono text-xs text-slate-500">{row.moveNumber}.</span>
                   {[row.white, row.black].map((move, sideIndex) => move ? <button
@@ -1025,48 +1100,70 @@ export default function OpeningExplorerPageClient() {
           <section className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/70 p-4">
             <h2 className="text-sm font-semibold text-slate-200">Player filter</h2>
             <div className="mt-3 flex items-end gap-2">
-              <label className="min-w-0 flex-1 text-xs text-slate-400">Player
-                <span className="relative mt-1 block">
-                  <input
-                    value={draftPlayer}
-                    onChange={(event) => { setDraftPlayer(event.target.value); setSuggestionsOpen(true); void findPlayers(event.target.value); }}
-                    onFocus={() => setSuggestionsOpen(true)}
-                    onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 100)}
-                    role="combobox"
-                    aria-autocomplete="list"
-                    aria-controls="opening-player-suggestions"
-                    aria-expanded={suggestionsOpen && suggestions.length > 0}
-                    aria-invalid={playerIsInvalid}
-                    aria-describedby={playerIsInvalid ? "opening-player-error" : undefined}
-                    className={`w-full rounded border bg-slate-950 px-2 py-2 text-sm text-white outline-none transition-colors ${playerIsInvalid ? "border-red-500 ring-1 ring-red-500/30 focus:border-red-400" : "border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20"}`}
-                  />
-                  {suggestionsOpen && suggestions.length > 0 ? <span
-                    id="opening-player-suggestions"
-                    role="listbox"
-                    aria-label="Player suggestions"
-                    className="absolute top-full z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl"
-                  >{suggestions.map((username) => <button
-                    key={username}
-                    type="button"
-                    role="option"
-                    aria-selected={draftPlayer.trim().toLowerCase() === username.toLowerCase()}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => { setDraftPlayer(username); setPlayerLookup({ query: username.toLocaleLowerCase(), status: "ready" }); setSuggestionsOpen(false); }}
-                    className="block w-full rounded px-2 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:outline-none"
-                  >{username}</button>)}</span> : null}
-                </span>
-              </label>
+              <div ref={playerPicker} className="relative min-w-0 flex-1 text-xs text-slate-400">
+                <span>Player</span>
+                <button
+                  type="button"
+                  role="combobox"
+                  aria-label="Player"
+                  aria-controls="opening-player-suggestions"
+                  aria-expanded={suggestionsOpen}
+                  onClick={() => {
+                    setSuggestionsOpen((open) => !open);
+                    setPlayerQuery("");
+                    setSuggestions([]);
+                    setPlayerLookup({ query: "", status: "idle" });
+                  }}
+                  className="mt-1 flex w-full items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-left text-sm text-white outline-none transition-colors hover:border-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20"
+                >
+                  <span className={draftPlayer ? "truncate" : "truncate text-slate-500"}>{draftPlayer || "Search for a player"}</span>
+                  <ChevronsUpDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+                </button>
+                {suggestionsOpen ? <div className="absolute top-full z-20 mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl">
+                  <label className="relative block">
+                    <span className="sr-only">Search players</span>
+                    <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    <input
+                      autoFocus
+                      type="search"
+                      role="searchbox"
+                      aria-label="Search players"
+                      value={playerQuery}
+                      onChange={(event) => { setPlayerQuery(event.target.value); void findPlayers(event.target.value); }}
+                      onKeyDown={(event) => { if (event.key === "Escape") setSuggestionsOpen(false); }}
+                      className="w-full rounded-md border border-slate-800 bg-slate-900 py-2 pl-8 pr-2 text-sm text-white outline-none focus:border-cyan-400"
+                    />
+                  </label>
+                  <div id="opening-player-suggestions" role="listbox" aria-label="Player suggestions" className="mt-1 max-h-52 overflow-y-auto">
+                    {playerLookup.status === "idle" ? <p className="px-2 py-3 text-center text-xs text-slate-500">Type to search players.</p> : null}
+                    {playerLookup.status === "loading" ? <p className="flex items-center justify-center gap-2 px-2 py-3 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" />Searching...</p> : null}
+                    {playerLookup.status === "ready" && suggestions.length === 0 ? <p className="px-2 py-3 text-center text-xs text-slate-500">No players found.</p> : null}
+                    {playerLookup.status === "error" ? <p className="px-2 py-3 text-center text-xs text-amber-300">Player search is temporarily unavailable.</p> : null}
+                    {suggestions.map((username) => <button
+                      key={username}
+                      type="button"
+                      role="option"
+                      aria-selected={draftPlayer.trim().toLowerCase() === username.toLowerCase()}
+                      onClick={() => {
+                        setDraftPlayer(username);
+                        setPlayerQuery("");
+                        setPlayerLookup({ query: username.toLocaleLowerCase(), status: "ready" });
+                        setSuggestionsOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:outline-none"
+                    ><Check aria-hidden="true" className={`h-4 w-4 ${draftPlayer.trim().toLowerCase() === username.toLowerCase() ? "opacity-100" : "opacity-0"}`} /><span className="truncate">{username}</span></button>)}
+                  </div>
+                </div> : null}
+              </div>
               <button type="button" disabled={!playerIsKnown} onClick={applyFilter} className="shrink-0 rounded bg-cyan-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">Apply filter</button>
-              <button type="button" onClick={() => { playerSearchGeneration.current += 1; setDraftPlayer(""); setSuggestions([]); setSuggestionsOpen(false); setPlayerLookup({ query: "", status: "idle" }); setFilter(EMPTY_FILTER); void loadNeighborhood(metadata, currentNodeId, EMPTY_FILTER, false); }} className="shrink-0 rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button>
+              <button type="button" onClick={() => { playerSearchGeneration.current += 1; setDraftPlayer(""); setPlayerQuery(""); setSuggestions([]); setSuggestionsOpen(false); setPlayerLookup({ query: "", status: "idle" }); setFilter(EMPTY_FILTER); void loadNeighborhood(metadata, currentNodeId, EMPTY_FILTER, false); }} className="shrink-0 rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button>
             </div>
-            {playerIsInvalid ? <p id="opening-player-error" className="mt-2 text-xs text-red-400">Choose a player from the indexed corpus.</p> : null}
-            {playerLookup.status === "error" ? <p className="mt-2 text-xs text-amber-300">Player suggestions are temporarily unavailable.</p> : null}
             <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Player seat">
               {(["white", "black"] as const).map((seat) => <button
                 key={seat}
                 type="button"
                 aria-pressed={filterSeat === seat}
-                onClick={() => setFilterSeat(seat)}
+                onClick={() => changeFilterSeat(seat)}
                 className={`rounded border px-3 py-2 text-sm font-medium transition-colors ${filterSeat === seat ? "border-cyan-400 bg-cyan-950/70 text-cyan-100 ring-1 ring-cyan-400/20" : "border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-500 hover:text-slate-200"}`}
               >{seat === "white" ? "White" : "Black"}</button>)}
             </div>
@@ -1075,50 +1172,29 @@ export default function OpeningExplorerPageClient() {
           {error ? <div role="alert" className="shrink-0 rounded-xl border border-amber-400/30 bg-amber-950/20 p-4 text-sm text-amber-100">{errorCopy(error)}</div> : null}
 
           <section aria-label="Opening Tree" className="flex min-h-88 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
-            <div className="flex items-center justify-between"><h2 className="font-semibold">Opening Tree</h2><span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span></div>
-            {currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
+            <div className="flex items-center justify-between"><h2 className="font-semibold">Opening Tree</h2>{refreshing ? null : <span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span>}</div>
+            {!refreshing && currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
             <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              {uniqueContinuation ? (uniqueGame?.url ? <a
-                href={uniqueGame.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label={`${uniqueContinuation.label}, ${uniqueGame.white_username}, ${gameResultLabel(uniqueGame)}, ${uniqueGame.black_username}; open game on Chess.com`}
-                className="group flex w-full items-center gap-3 rounded-lg border border-cyan-400 bg-slate-800 px-3 py-3 text-left ring-1 ring-cyan-400/30 transition-colors hover:bg-slate-700"
-              >
-                <span className="shrink-0 font-mono text-sm font-medium text-white">{uniqueContinuation.label}</span>
-                <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
-                  <span className="truncate text-right text-cyan-100">{uniqueGame.white_username}</span>
-                  <strong className="whitespace-nowrap text-cyan-300">{gameResultLabel(uniqueGame)}</strong>
-                  <span className="truncate text-slate-200">{uniqueGame.black_username}</span>
-                </span>
-                <span aria-hidden="true" className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-cyan-200">↗</span>
-              </a> : <div
-                aria-label={`${uniqueContinuation.label}, ${sourceGameStatus === "error" ? "source game unavailable" : "loading source game"}`}
-                className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${sourceGameStatus === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}
-              >
-                <span className="font-mono text-sm text-slate-200">{uniqueContinuation.label}</span>
-                <span className="flex-1 text-center text-xs">{sourceGameStatus === "error" ? "Source game could not be loaded." : "Loading source game…"}</span>
-              </div>) : continuations.map(({ edge, label, overlay }) => {
+              {refreshing ? <div role="status" aria-live="polite" className="flex h-full min-h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div> : <>{continuations.map(({ edge, label, overlay }) => {
                 const selected = edge.child_id === selectedContinuationId;
-                return <button key={edge.child_id} ref={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} ${overlay.support === 1 ? "game" : "games"}`} onFocus={() => setSelectedContinuationId(edge.child_id)} onMouseEnter={() => setSelectedContinuationId(edge.child_id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>;
+                const source = sourceGames[edge.child_id];
+
+                if (overlay.support === 1) {
+                  return <SourceGameRow
+                    key={edge.child_id}
+                    entry={source}
+                    label={label}
+                    onSelect={() => setSelectedContinuationId(edge.child_id)}
+                    register={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }}
+                    selected={selected}
+                  />;
+                }
+
+                return <button key={edge.child_id} ref={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} games`} onFocus={() => setSelectedContinuationId(edge.child_id)} onMouseEnter={() => setSelectedContinuationId(edge.child_id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>;
               })}
-              {!uniqueContinuation && locksUniqueLine && currentOverlay?.actual_ending_count === 0 ? (uniqueGame?.url ? <a
-                href={uniqueGame.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label={`Source game, ${uniqueGame.white_username}, ${gameResultLabel(uniqueGame)}, ${uniqueGame.black_username}; open game on Chess.com`}
-                className="group flex w-full items-center gap-3 rounded-lg border border-cyan-400/70 bg-slate-800 px-3 py-3 text-left transition-colors hover:border-cyan-300 hover:bg-slate-700"
-              >
-                <span className="shrink-0 font-mono text-sm font-medium text-cyan-100">Game</span>
-                <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
-                  <span className="truncate text-right text-cyan-100">{uniqueGame.white_username}</span>
-                  <strong className="whitespace-nowrap text-cyan-300">{gameResultLabel(uniqueGame)}</strong>
-                  <span className="truncate text-slate-200">{uniqueGame.black_username}</span>
-                </span>
-                <span aria-hidden="true" className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-cyan-200">↗</span>
-              </a> : <div aria-label={sourceGameStatus === "error" ? "Source game unavailable" : "Loading source game"} className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${sourceGameStatus === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}><span className="font-mono text-sm text-slate-200">Game</span><span className="flex-1 text-center text-xs">{sourceGameStatus === "error" ? "Source game could not be loaded." : "Loading source game…"}</span></div>) : null}
+              {continuations.length === 0 && locksUniqueLine && currentOverlay?.actual_ending_count === 0 ? <SourceGameRow entry={sourceGames[currentNodeId]} label="Game" /> : null}
               {currentOverlay && currentOverlay.actual_ending_count > 0 ? <div aria-label={`${currentOverlay.actual_ending_count} ${currentOverlay.actual_ending_count === 1 ? "game ends" : "games end"} at this position`} className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-slate-400"><span className="min-w-0 flex-1 font-mono text-sm text-slate-300">-</span><span className="text-xs"><strong className="text-slate-200">{currentOverlay.actual_ending_count}</strong></span><span className="w-44 text-right text-[10px] uppercase tracking-wide text-slate-500">ended here</span></div> : null}
-              {continuations.length === 0 && !locksUniqueLine && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No continuations from this position.</p> : null}
+              {continuations.length === 0 && !locksUniqueLine && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No continuations from this position.</p> : null}</>}
             </div>
           </section>
         </aside>

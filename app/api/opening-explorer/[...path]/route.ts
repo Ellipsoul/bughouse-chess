@@ -26,7 +26,7 @@ interface RouteContext {
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
 /** Default upstream timeout when the env override is absent. */
-const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 /** Keep the proxy alive long enough for a full-artifact Large Function cold start. */
 export const maxDuration = 60;
@@ -107,7 +107,7 @@ function serviceOrigin(): { origin: URL; token?: string } {
 /**
  * Reads and validates the upstream timeout override.
  *
- * @throws If the value is not an integer between 100 and 10_000 ms.
+ * @throws If the value is not an integer between 100 and 60_000 ms.
  */
 function serviceTimeoutMs(): number {
   const configured = Number(process.env.OPENING_EXPLORER_SERVICE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);

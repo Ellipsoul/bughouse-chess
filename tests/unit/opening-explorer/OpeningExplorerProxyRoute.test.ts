@@ -150,6 +150,22 @@ describe("opening explorer local proxy", () => {
     expect(upstream).toHaveBeenCalledOnce();
   });
 
+  it("allows 45 seconds for a full-artifact cold start by default", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ dataset_version: "v1" })));
+    const { GET } = await import("@/app/api/opening-explorer/[...path]/route");
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/opening-explorer/api/meta"),
+      { params: Promise.resolve({ path: ["api", "meta"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(timeout).toHaveBeenCalledWith(45_000);
+  });
+
   it("forwards requests without availability configuration", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");

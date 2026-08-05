@@ -74,6 +74,14 @@ const neighborhoodResponse = {
   target_forward_depth: 5,
 };
 
+/** Selects one indexed player through the searchable combobox. */
+async function choosePlayer(username: string): Promise<void> {
+  fireEvent.click(await screen.findByRole("combobox", { name: "Player" }));
+  const search = screen.getByRole("searchbox", { name: "Search players" });
+  fireEvent.change(search, { target: { value: username } });
+  fireEvent.click(await screen.findByRole("option", { name: username }));
+}
+
 describe("OpeningExplorerPageClient", () => {
   beforeEach(() => {
     mocks.push.mockReset();
@@ -105,6 +113,27 @@ describe("OpeningExplorerPageClient", () => {
 
     await screen.findByRole("heading", { name: "Opening explorer" });
     expect(screen.queryByText("Cold starts can take up to 20 seconds. Please be patient.")).not.toBeInTheDocument();
+  });
+
+  it("shows subsequent neighborhood loading inside the candidate move list", async () => {
+    mocks.players.mockResolvedValue(["alice"]);
+    let resolveRefresh: ((response: typeof neighborhoodResponse) => void) | undefined;
+    mocks.neighborhood
+      .mockResolvedValueOnce(neighborhoodResponse)
+      .mockImplementation(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+    render(<OpeningExplorerPageClient />);
+
+    await choosePlayer("alice");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply filter" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
+
+    const candidates = screen.getByLabelText("Candidate move choices");
+    expect(within(candidates).getByRole("status")).toHaveTextContent("Loading...");
+    expect(screen.getByRole("region", { name: "Opening Tree" })).not.toHaveTextContent("0 games");
+    expect(screen.queryByText("Refilling cache")).not.toBeInTheDocument();
+
+    await act(async () => resolveRefresh?.(neighborhoodResponse));
+    await waitFor(() => expect(within(candidates).queryByRole("status")).not.toBeInTheDocument());
   });
 
   it("publishes first-load phases to the browser performance timeline", async () => {
@@ -144,12 +173,12 @@ describe("OpeningExplorerPageClient", () => {
     expect(mocks.push).toHaveBeenCalledWith("/opening-explorer?node=1&dataset=dataset-1");
   });
 
-  it("offers one player input with a separate White or Black seat choice", async () => {
+  it("offers one searchable player combobox with a separate White or Black seat choice", async () => {
     render(<OpeningExplorerPageClient />);
 
     const controls = await screen.findByRole("complementary", { name: "Explorer controls" });
     expect(within(controls).getAllByRole("combobox")).toHaveLength(1);
-    expect(within(controls).getByRole("combobox", { name: "Player" })).toBeInTheDocument();
+    expect(within(controls).getByRole("combobox", { name: "Player" })).toHaveTextContent("Search for a player");
     expect(within(controls).getByRole("button", { name: "White" })).toHaveAttribute("aria-pressed", "true");
     expect(within(controls).getByRole("button", { name: "Black" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -158,36 +187,45 @@ describe("OpeningExplorerPageClient", () => {
     mocks.players.mockResolvedValue(["alice", "alicia"]);
     render(<OpeningExplorerPageClient />);
 
-    const input = await screen.findByRole("combobox", { name: "Player" });
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "al" } });
+    fireEvent.click(await screen.findByRole("combobox", { name: "Player" }));
+    const search = screen.getByRole("searchbox", { name: "Search players" });
+    fireEvent.change(search, { target: { value: "al" } });
 
     const suggestions = await screen.findByRole("listbox", { name: "Player suggestions" });
     expect(within(suggestions).getByRole("option", { name: "alice" })).toBeInTheDocument();
     expect(within(suggestions).getByRole("option", { name: "alicia" })).toBeInTheDocument();
     expect(mocks.players).toHaveBeenLastCalledWith("dataset-1", "al");
+
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("searchbox", { name: "Search players" })).not.toBeInTheDocument();
   });
 
-  it("blocks an unknown player and applies a valid player to the selected seat", async () => {
+  it("keeps unknown searches inside the combobox and reapplies a filtered player when the seat changes", async () => {
     mocks.players.mockImplementation((_datasetVersion: string, prefix: string) => (
       Promise.resolve(prefix.toLowerCase() === "alice" ? ["alice"] : [])
     ));
     render(<OpeningExplorerPageClient />);
 
-    const input = await screen.findByRole("combobox", { name: "Player" });
+    fireEvent.click(await screen.findByRole("combobox", { name: "Player" }));
+    const search = screen.getByRole("searchbox", { name: "Search players" });
     const apply = screen.getByRole("button", { name: "Apply filter" });
 
-    fireEvent.change(input, { target: { value: "not-a-player" } });
-    expect(await screen.findByText("Choose a player from the indexed corpus.")).toBeInTheDocument();
-    expect(input).toHaveAttribute("aria-invalid", "true");
+    fireEvent.change(search, { target: { value: "not-a-player" } });
+    expect(await screen.findByText("No players found.")).toBeInTheDocument();
+    expect(screen.queryByText("Choose a player from the indexed corpus.")).not.toBeInTheDocument();
     expect(apply).toBeDisabled();
 
-    fireEvent.change(input, { target: { value: "alice" } });
-    await waitFor(() => expect(input).toHaveAttribute("aria-invalid", "false"));
+    fireEvent.change(search, { target: { value: "alice" } });
+    fireEvent.click(await screen.findByRole("option", { name: "alice" }));
+    expect(screen.getByRole("combobox", { name: "Player" })).toHaveTextContent("alice");
     expect(apply).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Black" }));
     fireEvent.click(apply);
+    await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      filter: { white: "alice", black: null },
+    })));
+
+    fireEvent.click(screen.getByRole("button", { name: "Black" }));
     await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
       filter: { white: null, black: "alice" },
     })));
@@ -215,11 +253,66 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     const moveList = await screen.findByRole("region", { name: "Opening Tree" });
-    const moves = within(moveList).getAllByRole("button");
-    expect(moves[0]).toHaveAccessibleName(/e4.*6 games/i);
-    expect(moves[1]).toHaveAccessibleName(/d4.*1 game/i);
+    const rows = [...within(moveList).getByLabelText("Candidate move choices").children];
+    expect(rows[0]).toHaveTextContent("e4");
+    expect(rows[1]).toHaveTextContent("d4");
     expect(within(moveList).queryByText("mC")).not.toBeInTheDocument();
     expect(within(moveList).queryByText("lB")).not.toBeInTheDocument();
+  });
+
+  it("lifts a unique-game child into a source link without advancing the board", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      edges: [
+        { child_id: 1, move_token: "mC", parent_id: 0 },
+        { child_id: 2, move_token: "lB", parent_id: 0 },
+      ],
+      nodes: [
+        { ...neighborhoodResponse.nodes[0], child_count: 2 },
+        neighborhoodResponse.nodes[1],
+        { child_count: 0, id: 2, interval_end: 7, interval_start: 6, move_token: "lB", parent_id: 0, ply: 1 },
+      ],
+      overlays: {
+        ...neighborhoodResponse.overlays,
+        "2": { actual_ending_count: 1, results: { resigned: 1 }, sole_game_ordinal: 6, support: 1 },
+      },
+    });
+    mocks.games.mockImplementation((_version: string, nodeId: number) => Promise.resolve({
+      actual_ending_count: 1,
+      dataset_version: "dataset-1",
+      games: nodeId === 2 ? [{
+        actual_ending: true,
+        black_rating: 2100,
+        black_result: "resigned",
+        black_username: "Bob",
+        ordinal: 6,
+        provenance_flags: [],
+        source: "chess.com",
+        url: "https://www.chess.com/game/live/456",
+        uuid: "game-2",
+        white_rating: 2200,
+        white_result: "win",
+        white_username: "Alice",
+      }] : [],
+      limit: 1,
+      node_id: nodeId,
+      total_matching: nodeId === 2 ? 1 : 0,
+    }));
+    render(<OpeningExplorerPageClient />);
+
+    const gameLink = await screen.findByRole("link", { name: /d4.*Alice.*1–0.*Bob/i });
+    expect(gameLink).toHaveAttribute("href", "https://www.chess.com/game/live/456");
+    expect(gameLink).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("button", { name: /d4/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /e4, 6 games/i })).toBeInTheDocument();
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
+    expect(mocks.games).toHaveBeenCalledWith(
+      "dataset-1",
+      2,
+      { white: null, black: null },
+      1,
+      expect.any(AbortSignal),
+    );
   });
 
   it("selects continuations with arrow keys and navigates forward and back through the cached path", async () => {
@@ -237,14 +330,14 @@ describe("OpeningExplorerPageClient", () => {
       overlays: {
         ...neighborhoodResponse.overlays,
         "1": { actual_ending_count: 0, results: { win: 6 }, sole_game_ordinal: null, support: 6 },
-        "2": { actual_ending_count: 0, results: { resigned: 1 }, sole_game_ordinal: 6, support: 1 },
+        "2": { actual_ending_count: 0, results: { resigned: 2 }, sole_game_ordinal: null, support: 2 },
       },
     });
 
     render(<OpeningExplorerPageClient />);
 
     const e4 = await screen.findByRole("button", { name: /e4, 6 games/i });
-    const d4 = screen.getByRole("button", { name: /d4, 1 game/i });
+    const d4 = screen.getByRole("button", { name: /d4, 2 games/i });
     await waitFor(() => expect(e4).toHaveAttribute("aria-current", "true"));
 
     expect(fireEvent.keyDown(window, { key: "ArrowDown" })).toBe(false);
@@ -262,9 +355,9 @@ describe("OpeningExplorerPageClient", () => {
     expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=2&dataset=dataset-1");
 
     expect(fireEvent.keyDown(window, { key: "ArrowLeft" })).toBe(false);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Go to starting position" })).toHaveAttribute("aria-current", "true"));
+    await waitFor(() => expect(screen.getByText("No moves yet")).toBeInTheDocument());
     expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=0&dataset=dataset-1");
-    await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 game/i })).toHaveAttribute("aria-current", "true"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /d4, 2 games/i })).toHaveAttribute("aria-current", "true"));
 
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
     await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("3P4"));
@@ -318,10 +411,10 @@ describe("OpeningExplorerPageClient", () => {
     fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
     await waitFor(() => expect(mocks.neighborhood.mock.calls.length).toBeGreaterThanOrEqual(2));
     const requestsBeforeBack = mocks.neighborhood.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: "Go to starting position" }));
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 game/i })).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /Nf3, 1 game/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("d4")).toBeInTheDocument());
+    expect(screen.getByText("Nf3")).toBeInTheDocument();
     expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeBack);
   });
 
@@ -356,7 +449,7 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
-    fireEvent.change(screen.getByLabelText("Player"), { target: { value: "alice" } });
+    await choosePlayer("alice");
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply filter" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
     await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
@@ -364,7 +457,7 @@ describe("OpeningExplorerPageClient", () => {
       filter: { white: "alice", black: null },
     })));
 
-    fireEvent.click(screen.getByRole("button", { name: "Go to starting position" }));
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
 
     await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
       nodeId: 0,
@@ -459,7 +552,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
     expect(mocks.games).toHaveBeenCalledWith(
       "dataset-1",
-      0,
+      1,
       { white: null, black: null },
       1,
       expect.any(AbortSignal),
@@ -497,7 +590,7 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    fireEvent.change(await screen.findByLabelText("Player"), { target: { value: "alice" } });
+    await choosePlayer("alice");
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply filter" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
     await waitFor(() => expect(mocks.games).toHaveBeenCalledTimes(1));
@@ -617,7 +710,10 @@ describe("OpeningExplorerPageClient", () => {
     const controls = screen.getByRole("complementary", { name: "Explorer controls" });
     const board = screen.getByRole("region", { name: "Opening board" });
 
-    expect(within(playedMoves).getByRole("region", { name: "Move list" })).toHaveTextContent("No moves played yet");
+    const moveList = within(playedMoves).getByRole("region", { name: "Move list" });
+    expect(moveList).toHaveTextContent("No moves yet");
+    expect(within(moveList).queryByText("Starting position")).not.toBeInTheDocument();
+    expect(within(moveList).queryByRole("button", { name: "Go to starting position" })).not.toBeInTheDocument();
     expect(within(playedMoves).getByText("Prototype instrumentation")).toBeInTheDocument();
     expect(within(playedMoves).queryByRole("region", { name: "Opening Tree" })).not.toBeInTheDocument();
     expect(within(controls).getByText("Player filter")).toBeInTheDocument();
