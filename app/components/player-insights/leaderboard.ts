@@ -2,7 +2,7 @@ import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";
 
 export type MaterialPieceType = "pawn" | "knight" | "bishop" | "rook" | "queen";
 export type MaterialInsight = "net-material" | "net-material-per-game";
-export type MaterialSortKey = "net" | MaterialPieceType;
+export type MaterialSortKey = "net" | "games" | MaterialPieceType;
 export type SortDirection = "asc" | "desc";
 
 export interface MaterialInsightsData {
@@ -43,7 +43,6 @@ export interface MaterialLeaderboardRow {
   displayName: string;
   eligibleGames: number;
   analyzedGames: number;
-  replayExcludedGames: number;
   score: number | null;
   pieces: MaterialPieceLedger[];
 }
@@ -92,15 +91,17 @@ export function buildMaterialLeaderboard({
       displayName: player.displayName,
       eligibleGames: player.eligibleGames,
       analyzedGames: player.analyzedGames,
-      replayExcludedGames: player.replayExcludedGames,
       score,
       pieces,
     };
   });
 
-  const sortPieceIndex = sortKey === "net" ? -1 : data.pieceOrder.indexOf(sortKey);
+  const sortPieceIndex = sortKey === "net" || sortKey === "games"
+    ? -1
+    : data.pieceOrder.indexOf(sortKey);
   const sortValue = (row: (typeof rows)[number]): number | null => {
     if (sortKey === "net") return row.score;
+    if (sortKey === "games") return row.analyzedGames;
     if (insight === "net-material-per-game" && row.analyzedGames === 0) return null;
     const piece = row.pieces[sortPieceIndex];
     if (!piece) return null;

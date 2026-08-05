@@ -254,7 +254,8 @@ tracked player cohort. Its first two insight chips show lifetime net material
 and net material per analyzed game. The page follows the user's Bughouse or
 Standard piece-value preference. Its Net and individual piece columns are
 click-to-sort controls: the first click ranks the most won, and a second click
-reverses toward the most lost. In the per-game view, each piece's won, lost, and
+reverses toward the most lost. The Games column follows the same interaction for
+the number of analyzed games. In the per-game view, each piece's won, lost, and
 net figures use the same analyzed-game denominator as the overall score.
 
 The route imports `app/data/player-material-insights.json` at build time. The

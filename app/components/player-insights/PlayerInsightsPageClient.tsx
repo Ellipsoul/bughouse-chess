@@ -216,11 +216,6 @@ function LeaderboardRow({
         <span className="font-mono tabular-nums text-slate-300">
           {integerFormatter.format(row.analyzedGames)}
         </span>
-        {row.replayExcludedGames > 0 ? (
-          <span className="ml-1 text-[10px] text-amber-400" title="Replay-excluded eligible games">
-            +{row.replayExcludedGames} excluded
-          </span>
-        ) : null}
       </td>
       {row.pieces.map((piece) => (
         <PieceLedgerCell
@@ -360,10 +355,17 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
                 Tap again to reverse
               </span>
             </div>
-            <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex flex-wrap gap-2 pb-1">
               <MobileSortButton
                 label="Net"
                 sortKey="net"
+                activeSortKey={sortKey}
+                direction={direction}
+                onSort={handleSort}
+              />
+              <MobileSortButton
+                label="Games"
+                sortKey="games"
                 activeSortKey={sortKey}
                 direction={direction}
                 onSort={handleSort}
@@ -405,7 +407,24 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
                       <SortIndicator active={sortKey === "net"} direction={direction} />
                     </button>
                   </th>
-                  <th scope="col" className="border-b border-slate-800 px-4 py-3 text-right font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">Games</th>
+                  <th
+                    scope="col"
+                    aria-sort={sortKey === "games" ? (direction === "desc" ? "descending" : "ascending") : undefined}
+                    className="border-b border-slate-800 p-0 text-right font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500"
+                  >
+                    <button
+                      type="button"
+                      aria-label="Sort by Games"
+                      aria-pressed={sortKey === "games"}
+                      onClick={() => handleSort("games")}
+                      className={`inline-flex min-h-11 w-full items-center justify-end gap-1.5 px-4 py-3 transition-colors hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mariner-400/70 ${
+                        sortKey === "games" ? "text-mariner-300" : "text-slate-500"
+                      }`}
+                    >
+                      Games
+                      <SortIndicator active={sortKey === "games"} direction={direction} />
+                    </button>
+                  </th>
                   {data.pieceOrder.map((pieceType) => {
                     const { label, icon: Icon } = PIECE_META[pieceType];
                     return (

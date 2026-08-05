@@ -168,4 +168,30 @@ describe("material insight leaderboard", () => {
       "carol",
     ]);
   });
+
+  it("sorts by analyzed game count independently of material score", () => {
+    const data = {
+      ...fixture,
+      players: fixture.players.map((player) => ({
+        ...player,
+        analyzedGames: player.username === "bob" ? 4 : player.analyzedGames,
+      })),
+    };
+    const result = buildMaterialLeaderboard({
+      data,
+      preset: "bughouse",
+      insight: "net-material",
+      query: "",
+      sortKey: "games",
+      direction: "desc",
+      page: 1,
+      pageSize: 25,
+    });
+
+    expect(result.rows.map(({ username, analyzedGames }) => [username, analyzedGames])).toEqual([
+      ["bob", 4],
+      ["alice", 2],
+      ["carol", 0],
+    ]);
+  });
 });

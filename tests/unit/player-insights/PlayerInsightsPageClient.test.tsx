@@ -33,7 +33,7 @@ const fixture: MaterialInsightsData = {
       displayName: "Alice",
       eligibleGames: 2,
       analyzedGames: 2,
-      replayExcludedGames: 0,
+      replayExcludedGames: 2,
       pieces: [[4, 0], [0, 0], [0, 0], [1, 0], [0, 0]],
     },
     {
@@ -74,6 +74,7 @@ describe("PlayerInsightsPageClient", () => {
     expect(within(alice).getByText("+10")).toBeInTheDocument();
     expect(within(alice).getByLabelText("Pawn: won 4, lost 0, net +4")).toBeInTheDocument();
     expect(within(alice).getByLabelText("Rook: won 1, lost 0, net +1")).toBeInTheDocument();
+    expect(within(alice).queryByText("+2 excluded")).not.toBeInTheDocument();
   });
 
   it("searches, changes insight, and toggles a piece column between most won and lost", () => {
@@ -122,6 +123,29 @@ describe("PlayerInsightsPageClient", () => {
       expect.stringContaining("Bob"),
       expect.stringContaining("Alice"),
       expect.stringContaining("Carol"),
+    ]);
+  });
+
+  it("toggles the Games column between most and fewest analyzed games", () => {
+    render(<PlayerInsightsPageClient data={fixture} />);
+
+    const gamesSort = screen.getByRole("button", { name: "Sort by Games" });
+    fireEvent.click(gamesSort);
+    expect(screen.getByRole("columnheader", { name: /Games/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+
+    fireEvent.click(gamesSort);
+    expect(screen.getByRole("columnheader", { name: /Games/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+    const rows = screen.getAllByRole("row").filter((row) => /Alice|Bob|Carol/.test(row.textContent ?? ""));
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Carol"),
+      expect.stringContaining("Bob"),
+      expect.stringContaining("Alice"),
     ]);
   });
 });
