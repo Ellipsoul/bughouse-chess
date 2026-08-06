@@ -240,8 +240,9 @@ one corpus-backed player and a White/Black seat choice; autocomplete remains
 visible while typing, and Apply stays disabled until the input exactly matches
 an indexed username. A game ending at the current prefix appears as an
 unclickable `-` row. Once a prefix contains exactly one game and one
-continuation, that move becomes the source Chess.com link and shows both players
-plus the result; keyboard navigation deliberately stops at that boundary. If the
+continuation, that move becomes a link to the source game in Relay's Bughouse
+analysis board and shows both players plus the result; keyboard navigation
+deliberately stops at that boundary. The analysis link opens in a new tab. If the
 packed terminal policy has already stopped materializing at the first global
 support-one prefix, the same bounded metadata lookup appears as a `Game` source
 row instead. The earlier bounded multi-game inspection panel is intentionally
@@ -249,20 +250,41 @@ omitted from the user-facing UI.
 
 ### Player Insights
 
-`/player-insights` is an isolated, searchable leaderboard for the permanently
-tracked player cohort. Its first two insight chips show lifetime net material
-and net material per analyzed game. The page follows the user's Bughouse or
-Standard piece-value preference. Its Net and individual piece columns are
-click-to-sort controls: the first click ranks the most won, and a second click
-reverses toward the most lost. The Games column follows the same interaction for
-the number of analyzed games. In the per-game view, each piece's won, lost, and
-net figures use the same analyzed-game denominator as the overall score.
+`/player-insights` is an isolated, searchable host for insights about the
+permanently tracked player cohort. Its first two chips show lifetime net
+material and net material per analyzed game. The page follows the user's
+Bughouse or Standard piece-value preference. Its Net and individual piece
+columns are click-to-sort controls: the first click ranks the most won, and a
+second click reverses toward the most lost. The Games column follows the same
+interaction for the number of analyzed games. In the per-game view, each
+piece's won, lost, and net figures use the same analyzed-game denominator as
+the overall score.
+
+The third chip, **Average King Height**, shows how far each player's king
+reaches from its own back rank. Every player card includes a nullable weighted
+average and an eight-bucket probability chart. **Average King Height** and
+**Touchdowns** are separate sort toggles; activating the selected metric again
+reverses its direction. An expandable, scroll-contained panel opens every
+public game in which the player's king reached the opposite back rank in Relay's
+Bughouse analysis board; the UI calls these rare games **touchdowns**. These
+links open in a new tab. The minimum-games filter defaults to 1000
+and accepts only non-negative integers. White and Black directions are
+normalized before aggregation, and players with no analyzed games show an em
+dash and remain last in average-height sorting when the minimum is cleared.
+Desktop rows reserve a fixed-height, internally scrolling touchdown area so
+expansion does not move the surrounding leaderboard; mobile cards continue to
+expand naturally. Small mobile layouts hide both explanatory paragraphs and
+use tighter header, navigation, search, sort, and filter spacing so the first
+player arrives earlier.
 
 The route imports `app/data/player-material-insights.json` at build time. The
 current 1,013-player file is 194,309 bytes uncompressed and approximately 54 KB
-with gzip, so the browser needs no SQLite reader, runtime database, route
-handler, or opening-explorer service request. Desktop rows use a full table; the
-same semantic rows reflow into compact five-piece ledgers on smaller screens.
+with gzip. The 791,817-byte king-height projection is statically imported only
+inside the lazy-loaded third insight, so it is not part of the initial material
+view. The browser needs no SQLite reader, runtime database, route handler, or
+opening-explorer service request. Material rows use a full desktop table and
+compact five-piece ledgers on smaller screens; king height uses a purpose-built
+responsive card chart.
 
 The source of truth remains the checked material-insights SQLite artifact in the
 sibling `bughouse-opening-explorer` repository. After building and validating a
@@ -271,15 +293,28 @@ with its recorded checksum:
 
 ```bash
 .venv/bin/python scripts/export_player_insights.py \
-  artifacts/insights/<snapshot>/material-insights.db \
+  artifacts/insights/<snapshot>/player-insights.db \
   ../bughouse/bughouse-chess/app/data/player-material-insights.json \
-  --database-sha256 <material-insights-db-sha256> \
+  --database-sha256 <player-insights-db-sha256> \
+  --replace
+
+.venv/bin/python scripts/export_king_height_insights.py \
+  artifacts/insights/<snapshot>/player-insights.db \
+  ../bughouse/bughouse-chess/app/data/player-king-height-insights.json \
+  --database-sha256 <player-insights-db-sha256> \
   --replace
 ```
 
-The exporter reads the database immutably, validates its row shape, and
-atomically replaces the static JSON. Review the JSON metadata and checksum, then
-run this repository's tests, lint, and build before publication.
+The exporters read the database immutably, validate each projection's row
+shape and invariants, and atomically replace the static JSON. Review the JSON
+metadata and checksums, then run this repository's tests, lint, build, and
+production-build browser checks before publication.
+
+The sibling data repository owns the durable contract for adding other insight
+shapes and refreshing them from later snapshots. See its
+[`Player Insights development guide`](https://github.com/Ellipsoul/bughouse-opening-explorer/blob/main/docs/PLAYER_INSIGHTS_DEVELOPMENT_GUIDE.md)
+and
+[`reusable session prompt`](https://github.com/Ellipsoul/bughouse-opening-explorer/blob/main/docs/PLAYER_INSIGHTS_SESSION_PROMPT.md).
 
 ### Firebase (optional, for metrics + analytics + user features)
 

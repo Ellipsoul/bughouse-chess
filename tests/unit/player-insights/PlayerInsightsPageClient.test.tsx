@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PlayerInsightsPageClient from "@/app/components/player-insights/PlayerInsightsPageClient";
+import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
 import type { MaterialInsightsData } from "@/app/components/player-insights/leaderboard";
 
 vi.mock("@/app/utils/preferences/usePieceValuePreset", () => ({
@@ -55,9 +56,34 @@ const fixture: MaterialInsightsData = {
   ],
 };
 
+const kingHeightFixture: KingHeightInsightsData = {
+  schemaVersion: 1,
+  dataset: {
+    version: "dataset-1",
+    sourceSnapshotSha256: "a".repeat(64),
+    adapterPolicy: "adapter-v1",
+    kingHeightAnalyzerVersion: "king-height-v1",
+    cohortPolicy: "cohort-v1",
+    acceptedGames: 3,
+    analyzedGames: 3,
+    replayExcludedGames: 0,
+    trackedPlayers: 3,
+  },
+  heightOrder: [1, 2, 3, 4, 5, 6, 7, 8],
+  players: fixture.players.map((player) => ({
+    username: player.username,
+    displayName: player.displayName,
+    analyzedGames: player.analyzedGames,
+    heights: player.analyzedGames === 0
+      ? [0, 0, 0, 0, 0, 0, 0, 0]
+      : [player.analyzedGames, 0, 0, 0, 0, 0, 0, 0],
+    heightEightGames: [],
+  })),
+};
+
 describe("PlayerInsightsPageClient", () => {
   it("renders the lifetime material leaderboard as an accessible piece ledger", () => {
-    render(<PlayerInsightsPageClient data={fixture} />);
+    render(<PlayerInsightsPageClient data={fixture} kingHeightData={kingHeightFixture} />);
 
     expect(screen.getByRole("heading", { name: "Player Insights" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Net Material" })).toHaveAttribute(
@@ -78,7 +104,7 @@ describe("PlayerInsightsPageClient", () => {
   });
 
   it("searches, changes insight, and toggles a piece column between most won and lost", () => {
-    render(<PlayerInsightsPageClient data={fixture} />);
+    render(<PlayerInsightsPageClient data={fixture} kingHeightData={kingHeightFixture} />);
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search players" }), {
       target: { value: "bob" },
@@ -127,7 +153,7 @@ describe("PlayerInsightsPageClient", () => {
   });
 
   it("toggles the Games column between most and fewest analyzed games", () => {
-    render(<PlayerInsightsPageClient data={fixture} />);
+    render(<PlayerInsightsPageClient data={fixture} kingHeightData={kingHeightFixture} />);
 
     const gamesSort = screen.getByRole("button", { name: "Sort by Games" });
     fireEvent.click(gamesSort);
@@ -147,5 +173,19 @@ describe("PlayerInsightsPageClient", () => {
       expect.stringContaining("Bob"),
       expect.stringContaining("Alice"),
     ]);
+  });
+
+  it("switches to the feature-owned Average King Height renderer", () => {
+    render(<PlayerInsightsPageClient data={fixture} kingHeightData={kingHeightFixture} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Average King Height" }));
+
+    expect(screen.getByRole("heading", { name: "Average King Height" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Average King Height" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByText("Measured from each back rank")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Player material leaderboard" })).not.toBeInTheDocument();
   });
 });

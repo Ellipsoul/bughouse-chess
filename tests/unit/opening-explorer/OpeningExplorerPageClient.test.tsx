@@ -301,7 +301,7 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     const gameLink = await screen.findByRole("link", { name: /d4.*Alice.*1–0.*Bob/i });
-    expect(gameLink).toHaveAttribute("href", "https://www.chess.com/game/live/456");
+    expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=456");
     expect(gameLink).toHaveAttribute("target", "_blank");
     expect(screen.queryByRole("button", { name: /d4/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /e4, 6 games/i })).toBeInTheDocument();
@@ -544,7 +544,7 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     const gameLink = await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i });
-    expect(gameLink).toHaveAttribute("href", "https://www.chess.com/game/live/123");
+    expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=123");
     expect(gameLink).toHaveAttribute("target", "_blank");
     expect(screen.queryByRole("button", { name: /e4/i })).not.toBeInTheDocument();
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(true);
@@ -620,7 +620,7 @@ describe("OpeningExplorerPageClient", () => {
 
     expect(await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i })).toHaveAttribute(
       "href",
-      "https://www.chess.com/game/live/123",
+      "https://bughouse.aronteh.com/?gameId=123",
     );
     expect(screen.queryByText("Loading source game…")).not.toBeInTheDocument();
   });
@@ -697,7 +697,7 @@ describe("OpeningExplorerPageClient", () => {
 
     expect(await screen.findByRole("link", { name: /Source game.*Alice.*1–0.*Bob/i })).toHaveAttribute(
       "href",
-      "https://www.chess.com/game/live/123",
+      "https://bughouse.aronteh.com/?gameId=123",
     );
     expect(screen.getByText("1 game")).toBeInTheDocument();
     expect(screen.queryByText("No continuations from this position.")).not.toBeInTheDocument();

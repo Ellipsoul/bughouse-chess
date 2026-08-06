@@ -14,9 +14,12 @@ import {
   Search,
   type LucideIcon,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset";
+import KingHeightInsight from "@/app/components/player-insights/KingHeightInsight";
+import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
 import {
   buildMaterialLeaderboard,
   type MaterialInsight,
@@ -29,6 +32,17 @@ import {
 } from "@/app/components/player-insights/leaderboard";
 
 const PAGE_SIZES = [25, 50, 100] as const;
+type PlayerInsight = MaterialInsight | "average-king-height";
+const LazyKingHeightInsight = dynamic(
+  () => import("@/app/components/player-insights/KingHeightInsightData"),
+  {
+    loading: () => (
+      <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
+        Loading king-height distributions…
+      </div>
+    ),
+  },
+);
 
 const PIECE_META: Record<MaterialPieceType, { label: string; icon: LucideIcon }> = {
   pawn: { label: "Pawn", icon: ChessPawn },
@@ -39,7 +53,7 @@ const PIECE_META: Record<MaterialPieceType, { label: string; icon: LucideIcon }>
 };
 
 const INSIGHTS: Array<{
-  id: MaterialInsight;
+  id: PlayerInsight;
   label: string;
   description: string;
 }> = [
@@ -52,6 +66,11 @@ const INSIGHTS: Array<{
     id: "net-material-per-game",
     label: "Net Material per Game",
     description: "Lifetime net material divided by each player’s analyzed games.",
+  },
+  {
+    id: "average-king-height",
+    label: "Average King Height",
+    description: "The furthest rank each king reaches, measured from its own back rank.",
   },
 ];
 
@@ -229,26 +248,35 @@ function LeaderboardRow({
   );
 }
 
-export default function PlayerInsightsPageClient({ data }: { data: MaterialInsightsData }) {
+export default function PlayerInsightsPageClient({
+  data,
+  kingHeightData,
+}: {
+  data: MaterialInsightsData;
+  kingHeightData?: KingHeightInsightsData;
+}) {
   const preset = usePieceValuePreset();
-  const [insight, setInsight] = useState<MaterialInsight>("net-material");
+  const [insight, setInsight] = useState<PlayerInsight>("net-material");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [sortKey, setSortKey] = useState<MaterialSortKey>("net");
   const [direction, setDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(25);
+  const materialInsight: MaterialInsight = insight === "average-king-height"
+    ? "net-material"
+    : insight;
 
   const leaderboard = useMemo(() => buildMaterialLeaderboard({
     data,
     preset,
-    insight,
+    insight: materialInsight,
     query: deferredQuery,
     sortKey,
     direction,
     page,
     pageSize,
-  }), [data, deferredQuery, direction, insight, page, pageSize, preset, sortKey]);
+  }), [data, deferredQuery, direction, materialInsight, page, pageSize, preset, sortKey]);
 
   const handleSort = (nextSortKey: MaterialSortKey) => {
     if (nextSortKey === sortKey) {
@@ -271,29 +299,31 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
 
   return (
     <main className="h-full overflow-y-auto bg-slate-950 text-slate-100">
-      <div className="mx-auto flex min-h-full w-full max-w-[1680px] flex-col px-3 py-5 sm:px-5 md:px-7 lg:px-10 lg:py-8">
-        <header className="border-b border-slate-800/90 pb-6 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:pb-8">
+      <div className="mx-auto flex min-h-full w-full max-w-[1680px] flex-col px-3 py-3 sm:px-5 sm:py-5 md:px-7 lg:px-10 lg:py-8">
+        <header className="border-b border-slate-800/90 pb-4 sm:pb-6 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:pb-8">
           <div className="max-w-3xl">
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.28em] text-mariner-400 sm:text-xs">
               Permanent cohort<span className="hidden sm:inline"> · lifetime ledger</span>
             </p>
-            <h1 className="mt-2 font-serif text-3xl font-semibold tracking-[-0.025em] text-white sm:text-4xl lg:text-5xl">
+            <h1 className="mt-1.5 font-serif text-3xl font-semibold tracking-[-0.025em] text-white sm:mt-2 sm:text-4xl lg:text-5xl">
               Player Insights
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
-              Compare capture material across every tracked player and every eligible game in the archive.
+            <p className="mt-3 hidden max-w-2xl text-sm leading-6 text-slate-400 sm:block sm:text-base">
+              Compare playful lifetime patterns across every permanently tracked player in the archive.
             </p>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] text-slate-400 lg:mt-0 lg:justify-end">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-slate-400 sm:mt-5 sm:gap-x-5 sm:gap-y-2 lg:mt-0 lg:justify-end">
             <span>{integerFormatter.format(data.dataset.trackedPlayers)} permanently tracked players</span>
             <span>{integerFormatter.format(data.dataset.analyzedGames)} games analyzed</span>
-            <span className="text-mariner-300">
-              {preset === "bughouse" ? "Bughouse" : "Standard"} values
-            </span>
+            {insight === "average-king-height" ? null : (
+              <span className="text-mariner-300">
+                {preset === "bughouse" ? "Bughouse" : "Standard"} values
+              </span>
+            )}
           </div>
         </header>
 
-        <nav aria-label="Player Insights" className="flex gap-2 overflow-x-auto py-5 lg:py-6">
+        <nav aria-label="Player Insights" className="flex flex-wrap gap-1.5 py-3 sm:gap-2 sm:py-5 lg:py-6">
           {INSIGHTS.map((item) => {
             const active = item.id === insight;
             return (
@@ -305,7 +335,7 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
                   setInsight(item.id);
                   setPage(1);
                 }}
-                className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/70 ${
+                className={`min-h-11 rounded-full border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/70 sm:px-4 ${
                   active
                     ? "border-mariner-400/70 bg-mariner-400/10 text-mariner-100"
                     : "border-slate-700 bg-slate-900/70 text-slate-400 hover:border-slate-600 hover:text-slate-200"
@@ -317,6 +347,11 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
           })}
         </nav>
 
+        {insight === "average-king-height" ? (
+          kingHeightData
+            ? <KingHeightInsight data={kingHeightData} />
+            : <LazyKingHeightInsight />
+        ) : (
         <section aria-labelledby="leaderboard-title" className="flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 shadow-[0_24px_80px_rgba(2,6,23,0.34)]">
           <div className="border-b border-slate-800 px-3 py-4 sm:px-5 lg:flex lg:items-end lg:justify-between lg:gap-6 lg:px-6 lg:py-5">
             <div>
@@ -403,7 +438,7 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
                         sortKey === "net" ? "text-mariner-300" : "text-slate-500"
                       }`}
                     >
-                      {insight === "net-material" ? "Net" : "Per game"}
+                      {materialInsight === "net-material" ? "Net" : "Per game"}
                       <SortIndicator active={sortKey === "net"} direction={direction} />
                     </button>
                   </th>
@@ -454,7 +489,7 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
               </thead>
               <tbody className="block lg:table-row-group">
                 {leaderboard.rows.map((row) => (
-                  <LeaderboardRow key={row.username} row={row} insight={insight} />
+                  <LeaderboardRow key={row.username} row={row} insight={materialInsight} />
                 ))}
                 {leaderboard.rows.length === 0 ? (
                   <tr className="block lg:table-row">
@@ -512,6 +547,7 @@ export default function PlayerInsightsPageClient({ data }: { data: MaterialInsig
             </div>
           </footer>
         </section>
+        )}
       </div>
     </main>
   );

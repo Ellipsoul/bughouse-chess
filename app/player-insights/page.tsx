@@ -6,7 +6,7 @@ import playerMaterialInsights from "@/app/data/player-material-insights.json";
 
 export const metadata: Metadata = {
   title: "Player Insights",
-  description: "Search and compare lifetime material results across tracked Bughouse players.",
+  description: "Search and compare lifetime insights across tracked Bughouse players.",
 };
 
 const staticInsights = playerMaterialInsights as unknown as MaterialInsightsData;

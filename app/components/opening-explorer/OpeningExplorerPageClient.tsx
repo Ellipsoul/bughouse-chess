@@ -15,7 +15,7 @@
  * - Cached forward steps update local path/state without a network round-trip
  * - Missing children count as frontier stalls and trigger a foreground refill
  * - Idle prefetch refills truncated frontiers opportunistically
- * - Support-one leaves become Chess.com source links; keyboard nav stops there
+ * - Support-one leaves open in the Relay analysis board; keyboard nav stops there
  * - Actual endings render as an unclickable `-` row
  */
 
@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, ChevronsUpDown, Database, Loader2, Search } from "lucide-react";
 import type { Square } from "chess.js";
+import { buildBughouseAnalysisUrl } from "@/app/utils/discovery/bughouseAnalysisUrl";
 import ChessBoard from "../board/ChessBoard";
 import { OpeningExplorerApi, OpeningExplorerApiError } from "./api";
 import { replayOpeningPrefix } from "./boardState";
@@ -243,11 +244,11 @@ function SourceGameRow({
   return (
     <a
       ref={register}
-      href={game.url}
+      href={buildBughouseAnalysisUrl(game.url)}
       target="_blank"
       rel="noreferrer noopener"
       aria-current={selected ? "true" : undefined}
-      aria-label={`${accessiblePrefix}, ${game.white_username}, ${gameResultLabel(game)}, ${game.black_username}; open game on Chess.com`}
+      aria-label={`${accessiblePrefix}, ${game.white_username}, ${gameResultLabel(game)}, ${game.black_username}; open in Bughouse analysis`}
       onFocus={onSelect}
       onMouseEnter={onSelect}
       className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors hover:bg-slate-700 ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-cyan-400/70 bg-slate-800"}`}

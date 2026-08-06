@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/app/components/player-insights/PlayerInsightsPageClient", () => ({
   default: ({ data }: { data: { dataset: { trackedPlayers: number; version: string } } }) => (
     <div>
-      static insights: {data.dataset.trackedPlayers} / {data.dataset.version}
+      static material: {data.dataset.trackedPlayers} / {data.dataset.version}
     </div>
   ),
 }));
@@ -18,8 +18,8 @@ describe("player insights route", () => {
 
     render(<PlayerInsightsPage />);
 
-    expect(screen.getByText(/static insights: 1013/)).toHaveTextContent(
-      "2b0f44c2a04fe721accfda7e98e35f56741e7dce",
+    expect(screen.getByText(/static material: 1013/)).toHaveTextContent(
+      "30f02b1e7ef82f5c372f393c405309239c1499af",
     );
     expect(metadata.title).toBe("Player Insights");
   });
