@@ -153,7 +153,7 @@ chess.com).
   does not share viewer replay, analysis, move-tree, or URL state.
 - **Player Insights**: `app/player-insights/page.tsx`,
   `app/components/player-insights/`, and the checked static projection at
-  `app/data/player-material-insights.json`. This route has no runtime data API.
+  `app/data/player-*-insights.json`. This route has no runtime data API.
 
 - **Core bughouse rules / move application**: `app/utils/analysis/applyMove.ts`
 - **Analysis tree + navigation + promotions/variations**:
@@ -277,14 +277,36 @@ expand naturally. Small mobile layouts hide both explanatory paragraphs and
 use tighter header, navigation, search, sort, and filter spacing so the first
 player arrives earlier.
 
+The fourth chip, **Piece Drop Heat Maps**, shows where each player places
+reserve pawns, knights, bishops, rooks, and queens. **Combined** reflects only
+Black's ranks so both colours advance upward from their own back rank while the
+`a` through `h` files retain their chess meaning. **White** and **Black** expose
+their exact, unnormalized source-square distributions and use their
+colour-specific analyzed game counts. Both single-colour modes are drawn from
+White's perspective, with rank 8 at the top.
+
+With no selection, five players appear per page in decreasing active-mode game
+order, with five compact boards in one row. Search filters the browse list. A
+searchable multi-select with removable chips promotes any number of players
+into a piecewise comparison: piece types form columns and chosen players stack
+top-to-bottom within each column. The comparison becomes an internal horizontal
+scroller on narrow screens, so the page itself stays viewport-width. Every
+occupied square shows both its count and its percentage of that player's drops
+of the active piece, with the same exact values in accessible labels and hover
+text. Boards have a 252-pixel minimum width, grow evenly to use wider screens,
+and scroll horizontally when the container is narrower than the five-board
+strip. Secondary orientation copy is hidden on mobile to keep the filters
+compact.
+
 The route imports `app/data/player-material-insights.json` at build time. The
 current 1,013-player file is 194,309 bytes uncompressed and approximately 54 KB
-with gzip. The 791,817-byte king-height projection is statically imported only
-inside the lazy-loaded third insight, so it is not part of the initial material
-view. The browser needs no SQLite reader, runtime database, route handler, or
-opening-explorer service request. Material rows use a full desktop table and
-compact five-piece ledgers on smaller screens; king height uses a purpose-built
-responsive card chart.
+with gzip. The 791,817-byte king-height projection and 1,822,069-byte drop
+projection are statically imported only inside their lazy-loaded insights; the
+drop file is 573,871 bytes with `gzip -9`. Neither is part of the initial
+material view. The browser needs no SQLite reader, runtime database, route
+handler, or opening-explorer service request. Material rows use a full desktop
+table and compact five-piece ledgers on smaller screens; king height uses a
+purpose-built responsive card chart; drop maps use semantic CSS checkerboards.
 
 The source of truth remains the checked material-insights SQLite artifact in the
 sibling `bughouse-opening-explorer` repository. After building and validating a
@@ -301,6 +323,12 @@ with its recorded checksum:
 .venv/bin/python scripts/export_king_height_insights.py \
   artifacts/insights/<snapshot>/player-insights.db \
   ../bughouse/bughouse-chess/app/data/player-king-height-insights.json \
+  --database-sha256 <player-insights-db-sha256> \
+  --replace
+
+.venv/bin/python scripts/export_drop_heatmap_insights.py \
+  artifacts/insights/<snapshot>/player-insights.db \
+  ../bughouse/bughouse-chess/app/data/player-drop-heatmap-insights.json \
   --database-sha256 <player-insights-db-sha256> \
   --replace
 ```

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PlayerInsightsPageClient from "@/app/components/player-insights/PlayerInsightsPageClient";
+import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
 import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
 import type { MaterialInsightsData } from "@/app/components/player-insights/leaderboard";
 
@@ -78,6 +79,36 @@ const kingHeightFixture: KingHeightInsightsData = {
       ? [0, 0, 0, 0, 0, 0, 0, 0]
       : [player.analyzedGames, 0, 0, 0, 0, 0, 0, 0],
     heightEightGames: [],
+  })),
+};
+
+const dropHeatmapFixture: DropHeatmapInsightsData = {
+  schemaVersion: 1,
+  dataset: {
+    version: "dataset-1",
+    sourceSnapshotSha256: "a".repeat(64),
+    adapterPolicy: "adapter-v1",
+    dropHeatmapAnalyzerVersion: "drop-v1",
+    cohortPolicy: "cohort-v1",
+    acceptedGames: 3,
+    analyzedGames: 3,
+    replayExcludedGames: 0,
+    trackedPlayers: 3,
+  },
+  pieceOrder: ["pawn", "knight", "bishop", "rook", "queen"],
+  squareOrder: Array.from(
+    { length: 64 },
+    (_, index) => `${"abcdefgh"[index % 8]}${Math.floor(index / 8) + 1}`,
+  ),
+  players: fixture.players.map((player) => ({
+    username: player.username,
+    displayName: player.displayName,
+    analyzedGames: player.analyzedGames,
+    analyzedGamesByColor: [player.analyzedGames, 0],
+    dropsByColor: [
+      Array.from({ length: 5 }, () => Array.from({ length: 64 }, () => 0)),
+      Array.from({ length: 5 }, () => Array.from({ length: 64 }, () => 0)),
+    ],
   })),
 };
 
@@ -186,6 +217,25 @@ describe("PlayerInsightsPageClient", () => {
       "true",
     );
     expect(screen.queryByText("Measured from each back rank")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Player material leaderboard" })).not.toBeInTheDocument();
+  });
+
+  it("switches to the feature-owned Piece Drop Heat Maps renderer", async () => {
+    render(
+      <PlayerInsightsPageClient
+        data={fixture}
+        kingHeightData={kingHeightFixture}
+        dropHeatmapData={dropHeatmapFixture}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Piece Drop Heat Maps" }));
+
+    expect(await screen.findByRole("heading", { name: "Piece Drop Heat Maps" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Combined drops" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.queryByRole("table", { name: "Player material leaderboard" })).not.toBeInTheDocument();
   });
 });

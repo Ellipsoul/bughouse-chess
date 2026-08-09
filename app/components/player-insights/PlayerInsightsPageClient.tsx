@@ -18,6 +18,7 @@ import dynamic from "next/dynamic";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset";
+import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
 import KingHeightInsight from "@/app/components/player-insights/KingHeightInsight";
 import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
 import {
@@ -32,13 +33,33 @@ import {
 } from "@/app/components/player-insights/leaderboard";
 
 const PAGE_SIZES = [25, 50, 100] as const;
-type PlayerInsight = MaterialInsight | "average-king-height";
+type PlayerInsight = MaterialInsight | "average-king-height" | "piece-drop-heatmaps";
 const LazyKingHeightInsight = dynamic(
   () => import("@/app/components/player-insights/KingHeightInsightData"),
   {
     loading: () => (
       <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
         Loading king-height distributions…
+      </div>
+    ),
+  },
+);
+const LazyDropHeatmapInsight = dynamic(
+  () => import("@/app/components/player-insights/DropHeatmapInsight"),
+  {
+    loading: () => (
+      <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
+        Loading piece-drop heat maps…
+      </div>
+    ),
+  },
+);
+const LazyDropHeatmapInsightData = dynamic(
+  () => import("@/app/components/player-insights/DropHeatmapInsightData"),
+  {
+    loading: () => (
+      <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
+        Loading piece-drop heat maps…
       </div>
     ),
   },
@@ -71,6 +92,11 @@ const INSIGHTS: Array<{
     id: "average-king-height",
     label: "Average King Height",
     description: "The furthest rank each king reaches, measured from its own back rank.",
+  },
+  {
+    id: "piece-drop-heatmaps",
+    label: "Piece Drop Heat Maps",
+    description: "Where players place each reserve piece, split by colour or direction-normalized.",
   },
 ];
 
@@ -251,9 +277,11 @@ function LeaderboardRow({
 export default function PlayerInsightsPageClient({
   data,
   kingHeightData,
+  dropHeatmapData,
 }: {
   data: MaterialInsightsData;
   kingHeightData?: KingHeightInsightsData;
+  dropHeatmapData?: DropHeatmapInsightsData;
 }) {
   const preset = usePieceValuePreset();
   const [insight, setInsight] = useState<PlayerInsight>("net-material");
@@ -263,9 +291,9 @@ export default function PlayerInsightsPageClient({
   const [direction, setDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(25);
-  const materialInsight: MaterialInsight = insight === "average-king-height"
-    ? "net-material"
-    : insight;
+  const materialInsight: MaterialInsight = insight === "net-material-per-game"
+    ? "net-material-per-game"
+    : "net-material";
 
   const leaderboard = useMemo(() => buildMaterialLeaderboard({
     data,
@@ -315,7 +343,7 @@ export default function PlayerInsightsPageClient({
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-slate-400 sm:mt-5 sm:gap-x-5 sm:gap-y-2 lg:mt-0 lg:justify-end">
             <span>{integerFormatter.format(data.dataset.trackedPlayers)} permanently tracked players</span>
             <span>{integerFormatter.format(data.dataset.analyzedGames)} games analyzed</span>
-            {insight === "average-king-height" ? null : (
+            {insight === "average-king-height" || insight === "piece-drop-heatmaps" ? null : (
               <span className="text-mariner-300">
                 {preset === "bughouse" ? "Bughouse" : "Standard"} values
               </span>
@@ -347,7 +375,11 @@ export default function PlayerInsightsPageClient({
           })}
         </nav>
 
-        {insight === "average-king-height" ? (
+        {insight === "piece-drop-heatmaps" ? (
+          dropHeatmapData
+            ? <LazyDropHeatmapInsight data={dropHeatmapData} />
+            : <LazyDropHeatmapInsightData />
+        ) : insight === "average-king-height" ? (
           kingHeightData
             ? <KingHeightInsight data={kingHeightData} />
             : <LazyKingHeightInsight />
