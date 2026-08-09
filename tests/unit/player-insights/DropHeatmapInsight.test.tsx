@@ -50,21 +50,45 @@ const fixture: DropHeatmapInsightsData = {
 };
 
 describe("Piece Drop Heat Maps insight", () => {
+  it("shows one permanent-cohort aggregate until a player is selected", () => {
+    render(<DropHeatmapInsight data={fixture} />);
+
+    const rows = screen.getAllByRole("article");
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText("All tracked players")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("12 games")).toBeInTheDocument();
+    expect(within(rows[0]).getAllByRole("grid")).toHaveLength(5);
+    const knightBoard = within(rows[0]).getByRole("grid", {
+      name: "All tracked players Knight drop heat map",
+    });
+    expect(within(knightBoard).getByRole("gridcell", {
+      name: "a1: 5 drops, 83.33%",
+    })).toBeInTheDocument();
+    expect(screen.queryByText("Alice")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Drop heat-map players per page")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Next drop heat-map page")).not.toBeInTheDocument();
+  });
+
   it("switches color channels and builds a top-down multi-player comparison", () => {
     render(<DropHeatmapInsight data={fixture} />);
 
     expect(screen.getByRole("heading", { name: "Piece Drop Heat Maps" })).toBeInTheDocument();
-    const alice = screen.getAllByRole("article")[0];
-    expect(within(alice).getByText("10 games")).toBeInTheDocument();
-    expect(within(alice).getAllByRole("grid")).toHaveLength(5);
-    const knightBoard = within(alice).getByRole("grid", { name: "Alice Knight drop heat map" });
-    expect(within(knightBoard).getByRole("gridcell", { name: "a1: 5 drops, 83.33%" })).toBeInTheDocument();
-    expect(within(knightBoard).getByRole("gridcell", { name: "b1: 1 drop, 16.67%" })).toBeInTheDocument();
+    const allGames = screen.getByRole("article");
+    expect(within(allGames).getByText("12 games")).toBeInTheDocument();
+    expect(within(allGames).getAllByRole("grid")).toHaveLength(5);
+    const knightBoard = within(allGames).getByRole("grid", {
+      name: "All tracked players Knight drop heat map",
+    });
+    expect(within(knightBoard).getByRole("gridcell", {
+      name: "a1: 5 drops, 83.33%",
+    })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Black drops" }));
-    const blackAlice = screen.getAllByRole("article")[0];
-    expect(within(blackAlice).getByText("5 games")).toBeInTheDocument();
-    const blackKnightBoard = within(blackAlice).getByRole("grid", { name: "Alice Knight drop heat map" });
+    const blackAllGames = screen.getByRole("article");
+    expect(within(blackAllGames).getByText("12 games")).toBeInTheDocument();
+    const blackKnightBoard = within(blackAllGames).getByRole("grid", {
+      name: "All tracked players Knight drop heat map",
+    });
     expect(within(blackKnightBoard).getByRole("gridcell", { name: "a8: 2 drops, 100%" })).toBeInTheDocument();
     expect(within(blackKnightBoard).getAllByRole("gridcell")[0]).toHaveAccessibleName(
       "a8: 2 drops, 100%",
@@ -95,18 +119,31 @@ describe("Piece Drop Heat Maps insight", () => {
       "aria-pressed",
       "true",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Bob from comparison" }));
+    expect(within(screen.getByRole("article")).getByText(
+      "All tracked players",
+    )).toBeInTheDocument();
   });
 
-  it("filters the browse list while searching for players to add", () => {
+  it("keeps the permanent-cohort row visible while searching, then enters comparison", () => {
     render(<DropHeatmapInsight data={fixture} />);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Add players to comparison" }), {
       target: { value: "bob" },
     });
-    const rows = screen.getAllByRole("article");
-    expect(rows).toHaveLength(1);
-    expect(within(rows[0]).getByText("Bob")).toBeInTheDocument();
-    expect(screen.queryByText("Alice")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("article")).getByText("All tracked players")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Bob/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Alice/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("option", { name: /Bob/ }));
+    const comparison = screen.getByRole("region", {
+      name: "Selected player drop comparison",
+    });
+    expect(within(comparison).getAllByRole("grid", {
+      name: "Bob Pawn drop heat map",
+    })).toHaveLength(1);
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
   it("adds the highlighted suggestion with ArrowDown and Enter", () => {

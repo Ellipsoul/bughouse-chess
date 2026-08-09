@@ -281,17 +281,19 @@ The fourth chip, **Piece Drop Heat Maps**, shows where each player places
 reserve pawns, knights, bishops, rooks, and queens. **Combined** reflects only
 Black's ranks so both colours advance upward from their own back rank while the
 `a` through `h` files retain their chess meaning. **White** and **Black** expose
-their exact, unnormalized source-square distributions and use their
-colour-specific analyzed game counts. Both single-colour modes are drawn from
-White's perspective, with rank 8 at the top.
+their exact, unnormalized source-square distributions. Individual-player
+comparisons use colour-specific analyzed game counts. Both single-colour modes
+are drawn from White's perspective, with rank 8 at the top.
 
-With no selection, five players appear per page in decreasing active-mode game
-order, with five compact boards in one row. Search filters the browse list. A
-searchable multi-select with removable chips promotes any number of players
-into a piecewise comparison: piece types form columns and chosen players stack
+With no selection, one **All tracked players** row sums the existing permanent
+cohort colour channels by piece and square, with five compact boards in one
+row. Its header uses the dataset-level analyzed-game count rather than summing
+player counts. A searchable multi-select with removable chips replaces that
+aggregate with a
+piecewise player comparison: piece types form columns and chosen players stack
 top-to-bottom within each column. The comparison becomes an internal horizontal
 scroller on narrow screens, so the page itself stays viewport-width. Every
-occupied square shows both its count and its percentage of that player's drops
+occupied square shows both its count and its percentage of that row's drops
 of the active piece, with the same exact values in accessible labels and hover
 text. Boards have a 252-pixel minimum width, grow evenly to use wider screens,
 and scroll horizontally when the container is narrower than the five-board

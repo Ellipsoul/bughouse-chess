@@ -25,7 +25,7 @@ export interface DropHeatmapInsightsData {
   }>;
 }
 
-export interface DropHeatmapLeaderboardRow {
+export interface DropHeatmapRow {
   username: string;
   displayName: string;
   analyzedGames: number;
@@ -42,7 +42,7 @@ function reflectedRankIndex(squareIndex: number): number {
 export function deriveDropHeatmapRow(
   player: DropHeatmapInsightsData["players"][number],
   colorMode: DropColorMode,
-): DropHeatmapLeaderboardRow {
+): DropHeatmapRow {
   const drops = colorMode === "white"
     ? player.dropsByColor[0]
     : colorMode === "black"
@@ -76,48 +76,35 @@ export function deriveDropHeatmapRow(
   };
 }
 
-export interface DropHeatmapLeaderboardPage {
-  rows: DropHeatmapLeaderboardRow[];
-  page: number;
-  pageSize: number;
-  totalRows: number;
-  totalPages: number;
-}
+export function deriveTrackedCohortDropHeatmapRow(
+  data: DropHeatmapInsightsData,
+  colorMode: DropColorMode,
+): DropHeatmapRow {
+  const emptyColor = () => data.pieceOrder.map(() => (
+    data.squareOrder.map(() => 0)
+  ));
+  const dropsByColor: [number[][], number[][]] = [emptyColor(), emptyColor()];
 
-export function buildDropHeatmapLeaderboard({
-  data,
-  query,
-  colorMode,
-  page,
-  pageSize,
-}: {
-  data: DropHeatmapInsightsData;
-  query: string;
-  colorMode: DropColorMode;
-  page: number;
-  pageSize: number;
-}): DropHeatmapLeaderboardPage {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const rows = data.players
-    .filter((player) => (
-      normalizedQuery.length === 0
-      || player.username.toLocaleLowerCase().includes(normalizedQuery)
-      || player.displayName.toLocaleLowerCase().includes(normalizedQuery)
-    ))
-    .map((player) => deriveDropHeatmapRow(player, colorMode))
-    .sort((left, right) => (
-      right.representedGames - left.representedGames
-      || left.username.localeCompare(right.username)
-    ));
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const currentPage = Math.min(Math.max(1, page), totalPages);
-  const pageStart = (currentPage - 1) * pageSize;
+  for (const player of data.players) {
+    for (let colorIndex = 0; colorIndex < dropsByColor.length; colorIndex += 1) {
+      for (let pieceIndex = 0; pieceIndex < data.pieceOrder.length; pieceIndex += 1) {
+        for (let squareIndex = 0; squareIndex < data.squareOrder.length; squareIndex += 1) {
+          dropsByColor[colorIndex][pieceIndex][squareIndex] += (
+            player.dropsByColor[colorIndex][pieceIndex][squareIndex]
+          );
+        }
+      }
+    }
+  }
 
-  return {
-    rows: rows.slice(pageStart, pageStart + pageSize),
-    page: currentPage,
-    pageSize,
-    totalRows: rows.length,
-    totalPages,
-  };
+  return deriveDropHeatmapRow({
+    username: "all-tracked-players",
+    displayName: "All tracked players",
+    analyzedGames: data.dataset.analyzedGames,
+    analyzedGamesByColor: [
+      data.dataset.analyzedGames,
+      data.dataset.analyzedGames,
+    ],
+    dropsByColor,
+  }, colorMode);
 }

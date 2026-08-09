@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildDropHeatmapLeaderboard,
+  deriveDropHeatmapRow,
+  deriveTrackedCohortDropHeatmapRow,
   type DropHeatmapInsightsData,
 } from "@/app/components/player-insights/dropHeatmaps";
 
@@ -42,8 +43,8 @@ const fixture: DropHeatmapInsightsData = {
       analyzedGames: 2,
       analyzedGamesByColor: [1, 1],
       dropsByColor: [
-        [emptySquares(), emptySquares(), emptySquares(), emptySquares(), emptySquares()],
-        [emptySquares(), emptySquares(), emptySquares(), emptySquares(), emptySquares()],
+        [emptySquares(), [0, 4, ...emptySquares().slice(2)], emptySquares(), emptySquares(), emptySquares()],
+        [emptySquares(), [...emptySquares().slice(0, 56), 1, ...emptySquares().slice(57)], emptySquares(), emptySquares(), emptySquares()],
       ],
     },
     {
@@ -59,54 +60,36 @@ const fixture: DropHeatmapInsightsData = {
   ],
 };
 
-describe("piece drop heat-map leaderboard", () => {
-  it("sorts by analyzed games and derives per-piece square proportions", () => {
-    const leaderboard = buildDropHeatmapLeaderboard({
-      data: fixture,
-      query: "",
-      colorMode: "combined",
-      page: 1,
-      pageSize: 25,
-    });
+describe("piece drop heat-map rows", () => {
+  it("sums permanent-cohort drops but keeps the dataset game denominator", () => {
+    const combined = deriveTrackedCohortDropHeatmapRow(fixture, "combined");
+    const black = deriveTrackedCohortDropHeatmapRow(fixture, "black");
 
-    expect(leaderboard.rows.map(({ username }) => username)).toEqual([
-      "alice",
-      "carol",
-      "bob",
-    ]);
-    expect(leaderboard.rows[0].representedGames).toBe(10);
-    expect(leaderboard.rows[0].pieceTotals).toEqual([0, 6, 0, 0, 0]);
-    expect(leaderboard.rows[0].probabilities[1].slice(0, 3)).toEqual([5 / 6, 1 / 6, 0]);
-    expect(leaderboard.rows[1].probabilities[4]).toEqual(emptySquares());
+    expect(combined.displayName).toBe("All tracked players");
+    expect(combined.representedGames).toBe(12);
+    expect(combined.pieceTotals).toEqual([0, 11, 0, 0, 0]);
+    expect(combined.drops[1].slice(0, 2)).toEqual([6, 5]);
+    expect(combined.probabilities[1].slice(0, 2)).toEqual([6 / 11, 5 / 11]);
+    expect(black.representedGames).toBe(12);
+    expect(black.drops[1][56]).toBe(3);
   });
 
-  it("switches to exact White or Black channels and sorts by that channel's games", () => {
-    const white = buildDropHeatmapLeaderboard({
-      data: fixture,
-      query: "",
-      colorMode: "white",
-      page: 1,
-      pageSize: 25,
-    });
-    const black = buildDropHeatmapLeaderboard({
-      data: fixture,
-      query: "",
-      colorMode: "black",
-      page: 1,
-      pageSize: 25,
-    });
+  it("derives combined per-piece square proportions", () => {
+    const row = deriveDropHeatmapRow(fixture.players[0], "combined");
 
-    expect(white.rows.map(({ username, representedGames }) => [username, representedGames])).toEqual([
-      ["alice", 6],
-      ["carol", 4],
-      ["bob", 1],
-    ]);
-    expect(white.rows[0].pieceTotals[1]).toBe(4);
-    expect(black.rows.map(({ username, representedGames }) => [username, representedGames])).toEqual([
-      ["carol", 6],
-      ["alice", 5],
-      ["bob", 1],
-    ]);
-    expect(black.rows[1].drops[1][56]).toBe(2);
+    expect(row.representedGames).toBe(10);
+    expect(row.pieceTotals).toEqual([0, 6, 0, 0, 0]);
+    expect(row.probabilities[1].slice(0, 3)).toEqual([5 / 6, 1 / 6, 0]);
+    expect(row.probabilities[4]).toEqual(emptySquares());
+  });
+
+  it("switches to exact White or Black channels", () => {
+    const white = deriveDropHeatmapRow(fixture.players[0], "white");
+    const black = deriveDropHeatmapRow(fixture.players[0], "black");
+
+    expect(white.representedGames).toBe(6);
+    expect(white.pieceTotals[1]).toBe(4);
+    expect(black.representedGames).toBe(5);
+    expect(black.drops[1][56]).toBe(2);
   });
 });

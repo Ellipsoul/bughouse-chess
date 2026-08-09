@@ -6,24 +6,21 @@ import {
   ChessPawn,
   ChessQueen,
   ChessRook,
-  ChevronLeft,
-  ChevronRight,
   Search,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { memo, useDeferredValue, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import {
-  buildDropHeatmapLeaderboard,
   deriveDropHeatmapRow,
+  deriveTrackedCohortDropHeatmapRow,
   type DropColorMode,
   type DropHeatmapInsightsData,
-  type DropHeatmapLeaderboardRow,
+  type DropHeatmapRow,
   type DropPieceType,
 } from "@/app/components/player-insights/dropHeatmaps";
 
-const PAGE_SIZES = [5, 10, 25] as const;
 const WHITE_BOARD_INDEX_ORDER = Array.from(
   { length: 64 },
   (_, index) => (7 - Math.floor(index / 8)) * 8 + (index % 8),
@@ -95,7 +92,7 @@ const DropBoard = memo(function DropBoard({
   squareOrder,
   showHeader = true,
 }: {
-  row: DropHeatmapLeaderboardRow;
+  row: DropHeatmapRow;
   pieceType: DropPieceType;
   pieceIndex: number;
   squareOrder: string[];
@@ -199,22 +196,15 @@ function ColorModeControl({
 
 export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsightsData }) {
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query);
   const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1);
   const [colorMode, setColorMode] = useState<DropColorMode>("combined");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(5);
   const playerByUsername = useMemo(() => new Map(
     data.players.map((player) => [player.username, player]),
   ), [data.players]);
-  const leaderboard = useMemo(() => buildDropHeatmapLeaderboard({
-    data,
-    query: deferredQuery,
-    colorMode,
-    page,
-    pageSize,
-  }), [colorMode, data, deferredQuery, page, pageSize]);
+  const cohortRow = useMemo(() => (
+    deriveTrackedCohortDropHeatmapRow(data, colorMode)
+  ), [colorMode, data]);
   const selectedRows = useMemo(() => selectedUsernames.flatMap((username) => {
     const player = playerByUsername.get(username);
     return player ? [deriveDropHeatmapRow(player, colorMode)] : [];
@@ -238,16 +228,8 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
       ))
       .slice(0, 8);
   }, [colorMode, data.players, query, selectedUsernames]);
-  const firstVisible = leaderboard.totalRows === 0
-    ? 0
-    : (leaderboard.page - 1) * leaderboard.pageSize + 1;
-  const lastVisible = Math.min(
-    leaderboard.page * leaderboard.pageSize,
-    leaderboard.totalRows,
-  );
   const changeColorMode = (mode: DropColorMode) => {
     setColorMode(mode);
-    setPage(1);
   };
   const selectPlayer = (username: string) => {
     setSelectedUsernames((current) => [...current, username]);
@@ -263,7 +245,7 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
             Piece Drop Heat Maps
           </h2>
           <p className="mt-1 hidden text-xs leading-5 text-slate-500 sm:block sm:text-sm">
-            See where your pieces are landing.
+            Explore the permanent cohort, then compare individual players.
           </p>
         </div>
         <div className="relative mt-3 sm:mt-4 lg:mt-0">
@@ -287,7 +269,6 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
               onChange={(event) => {
                 setQuery(event.target.value);
                 setHighlightedSuggestionIndex(-1);
-                setPage(1);
               }}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown" && suggestions.length > 0) {
@@ -377,11 +358,7 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
               </button>
             ) : null}
           </div>
-        ) : (
-          <span className="ml-auto hidden font-mono text-[10px] uppercase tracking-[0.14em] text-slate-600 sm:block">
-            Most games first
-          </span>
-        )}
+        ) : null}
       </div>
 
       {selectedRows.length > 0 ? (
@@ -423,83 +400,31 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
           </div>
         </div>
       ) : (
-        <>
-          <div className="flex-1">
-            {leaderboard.rows.map((row) => (
-              <article key={row.username} className="border-b border-slate-800 px-2 py-3 last:border-b-0 [contain-intrinsic-size:330px] [content-visibility:auto]">
-                <div className="mb-2 flex min-w-0 items-baseline justify-between gap-3 px-1">
-                  <div className="truncate text-sm font-semibold text-slate-100 sm:text-base">
-                    {row.displayName}
-                  </div>
-                  <div className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
-                    {integerFormatter.format(row.representedGames)} games
-                  </div>
-                </div>
-                <div className="min-w-0 overflow-x-auto pb-1 [scrollbar-color:rgb(51_65_85)_transparent]">
-                  <div className="grid w-full min-w-319 grid-cols-5 gap-1 pr-1">
-                    {data.pieceOrder.map((pieceType, pieceIndex) => (
-                      <DropBoard
-                        key={pieceType}
-                        row={row}
-                        pieceType={pieceType}
-                        pieceIndex={pieceIndex}
-                        squareOrder={data.squareOrder}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </article>
-            ))}
-            {leaderboard.rows.length === 0 ? (
-              <p className="px-5 py-16 text-center text-sm text-slate-500">
-                No tracked players match “{deferredQuery.trim()}”.
-              </p>
-            ) : null}
-          </div>
-
-          <footer className="flex flex-col gap-3 border-t border-slate-800 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex items-center gap-3">
-              <span>{firstVisible}–{lastVisible} of {integerFormatter.format(leaderboard.totalRows)}</span>
-              <label className="inline-flex items-center gap-2">
-                <span>Players</span>
-                <select
-                  aria-label="Drop heat-map players per page"
-                  value={pageSize}
-                  onChange={(event) => {
-                    setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number]);
-                    setPage(1);
-                  }}
-                  className="h-9 rounded-lg border border-slate-700 bg-slate-950 px-2 text-xs text-slate-300 outline-none focus:border-mariner-500"
-                >
-                  {PAGE_SIZES.map((size) => <option key={size}>{size}</option>)}
-                </select>
-              </label>
+        <div className="flex-1">
+          <article className="px-2 py-3 sm:px-3 sm:py-4">
+            <div className="mb-2 flex min-w-0 items-baseline justify-between gap-3 px-1">
+              <div className="truncate text-sm font-semibold text-slate-100 sm:text-base">
+                {cohortRow.displayName}
+              </div>
+              <div className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
+                {integerFormatter.format(cohortRow.representedGames)} games
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <button
-                type="button"
-                aria-label="Previous drop heat-map page"
-                disabled={leaderboard.page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="grid h-11 w-11 place-items-center rounded-xl border border-slate-700 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 disabled:opacity-35"
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <span className="min-w-24 text-center font-mono text-[11px] text-slate-400">
-                Page {leaderboard.page} of {leaderboard.totalPages}
-              </span>
-              <button
-                type="button"
-                aria-label="Next drop heat-map page"
-                disabled={leaderboard.page >= leaderboard.totalPages}
-                onClick={() => setPage((current) => Math.min(leaderboard.totalPages, current + 1))}
-                className="grid h-11 w-11 place-items-center rounded-xl border border-slate-700 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 disabled:opacity-35"
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              </button>
+            <div className="min-w-0 overflow-x-auto pb-1 [scrollbar-color:rgb(51_65_85)_transparent]">
+              <div className="grid w-full min-w-319 grid-cols-5 gap-1 pr-1">
+                {data.pieceOrder.map((pieceType, pieceIndex) => (
+                  <DropBoard
+                    key={pieceType}
+                    row={cohortRow}
+                    pieceType={pieceType}
+                    pieceIndex={pieceIndex}
+                    squareOrder={data.squareOrder}
+                  />
+                ))}
+              </div>
             </div>
-          </footer>
-        </>
+          </article>
+        </div>
       )}
     </section>
   );
