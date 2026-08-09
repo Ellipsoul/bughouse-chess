@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset";
 import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
@@ -99,6 +99,13 @@ const INSIGHTS: Array<{
     description: "Where players place each reserve piece, split by colour or direction-normalized.",
   },
 ];
+const DEFAULT_INSIGHT: PlayerInsight = "net-material";
+
+function parsePlayerInsight(value: string | null): PlayerInsight {
+  return INSIGHTS.some((insight) => insight.id === value)
+    ? value as PlayerInsight
+    : DEFAULT_INSIGHT;
+}
 
 const integerFormatter = new Intl.NumberFormat("en-GB");
 const lifetimeScoreFormatter = new Intl.NumberFormat("en-GB", {
@@ -284,16 +291,41 @@ export default function PlayerInsightsPageClient({
   dropHeatmapData?: DropHeatmapInsightsData;
 }) {
   const preset = usePieceValuePreset();
-  const [insight, setInsight] = useState<PlayerInsight>("net-material");
+  const [insight, setInsight] = useState<PlayerInsight>(DEFAULT_INSIGHT);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [sortKey, setSortKey] = useState<MaterialSortKey>("net");
   const [direction, setDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(25);
+
+  useEffect(() => {
+    const selectInsightFromUrl = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      setInsight(parsePlayerInsight(searchParams.get("insight")));
+      setPage(1);
+    };
+
+    selectInsightFromUrl();
+    window.addEventListener("popstate", selectInsightFromUrl);
+    return () => window.removeEventListener("popstate", selectInsightFromUrl);
+  }, []);
   const materialInsight: MaterialInsight = insight === "net-material-per-game"
     ? "net-material-per-game"
     : "net-material";
+
+  const selectInsight = (nextInsight: PlayerInsight) => {
+    setInsight(nextInsight);
+    setPage(1);
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("insight", nextInsight);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
+    );
+  };
 
   const leaderboard = useMemo(() => buildMaterialLeaderboard({
     data,
@@ -359,10 +391,7 @@ export default function PlayerInsightsPageClient({
                 key={item.id}
                 type="button"
                 aria-pressed={active}
-                onClick={() => {
-                  setInsight(item.id);
-                  setPage(1);
-                }}
+                onClick={() => selectInsight(item.id)}
                 className={`min-h-11 rounded-full border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400/70 sm:px-4 ${
                   active
                     ? "border-mariner-400/70 bg-mariner-400/10 text-mariner-100"

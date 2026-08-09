@@ -298,6 +298,20 @@ and scroll horizontally when the container is narrower than the five-board
 strip. Secondary orientation copy is hidden on mobile to keep the filters
 compact.
 
+Each Player Insights chip has a stable shareable query value:
+
+| Insight | URL parameter |
+| --- | --- |
+| Net Material | `?insight=net-material` |
+| Net Material per Game | `?insight=net-material-per-game` |
+| Average King Height | `?insight=average-king-height` |
+| Piece Drop Heat Maps | `?insight=piece-drop-heatmaps` |
+
+Opening one of these URLs selects that insight after hydration. Switching chips
+updates the `insight` value in place while preserving other query parameters
+and the URL fragment. A missing or unknown value falls back to Net Material.
+The route remains statically prerendered and no insight data is fetched again.
+
 The route imports `app/data/player-material-insights.json` at build time. The
 current 1,013-player file is 194,309 bytes uncompressed and approximately 54 KB
 with gzip. The 791,817-byte king-height projection and 1,822,069-byte drop

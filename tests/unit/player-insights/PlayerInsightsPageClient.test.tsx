@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import PlayerInsightsPageClient from "@/app/components/player-insights/PlayerInsightsPageClient";
 import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
@@ -113,6 +113,59 @@ const dropHeatmapFixture: DropHeatmapInsightsData = {
 };
 
 describe("PlayerInsightsPageClient", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/player-insights");
+  });
+
+  it("selects a directly linked insight from the URL", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/player-insights?insight=average-king-height",
+    );
+
+    render(
+      <PlayerInsightsPageClient
+        data={fixture}
+        kingHeightData={kingHeightFixture}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", {
+      name: "Average King Height",
+    })).toBeInTheDocument();
+    expect(screen.getByRole("button", {
+      name: "Average King Height",
+    })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("updates the shareable insight parameter without discarding other parameters", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/player-insights?campaign=discord#comparison",
+    );
+
+    render(
+      <PlayerInsightsPageClient
+        data={fixture}
+        kingHeightData={kingHeightFixture}
+        dropHeatmapData={dropHeatmapFixture}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Piece Drop Heat Maps",
+    }));
+    expect(await screen.findByRole("heading", {
+      name: "Piece Drop Heat Maps",
+    })).toBeInTheDocument();
+    expect(window.location.search).toBe(
+      "?campaign=discord&insight=piece-drop-heatmaps",
+    );
+    expect(window.location.hash).toBe("#comparison");
+  });
+
   it("renders the lifetime material leaderboard as an accessible piece ledger", () => {
     render(<PlayerInsightsPageClient data={fixture} kingHeightData={kingHeightFixture} />);
 
