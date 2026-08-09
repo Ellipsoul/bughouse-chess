@@ -91,12 +91,14 @@ const DropBoard = memo(function DropBoard({
   pieceIndex,
   squareOrder,
   showHeader = true,
+  className = "w-full min-w-63",
 }: {
   row: DropHeatmapRow;
   pieceType: DropPieceType;
   pieceIndex: number;
   squareOrder: string[];
   showHeader?: boolean;
+  className?: string;
 }) {
   const meta = PIECE_META[pieceType];
   const Icon = meta.icon;
@@ -105,7 +107,7 @@ const DropBoard = memo(function DropBoard({
   const maximumProbability = Math.max(...probabilities);
 
   return (
-    <section className={`w-full min-w-63 overflow-hidden rounded-xl border bg-slate-950/70 ${meta.border}`}>
+    <section className={`${className} overflow-hidden rounded-xl border bg-slate-950/70 ${meta.border}`}>
       {showHeader ? (
         <div className="flex h-10 items-center justify-between gap-2 border-b border-slate-800/90 px-2.5">
           <span className={`inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${meta.text}`}>
@@ -165,6 +167,42 @@ const DropBoard = memo(function DropBoard({
   );
 });
 
+function DropBoardGallery({
+  row,
+  data,
+}: {
+  row: DropHeatmapRow;
+  data: DropHeatmapInsightsData;
+}) {
+  return (
+    <article
+      aria-label={`${row.displayName} drop heat maps`}
+      className="px-2 py-3 sm:px-3 sm:py-4"
+    >
+      <div className="mb-3 flex min-w-0 items-baseline justify-between gap-3 px-1">
+        <div className="truncate text-sm font-semibold text-slate-100 sm:text-base">
+          {row.displayName}
+        </div>
+        <div className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
+          {integerFormatter.format(row.representedGames)} games
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-center gap-1">
+        {data.pieceOrder.map((pieceType, pieceIndex) => (
+          <DropBoard
+            key={pieceType}
+            row={row}
+            pieceType={pieceType}
+            pieceIndex={pieceIndex}
+            squareOrder={data.squareOrder}
+            className="w-full min-w-62 max-w-md flex-[1_1_15.5rem]"
+          />
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function ColorModeControl({
   colorMode,
   onChange,
@@ -209,6 +247,7 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
     const player = playerByUsername.get(username);
     return player ? [deriveDropHeatmapRow(player, colorMode)] : [];
   }), [colorMode, playerByUsername, selectedUsernames]);
+  const galleryRow = selectedRows[0] ?? cohortRow;
   const suggestions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (normalizedQuery.length === 0) return [];
@@ -361,7 +400,7 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
         ) : null}
       </div>
 
-      {selectedRows.length > 0 ? (
+      {selectedRows.length > 1 ? (
         <div role="region" aria-label="Selected player drop comparison" className="flex-1 overflow-x-auto px-2 py-4 sm:py-5">
           <div className="grid w-full min-w-348 grid-cols-5 items-start gap-2 pr-1">
             {data.pieceOrder.map((pieceType, pieceIndex) => {
@@ -401,29 +440,7 @@ export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsights
         </div>
       ) : (
         <div className="flex-1">
-          <article className="px-2 py-3 sm:px-3 sm:py-4">
-            <div className="mb-2 flex min-w-0 items-baseline justify-between gap-3 px-1">
-              <div className="truncate text-sm font-semibold text-slate-100 sm:text-base">
-                {cohortRow.displayName}
-              </div>
-              <div className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
-                {integerFormatter.format(cohortRow.representedGames)} games
-              </div>
-            </div>
-            <div className="min-w-0 overflow-x-auto pb-1 [scrollbar-color:rgb(51_65_85)_transparent]">
-              <div className="grid w-full min-w-319 grid-cols-5 gap-1 pr-1">
-                {data.pieceOrder.map((pieceType, pieceIndex) => (
-                  <DropBoard
-                    key={pieceType}
-                    row={cohortRow}
-                    pieceType={pieceType}
-                    pieceIndex={pieceIndex}
-                    squareOrder={data.squareOrder}
-                  />
-                ))}
-              </div>
-            </div>
-          </article>
+          <DropBoardGallery row={galleryRow} data={data} />
         </div>
       )}
     </section>

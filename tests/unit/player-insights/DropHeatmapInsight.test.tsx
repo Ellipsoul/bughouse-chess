@@ -69,6 +69,34 @@ describe("Piece Drop Heat Maps insight", () => {
     expect(screen.queryByLabelText("Next drop heat-map page")).not.toBeInTheDocument();
   });
 
+  it("keeps a one-player selection in the board gallery until comparison is needed", () => {
+    render(<DropHeatmapInsight data={fixture} />);
+
+    const playerSelect = screen.getByRole("combobox", {
+      name: "Add players to comparison",
+    });
+    fireEvent.change(playerSelect, { target: { value: "alice" } });
+    fireEvent.click(screen.getByRole("option", { name: /Alice/ }));
+
+    const singlePlayerGallery = screen.getByRole("article", {
+      name: "Alice drop heat maps",
+    });
+    expect(within(singlePlayerGallery).getAllByRole("grid")).toHaveLength(5);
+    expect(screen.queryByRole("region", {
+      name: "Selected player drop comparison",
+    })).not.toBeInTheDocument();
+
+    fireEvent.change(playerSelect, { target: { value: "bob" } });
+    fireEvent.click(screen.getByRole("option", { name: /Bob/ }));
+
+    expect(screen.getByRole("region", {
+      name: "Selected player drop comparison",
+    })).toBeInTheDocument();
+    expect(screen.queryByRole("article", {
+      name: "Alice drop heat maps",
+    })).not.toBeInTheDocument();
+  });
+
   it("switches color channels and builds a top-down multi-player comparison", () => {
     render(<DropHeatmapInsight data={fixture} />);
 
@@ -126,7 +154,7 @@ describe("Piece Drop Heat Maps insight", () => {
     )).toBeInTheDocument();
   });
 
-  it("keeps the permanent-cohort row visible while searching, then enters comparison", () => {
+  it("keeps the permanent-cohort row visible while searching, then shows the selected player", () => {
     render(<DropHeatmapInsight data={fixture} />);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Add players to comparison" }), {
@@ -137,13 +165,15 @@ describe("Piece Drop Heat Maps insight", () => {
     expect(screen.queryByRole("option", { name: /Alice/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("option", { name: /Bob/ }));
-    const comparison = screen.getByRole("region", {
-      name: "Selected player drop comparison",
+    const selectedPlayerGallery = screen.getByRole("article", {
+      name: "Bob drop heat maps",
     });
-    expect(within(comparison).getAllByRole("grid", {
+    expect(within(selectedPlayerGallery).getAllByRole("grid", {
       name: "Bob Pawn drop heat map",
     })).toHaveLength(1);
-    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+    expect(within(selectedPlayerGallery).queryByText(
+      "All tracked players",
+    )).not.toBeInTheDocument();
   });
 
   it("adds the highlighted suggestion with ArrowDown and Enter", () => {

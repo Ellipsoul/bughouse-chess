@@ -295,9 +295,11 @@ top-to-bottom within each column. The comparison becomes an internal horizontal
 scroller on narrow screens, so the page itself stays viewport-width. Every
 occupied square shows both its count and its percentage of that row's drops
 of the active piece, with the same exact values in accessible labels and hover
-text. Boards have a 252-pixel minimum width, grow evenly to use wider screens,
-and scroll horizontally when the container is narrower than the five-board
-strip. Secondary orientation copy is hidden on mobile to keep the filters
+text. Boards in the cohort and single-player galleries have a 248-pixel minimum
+width, grow evenly, wrap into centered rows, and stack into one centered column
+on narrow screens. Multi-player comparisons retain their piece-column layout
+and scroll horizontally when the container is narrower than the five-column
+table. Secondary orientation copy is hidden on mobile to keep the filters
 compact.
 
 Each Player Insights chip has a stable shareable query value:

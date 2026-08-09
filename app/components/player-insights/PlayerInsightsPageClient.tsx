@@ -360,19 +360,19 @@ export default function PlayerInsightsPageClient({
   return (
     <main className="h-full overflow-y-auto bg-slate-950 text-slate-100">
       <div className="mx-auto flex min-h-full w-full max-w-[1680px] flex-col px-3 py-3 sm:px-5 sm:py-5 md:px-7 lg:px-10 lg:py-8">
-        <header className="border-b border-slate-800/90 pb-4 sm:pb-6 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:pb-8">
+        <header className="border-b border-slate-800/90 pb-2 sm:pb-3 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:pb-4">
           <div className="max-w-3xl">
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.28em] text-mariner-400 sm:text-xs">
               Permanent cohort<span className="hidden sm:inline"> · lifetime ledger</span>
             </p>
-            <h1 className="mt-1.5 font-serif text-3xl font-semibold tracking-[-0.025em] text-white sm:mt-2 sm:text-4xl lg:text-5xl">
+            <h1 className="mt-1 font-serif text-base font-semibold tracking-[-0.025em] text-white sm:text-lg lg:text-2xl">
               Player Insights
             </h1>
-            <p className="mt-3 hidden max-w-2xl text-sm leading-6 text-slate-400 sm:block sm:text-base">
+            <p className="mt-1 hidden max-w-2xl text-[10px] leading-4 text-slate-400 sm:block sm:text-[11px]">
               Compare playful lifetime patterns across every permanently tracked player in the archive.
             </p>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-slate-400 sm:mt-5 sm:gap-x-5 sm:gap-y-2 lg:mt-0 lg:justify-end">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-slate-400 sm:mt-3 sm:gap-x-5 lg:mt-0 lg:justify-end">
             <span>{integerFormatter.format(data.dataset.trackedPlayers)} permanently tracked players</span>
             <span>{integerFormatter.format(data.dataset.analyzedGames)} games analyzed</span>
             {insight === "average-king-height" || insight === "piece-drop-heatmaps" ? null : (
