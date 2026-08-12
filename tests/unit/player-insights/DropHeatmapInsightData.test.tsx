@@ -35,7 +35,7 @@ describe("checked piece-drop heat-map projection", () => {
     render(<DropHeatmapInsightData />);
 
     expect(screen.getByText(/static drop heat maps: 1013/)).toHaveTextContent(
-      "2133356ea2a468c93ef084d65b7ec760b3c0b4a2 / 48454388 drops",
+      "6d6869bc792e195644be7129ca5fb5571020aa63 / 48454388 drops",
     );
   });
 });

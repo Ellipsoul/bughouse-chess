@@ -6,6 +6,7 @@ import PlayerInsightsPageClient from "@/app/components/player-insights/PlayerIns
 import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
 import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
 import type { MaterialInsightsData } from "@/app/components/player-insights/leaderboard";
+import type { MaterialGameHighsData } from "@/app/components/player-insights/materialGameHighs";
 
 vi.mock("@/app/utils/preferences/usePieceValuePreset", () => ({
   usePieceValuePreset: () => "bughouse",
@@ -108,6 +109,32 @@ const dropHeatmapFixture: DropHeatmapInsightsData = {
     dropsByColor: [
       Array.from({ length: 5 }, () => Array.from({ length: 64 }, () => 0)),
       Array.from({ length: 5 }, () => Array.from({ length: 64 }, () => 0)),
+    ],
+  })),
+};
+
+const materialGameHighsFixture: MaterialGameHighsData = {
+  schemaVersion: 1,
+  dataset: {
+    version: "dataset-1",
+    sourceSnapshotSha256: "a".repeat(64),
+    adapterPolicy: "adapter-v1",
+    materialGameHighsAnalyzerVersion: "game-highs-v1",
+    cohortPolicy: "cohort-v1",
+    acceptedGames: 3,
+    analyzedGames: 3,
+    replayExcludedGames: 0,
+    trackedPlayers: 3,
+  },
+  presetOrder: ["bughouse", "standard"],
+  directionOrder: ["won", "lost"],
+  players: fixture.players.map((player) => ({
+    username: player.username,
+    displayName: player.displayName,
+    analyzedGames: player.analyzedGames,
+    gamesByPreset: [
+      { won: [], lost: [] },
+      { won: [], lost: [] },
     ],
   })),
 };
@@ -289,6 +316,25 @@ describe("PlayerInsightsPageClient", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.queryByRole("table", { name: "Player material leaderboard" })).not.toBeInTheDocument();
+  });
+
+  it("switches to the lazy feature-owned Material Game Highs renderer", async () => {
+    render(
+      <PlayerInsightsPageClient
+        data={fixture}
+        materialGameHighsData={materialGameHighsFixture}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Material Game Highs" }));
+
+    expect(await screen.findByRole("heading", { name: "Material Game Highs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Most won" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(window.location.search).toBe("?insight=material-game-highs");
     expect(screen.queryByRole("table", { name: "Player material leaderboard" })).not.toBeInTheDocument();
   });
 });

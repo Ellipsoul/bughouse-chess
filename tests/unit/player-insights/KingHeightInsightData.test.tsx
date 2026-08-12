@@ -26,7 +26,7 @@ describe("checked king-height projection", () => {
     render(<KingHeightInsightData />);
 
     expect(screen.getByText(/static king height: 1013/)).toHaveTextContent(
-      "2133356ea2a468c93ef084d65b7ec760b3c0b4a2 / 7170 touchdowns",
+      "6d6869bc792e195644be7129ca5fb5571020aa63 / 7170 touchdowns",
     );
   });
 });

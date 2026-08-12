@@ -302,6 +302,22 @@ and scroll horizontally when the container is narrower than the five-column
 table. Secondary orientation copy is hidden on mobile to keep the filters
 compact.
 
+The fifth chip, **Material Game Highs**, shows each player's three greatest
+positive or negative single-game net material results. **Most won** and **Most
+lost** use the same signed captured-minus-lost calculation as the first two
+material insights. Bughouse and Standard values have independently precomputed
+top-three sets, so changing the piece-value preference never rescans a game
+history in the browser. Captured promoted pawns count as pawns.
+
+Players are ranked by their first qualifying game in the selected direction;
+search, a non-negative minimum-games filter, and pagination preserve those
+global ranks. Every retained game has its signed result, date, player colour,
+and a static final position using the analysis board's square palette and piece
+artwork. The board is oriented for that player and disables all moves and
+annotations. Each card links to the game in Relay. Desktop rows show three
+equal boards; phone rows keep 272-pixel cards in an internal horizontal
+scroller so the page itself does not overflow.
+
 Each Player Insights chip has a stable shareable query value:
 
 | Insight | URL parameter |
@@ -310,6 +326,7 @@ Each Player Insights chip has a stable shareable query value:
 | Net Material per Game | `?insight=net-material-per-game` |
 | Average King Height | `?insight=average-king-height` |
 | Piece Drop Heat Maps | `?insight=piece-drop-heatmaps` |
+| Material Game Highs | `?insight=material-game-highs` |
 
 Opening one of these URLs selects that insight after hydration. Switching chips
 updates the `insight` value in place while preserving other query parameters
@@ -318,15 +335,18 @@ The route remains statically prerendered and no insight data is fetched again.
 
 The route imports `app/data/player-material-insights.json` at build time. The
 current 1,013-player file is 194,309 bytes uncompressed and approximately 54 KB
-with gzip. The 791,817-byte king-height projection and 1,822,069-byte drop
-projection are statically imported only inside their lazy-loaded insights; the
-drop file is 573,871 bytes with `gzip -9`. Neither is part of the initial
-material view. The browser needs no SQLite reader, runtime database, route
-handler, or opening-explorer service request. Material rows use a full desktop
-table and compact five-piece ledgers on smaller screens; king height uses a
-purpose-built responsive card chart; drop maps use semantic CSS checkerboards.
+with gzip. The 791,817-byte king-height projection, 1,822,069-byte drop
+projection, and 2,216,498-byte material-game-high projection are statically
+imported only inside their lazy-loaded insights. The game-high file is 389,022
+bytes with deterministic `gzip -9 -n`; the drop file is 573,871 bytes with
+`gzip -9`. None is part of the initial material view. The browser needs no
+SQLite reader, runtime database, route handler, or opening-explorer service
+request. Material rows use a full desktop table and compact five-piece ledgers
+on smaller screens; king height uses a purpose-built responsive card chart;
+drop maps use semantic CSS checkerboards; game highs use static analysis-style
+final boards.
 
-The source of truth remains the checked material-insights SQLite artifact in the
+The source of truth remains the checked Player Insights SQLite artifact in the
 sibling `bughouse-opening-explorer` repository. After building and validating a
 future database, refresh this tracked frontend projection from that repository
 with its recorded checksum:
@@ -347,6 +367,12 @@ with its recorded checksum:
 .venv/bin/python scripts/export_drop_heatmap_insights.py \
   artifacts/insights/<snapshot>/player-insights.db \
   ../bughouse/bughouse-chess/app/data/player-drop-heatmap-insights.json \
+  --database-sha256 <player-insights-db-sha256> \
+  --replace
+
+.venv/bin/python scripts/export_material_game_highs.py \
+  artifacts/insights/<snapshot>/player-insights.db \
+  ../bughouse/bughouse-chess/app/data/player-material-game-highs.json \
   --database-sha256 <player-insights-db-sha256> \
   --replace
 ```

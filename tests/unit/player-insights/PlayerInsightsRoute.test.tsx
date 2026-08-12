@@ -19,7 +19,7 @@ describe("player insights route", () => {
     render(<PlayerInsightsPage />);
 
     expect(screen.getByText(/static material: 1013/)).toHaveTextContent(
-      "2133356ea2a468c93ef084d65b7ec760b3c0b4a2",
+      "6d6869bc792e195644be7129ca5fb5571020aa63",
     );
     expect(metadata.title).toBe("Player Insights");
   });
