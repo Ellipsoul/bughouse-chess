@@ -21,6 +21,7 @@ import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset
 import type { DropHeatmapInsightsData } from "@/app/components/player-insights/dropHeatmaps";
 import KingHeightInsight from "@/app/components/player-insights/KingHeightInsight";
 import type { KingHeightInsightsData } from "@/app/components/player-insights/kingHeight";
+import type { MaterialGameHighsData } from "@/app/components/player-insights/materialGameHighs";
 import {
   buildMaterialLeaderboard,
   type MaterialInsight,
@@ -33,7 +34,7 @@ import {
 } from "@/app/components/player-insights/leaderboard";
 
 const PAGE_SIZES = [25, 50, 100] as const;
-type PlayerInsight = MaterialInsight | "average-king-height" | "piece-drop-heatmaps";
+type PlayerInsight = MaterialInsight | "average-king-height" | "piece-drop-heatmaps" | "material-game-highs";
 const LazyKingHeightInsight = dynamic(
   () => import("@/app/components/player-insights/KingHeightInsightData"),
   {
@@ -60,6 +61,26 @@ const LazyDropHeatmapInsightData = dynamic(
     loading: () => (
       <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
         Loading piece-drop heat maps…
+      </div>
+    ),
+  },
+);
+const LazyMaterialGameHighsInsight = dynamic(
+  () => import("@/app/components/player-insights/MaterialGameHighsInsight"),
+  {
+    loading: () => (
+      <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
+        Loading material game highs…
+      </div>
+    ),
+  },
+);
+const LazyMaterialGameHighsInsightData = dynamic(
+  () => import("@/app/components/player-insights/MaterialGameHighsInsightData"),
+  {
+    loading: () => (
+      <div className="grid min-h-[34rem] flex-1 place-items-center rounded-2xl border border-slate-800 bg-slate-900/40 text-sm text-slate-500">
+        Loading material game highs…
       </div>
     ),
   },
@@ -97,6 +118,11 @@ const INSIGHTS: Array<{
     id: "piece-drop-heatmaps",
     label: "Piece Drop Heat Maps",
     description: "Where players place each reserve piece, split by colour or direction-normalized.",
+  },
+  {
+    id: "material-game-highs",
+    label: "Material Game Highs",
+    description: "The three largest positive and negative single-game net material results.",
   },
 ];
 const DEFAULT_INSIGHT: PlayerInsight = "net-material";
@@ -285,10 +311,12 @@ export default function PlayerInsightsPageClient({
   data,
   kingHeightData,
   dropHeatmapData,
+  materialGameHighsData,
 }: {
   data: MaterialInsightsData;
   kingHeightData?: KingHeightInsightsData;
   dropHeatmapData?: DropHeatmapInsightsData;
+  materialGameHighsData?: MaterialGameHighsData;
 }) {
   const preset = usePieceValuePreset();
   const [insight, setInsight] = useState<PlayerInsight>(DEFAULT_INSIGHT);
@@ -404,7 +432,11 @@ export default function PlayerInsightsPageClient({
           })}
         </nav>
 
-        {insight === "piece-drop-heatmaps" ? (
+        {insight === "material-game-highs" ? (
+          materialGameHighsData
+            ? <LazyMaterialGameHighsInsight data={materialGameHighsData} preset={preset} />
+            : <LazyMaterialGameHighsInsightData preset={preset} />
+        ) : insight === "piece-drop-heatmaps" ? (
           dropHeatmapData
             ? <LazyDropHeatmapInsight data={dropHeatmapData} />
             : <LazyDropHeatmapInsightData />

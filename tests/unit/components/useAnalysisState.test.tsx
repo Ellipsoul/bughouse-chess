@@ -534,6 +534,97 @@ describe("reorderSimultaneousCheckmateMove", () => {
     });
   });
 
+  describe("conditional premove piece availability case (game 2176313616)", () => {
+    /**
+     * Chess.com can timestamp a conditional drop when it is queued rather than when
+     * the partner capture makes the piece available. In this 2017 match, that puts
+     * N@f3 before its supplying hxg3 capture and, later, P@e4 before a short run of
+     * board-A moves ending in the supplying Be4xf3 capture.
+     */
+    it("advances the other board until queued drops have their captured pieces", () => {
+      const originalGame = loadFixture("2176313616");
+      const partnerGame = loadFixture("63817e8a-dd3d-11e1-8000-000000010001");
+
+      const processed = processGameData(originalGame, partnerGame);
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+
+      const knightDropIndex = reordered.findIndex(
+        (move) => move.board === "B" && move.moveNumber === 22 && move.move === "N@f3",
+      );
+      const knightCaptureIndex = reordered.findIndex(
+        (move) => move.board === "A" && move.moveNumber === 22 && move.move === "hxg3",
+      );
+      expect(knightCaptureIndex).toBeLessThan(knightDropIndex);
+
+      const pawnDropIndex = reordered.findIndex(
+        (move) => move.board === "B" && move.moveNumber === 52 && move.move === "P@e4",
+      );
+      const pawnCaptureIndex = reordered.findIndex(
+        (move) => move.board === "A" && move.moveNumber === 38 && move.move === "Be4xf3",
+      );
+      expect(pawnCaptureIndex).toBeLessThan(pawnDropIndex);
+    });
+
+    it("loads the complete match while preserving each board's move order", () => {
+      const originalGame = loadFixture("2176313616");
+      const partnerGame = loadFixture("63817e8a-dd3d-11e1-8000-000000010001");
+
+      const processed = processGameData(originalGame, partnerGame);
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+      const movesForBoard = (moves: BughouseMove[], board: "A" | "B") =>
+        moves.filter((move) => move.board === board).map((move) => move.move);
+
+      expect(movesForBoard(reordered, "A")).toEqual(movesForBoard(processed.combinedMoves, "A"));
+      expect(movesForBoard(reordered, "B")).toEqual(movesForBoard(processed.combinedMoves, "B"));
+
+      const { result } = renderHook(() => useAnalysisState());
+      let loadResult: { ok: true } | { ok: false; message: string } = { ok: false, message: "" };
+      act(() => {
+        loadResult = result.current.loadGameMainline(reordered);
+      });
+
+      expect(loadResult).toEqual({ ok: true });
+      expect(Object.keys(result.current.state.tree.nodesById)).toHaveLength(
+        processed.combinedMoves.length + 1,
+      );
+    });
+  });
+
+  describe("long conditional premove chain (game 52353640723)", () => {
+    it("loads the complete match after advancing the supplying board", () => {
+      const originalGame = loadFixture("52353640723");
+      const partnerGame = loadFixture("6e426489-0ad5-11ed-96f5-78ac4409ff3c");
+
+      const processed = processGameData(originalGame, partnerGame);
+      const reordered = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+      const bishopDropIndex = reordered.findIndex(
+        (move) => move.board === "B" && move.moveNumber === 9 && move.move === "B@h4",
+      );
+      const bishopCaptureIndex = reordered.findIndex(
+        (move) => move.board === "A" && move.moveNumber === 9 && move.move === "Ng6xf4",
+      );
+
+      expect(bishopCaptureIndex).toBeLessThan(bishopDropIndex);
+      expect(reordered.filter((move) => move.board === "A")).toEqual(
+        processed.combinedMoves.filter((move) => move.board === "A"),
+      );
+      expect(reordered.filter((move) => move.board === "B")).toEqual(
+        processed.combinedMoves.filter((move) => move.board === "B"),
+      );
+
+      const { result } = renderHook(() => useAnalysisState());
+      let loadResult: { ok: true } | { ok: false; message: string } = { ok: false, message: "" };
+      act(() => {
+        loadResult = result.current.loadGameMainline(reordered);
+      });
+
+      expect(loadResult).toEqual({ ok: true });
+      expect(Object.keys(result.current.state.tree.nodesById)).toHaveLength(
+        processed.combinedMoves.length + 1,
+      );
+    });
+  });
+
   describe("edge cases", () => {
     it("returns original moves when no reordering is needed", () => {
       const simpleMoves: BughouseMove[] = [
