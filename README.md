@@ -352,6 +352,18 @@ future database, refresh this tracked frontend projection from that repository
 with its recorded checksum:
 
 ```bash
+.venv/bin/python scripts/run_monthly_refresh.py \
+  --frontend-data-dir ../bughouse/bughouse-chess/app/data \
+  --publish
+```
+
+That first-of-month command updates Chess.com acquisition, creates a checked
+immutable snapshot, rebuilds all registered insights once, double-exports their
+projections, and validates the full set before replacing any file here. It does
+not deploy. For a manual single-projection recovery from an already verified
+artifact, use the lower-level exporters:
+
+```bash
 .venv/bin/python scripts/export_player_insights.py \
   artifacts/insights/<snapshot>/player-insights.db \
   ../bughouse/bughouse-chess/app/data/player-material-insights.json \

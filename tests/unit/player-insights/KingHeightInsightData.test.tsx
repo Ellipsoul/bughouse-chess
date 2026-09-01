@@ -11,9 +11,13 @@ vi.mock("@/app/components/player-insights/KingHeightInsight", () => ({
       players: Array<{ heightEightGames: unknown[] }>;
     };
   }) => (
-    <div>
-      static king height: {data.dataset.trackedPlayers} / {data.dataset.version} / {data.players.reduce((total, player) => total + player.heightEightGames.length, 0)} touchdowns
-    </div>
+    <div
+      data-testid="static-king-height"
+      data-player-count={data.players.length}
+      data-tracked-players={data.dataset.trackedPlayers}
+      data-touchdowns={data.players.reduce((total, player) => total + player.heightEightGames.length, 0)}
+      data-version={data.dataset.version}
+    />
   ),
 }));
 
@@ -25,8 +29,10 @@ describe("checked king-height projection", () => {
 
     render(<KingHeightInsightData />);
 
-    expect(screen.getByText(/static king height: 1013/)).toHaveTextContent(
-      "6d6869bc792e195644be7129ca5fb5571020aa63 / 7170 touchdowns",
-    );
+    const artifact = screen.getByTestId("static-king-height");
+    expect(Number(artifact.dataset.trackedPlayers)).toBeGreaterThan(0);
+    expect(artifact.dataset.playerCount).toBe(artifact.dataset.trackedPlayers);
+    expect(Number(artifact.dataset.touchdowns)).toBeGreaterThan(0);
+    expect(artifact.dataset.version).toMatch(/^[0-9a-f]{40}$/);
   });
 });

@@ -3,10 +3,20 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/components/player-insights/PlayerInsightsPageClient", () => ({
-  default: ({ data }: { data: { dataset: { trackedPlayers: number; version: string } } }) => (
-    <div>
-      static material: {data.dataset.trackedPlayers} / {data.dataset.version}
-    </div>
+  default: ({
+    data,
+  }: {
+    data: {
+      dataset: { trackedPlayers: number; version: string };
+      players: unknown[];
+    };
+  }) => (
+    <div
+      data-testid="static-material"
+      data-player-count={data.players.length}
+      data-tracked-players={data.dataset.trackedPlayers}
+      data-version={data.dataset.version}
+    />
   ),
 }));
 
@@ -18,9 +28,10 @@ describe("player insights route", () => {
 
     render(<PlayerInsightsPage />);
 
-    expect(screen.getByText(/static material: 1013/)).toHaveTextContent(
-      "6d6869bc792e195644be7129ca5fb5571020aa63",
-    );
+    const artifact = screen.getByTestId("static-material");
+    expect(Number(artifact.dataset.trackedPlayers)).toBeGreaterThan(0);
+    expect(artifact.dataset.playerCount).toBe(artifact.dataset.trackedPlayers);
+    expect(artifact.dataset.version).toMatch(/^[0-9a-f]{40}$/);
     expect(metadata.title).toBe("Player Insights");
   });
 });

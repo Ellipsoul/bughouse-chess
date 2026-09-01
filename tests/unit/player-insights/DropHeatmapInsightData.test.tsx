@@ -19,9 +19,13 @@ vi.mock("@/app/components/player-insights/DropHeatmapInsight", () => ({
       ), 0)
     ), 0);
     return (
-      <div>
-        static drop heat maps: {data.dataset.trackedPlayers} / {data.dataset.version} / {drops} drops
-      </div>
+      <div
+        data-testid="static-drop-heatmaps"
+        data-drops={drops}
+        data-player-count={data.players.length}
+        data-tracked-players={data.dataset.trackedPlayers}
+        data-version={data.dataset.version}
+      />
     );
   },
 }));
@@ -34,8 +38,10 @@ describe("checked piece-drop heat-map projection", () => {
 
     render(<DropHeatmapInsightData />);
 
-    expect(screen.getByText(/static drop heat maps: 1013/)).toHaveTextContent(
-      "6d6869bc792e195644be7129ca5fb5571020aa63 / 48454388 drops",
-    );
+    const artifact = screen.getByTestId("static-drop-heatmaps");
+    expect(Number(artifact.dataset.trackedPlayers)).toBeGreaterThan(0);
+    expect(artifact.dataset.playerCount).toBe(artifact.dataset.trackedPlayers);
+    expect(Number(artifact.dataset.drops)).toBeGreaterThan(0);
+    expect(artifact.dataset.version).toMatch(/^[0-9a-f]{40}$/);
   });
 });
