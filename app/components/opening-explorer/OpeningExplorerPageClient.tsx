@@ -6,8 +6,8 @@
  * Interactive one-board opening explorer UI.
  *
  * Ownership boundary: this surface does not share the two-board viewer’s
- * analysis tree, clocks, reserves, or URL state. It navigates an exact
- * move-prefix trie published by the opening read service, through the
+ * analysis tree, clocks, reserves, or URL state. It navigates a placement
+ * graph with state-qualified edges published by the opening read service, through the
  * same-origin proxy and a bounded in-memory LRU cache.
  *
  * Interaction model:
@@ -15,7 +15,7 @@
  * - Cached forward steps update local path/state without a network round-trip
  * - Missing children count as frontier stalls and trigger a foreground refill
  * - Idle prefetch refills truncated frontiers opportunistically
- * - Support-one leaves open in the Relay analysis board; keyboard nav stops there
+ * - Support-one edges remain navigable and may also expose a source-game link
  * - Actual endings render as an unclickable `-` row
  */
 
@@ -26,7 +26,6 @@ import type { Square } from "chess.js";
 import { buildBughouseAnalysisUrl } from "@/app/utils/discovery/bughouseAnalysisUrl";
 import ChessBoard from "../board/ChessBoard";
 import { OpeningExplorerApi, OpeningExplorerApiError } from "./api";
-import { replayOpeningPrefix } from "./boardState";
 import { OpeningExplorerCache } from "./cache";
 import type {
   DatasetMetadata,
@@ -54,6 +53,15 @@ type SourceGameEntry = {
   status: "loading" | "loaded" | "error";
 };
 
+/** One client-owned navigation occurrence. Repeated node/state ids are valid. */
+type NavigationStep = {
+  edge_id: number | null;
+  move_label: string | null;
+  move_token: string | null;
+  node_id: number;
+  state_id: number;
+};
+
 /**
  * Chess.com-style result strings treated as draws for the outcome bar.
  *
@@ -61,6 +69,7 @@ type SourceGameEntry = {
  * to the filtered game count even when the histogram omits explicit losses.
  */
 const DRAW_RESULTS = new Set([
+  "draw",
   "50move",
   "agreed",
   "insufficient",
@@ -278,7 +287,8 @@ export default function OpeningExplorerPageClient() {
 
   const [metadata, setMetadata] = useState<DatasetMetadata | null>(null);
   const [currentNodeId, setCurrentNodeId] = useState<number | null>(null);
-  const [path, setPath] = useState<Array<{ move_token: string | null; node_id: number }>>([]);
+  const [currentStateId, setCurrentStateId] = useState<number | null>(null);
+  const [path, setPath] = useState<NavigationStep[]>([]);
   const [filter, setFilter] = useState<ExplorerFilter>(EMPTY_FILTER);
   const [draftPlayer, setDraftPlayer] = useState("");
   const [playerQuery, setPlayerQuery] = useState("");
@@ -404,17 +414,17 @@ export default function OpeningExplorerPageClient() {
    * the user inspects the current position.
    *
    * @param version - Active dataset version.
-   * @param pathNodeIds - Node ids from root through the current prefix.
+   * @param pathStateIds - State occurrences from the client-owned history.
    */
   const pinCachedPathNeighborhoods = useCallback((
     version: string,
-    pathNodeIds: readonly number[],
+    pathStateIds: readonly number[],
   ) => {
-    const pinned = new Set(pathNodeIds);
+    const pinned = new Set(pathStateIds);
 
-    for (const nodeId of pathNodeIds) {
-      for (const edge of cache.getChildren(version, nodeId)) {
-        pinned.add(edge.child_id);
+    for (const stateId of pathStateIds) {
+      for (const edge of cache.getChildren(version, stateId)) {
+        pinned.add(edge.child_state_id);
       }
     }
 
@@ -425,15 +435,17 @@ export default function OpeningExplorerPageClient() {
    * Foreground neighborhood fetch with generation-based stale-response discard.
    *
    * @param dataset - Active publication metadata.
-   * @param nodeId - Anchor to fetch.
+   * @param nodeId - Placement node to fetch.
+   * @param stateId - Rules-state occurrence to fetch.
    * @param nextFilter - Seat filter for overlays.
-   * @param updatePath - When true, replace breadcrumbs from the response path.
+   * @param pinnedStateIds - Full client history to retain during cache pressure.
    */
   const loadNeighborhood = useCallback(async (
     dataset: DatasetMetadata,
     nodeId: number,
+    stateId: number,
     nextFilter: ExplorerFilter,
-    updatePath: boolean,
+    pinnedStateIds?: readonly number[],
   ) => {
     const requestGeneration = ++generation.current;
 
@@ -450,6 +462,7 @@ export default function OpeningExplorerPageClient() {
       const response = await api.neighborhood({
         datasetVersion: dataset.dataset_version,
         nodeId,
+        stateId,
         filter: nextFilter,
         signal: controller.signal,
       });
@@ -459,12 +472,11 @@ export default function OpeningExplorerPageClient() {
 
       mergeResponse(response, "foreground");
       setCurrentNodeId(nodeId);
-
-      if (updatePath) setPath(response.path);
+      setCurrentStateId(stateId);
 
       pinCachedPathNeighborhoods(
         dataset.dataset_version,
-        response.path.map((entry) => entry.node_id),
+        pinnedStateIds ?? [stateId],
       );
       setSourceGames({});
     } catch (caught) {
@@ -502,12 +514,29 @@ export default function OpeningExplorerPageClient() {
         cache.activateDataset(dataset.dataset_version);
         attemptedIdleRefills.current.clear();
 
-        const requestedNode = Number(searchParams.get("node"));
-        const nodeId = Number.isSafeInteger(requestedNode) && requestedNode >= 0
-          ? requestedNode
-          : dataset.root_node_id;
+        const requestedNodeValue = searchParams.get("node");
+        const requestedStateValue = searchParams.get("state");
+        const requestedDataset = searchParams.get("dataset");
+        const requestedNode = Number(requestedNodeValue);
+        const requestedState = Number(requestedStateValue);
+        const hasGraphAnchor = requestedDataset === dataset.dataset_version
+          && requestedNodeValue !== null
+          && requestedStateValue !== null
+          && Number.isSafeInteger(requestedNode)
+          && requestedNode >= 0
+          && Number.isSafeInteger(requestedState)
+          && requestedState >= 0;
+        const nodeId = hasGraphAnchor ? requestedNode : dataset.root_node_id;
+        const stateId = hasGraphAnchor ? requestedState : dataset.root_state_id;
+        setPath([{
+          edge_id: null,
+          move_label: null,
+          move_token: null,
+          node_id: nodeId,
+          state_id: stateId,
+        }]);
 
-        await loadNeighborhood(dataset, nodeId, EMPTY_FILTER, true);
+        await loadNeighborhood(dataset, nodeId, stateId, EMPTY_FILTER);
       } catch (caught) {
         if (caught instanceof DOMException && caught.name === "AbortError") return;
 
@@ -529,37 +558,22 @@ export default function OpeningExplorerPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, cache, loadNeighborhood]);
 
-  /** TCN tokens along the current path, excluding the root's null token. */
-  const prefixTokens = useMemo(
-    () => path.map((entry) => entry.move_token).filter((token): token is string => token !== null),
-    [path],
-  );
-
-  /** Display FEN/moves for the current prefix, or `null` if TCN replay fails. */
-  const position = useMemo(() => {
-    const replayStarted = performance.now();
-
-    try {
-      const replayed = replayOpeningPrefix(prefixTokens);
-
-      markOpeningExplorerPhase("replay", {
-        duration_ms: performance.now() - replayStarted,
-      });
-      return replayed;
-    } catch {
-      markOpeningExplorerPhase("replay", {
-        duration_ms: performance.now() - replayStarted,
-      });
-      return null;
-    }
-  }, [prefixTokens]);
-
   const currentNode = metadata && currentNodeId !== null
     ? cache.getNode(metadata.dataset_version, currentNodeId)
     : undefined;
-  const currentOverlay = metadata && currentNodeId !== null
-    ? cache.getOverlay(metadata.dataset_version, currentNodeId, filter)
+  const currentState = metadata && currentStateId !== null
+    ? cache.getState(metadata.dataset_version, currentStateId)
     : undefined;
+  const currentOverlay = metadata && currentStateId !== null
+    ? cache.getStateOverlay(metadata.dataset_version, currentStateId, filter)
+    : undefined;
+  const position = currentState
+    ? { fen: `${currentState.position_fen} 0 1`, lastMove: null }
+    : null;
+
+  useEffect(() => {
+    if (currentStateId !== null) markOpeningExplorerPhase("replay", { duration_ms: 0 });
+  }, [currentStateId]);
 
   useEffect(() => {
     if (
@@ -568,7 +582,7 @@ export default function OpeningExplorerPageClient() {
       || currentNodeId === null
       || !currentNode
       || !currentOverlay
-      || !position
+      || !currentState
       || firstUsefulPaintScheduled.current
     ) return;
 
@@ -583,89 +597,58 @@ export default function OpeningExplorerPageClient() {
       window.cancelAnimationFrame(handle);
       if (!recorded) firstUsefulPaintScheduled.current = false;
     };
-  }, [currentNode, currentNodeId, currentOverlay, loading, metadata, position]);
+  }, [currentNode, currentNodeId, currentOverlay, currentState, loading, metadata]);
 
   /** Immediate child edges still resident in cache for the current node. */
   const children = useMemo(
     () => {
       void revision;
 
-      return metadata && currentNodeId !== null
-        ? cache.getChildren(metadata.dataset_version, currentNodeId)
+      return metadata && currentStateId !== null
+        ? cache.getChildren(metadata.dataset_version, currentStateId)
         : [];
     },
-    [cache, currentNodeId, metadata, revision],
+    [cache, currentStateId, metadata, revision],
   );
 
   /**
    * Filtered, labeled, support-sorted continuations offered in the Opening Tree.
    *
-   * Zero-support children are omitted. Labels prefer TCN replay; corrupt tokens
-   * fall back to a placeholder without blocking the rest of the list.
+   * Zero-support children are omitted. Display labels are decoded and validated
+   * by the graph builder so the browser never reconstructs pre-move context.
    */
   const continuations = useMemo(() => {
     if (!metadata) return [];
 
     return children.flatMap((edge) => {
-      const overlay = cache.getOverlay(metadata.dataset_version, edge.child_id, filter);
+      const overlay = cache.getEdgeOverlay(metadata.dataset_version, edge.id, filter);
 
       if (!overlay?.support) return [];
-
-      let label = "Unavailable move";
-
-      try {
-        label = replayOpeningPrefix([...prefixTokens, edge.move_token]).moves.at(-1)?.label ?? label;
-      } catch {
-        // The exact token remains internal if a corrupt move cannot be decoded for display.
-      }
-
-      return [{ edge, label, overlay }];
+      return [{ edge, label: edge.move_label, overlay }];
     }).sort((left, right) => (
       right.overlay.support - left.overlay.support
       || left.label.localeCompare(right.label)
-      || left.edge.child_id - right.edge.child_id
+      || left.edge.id - right.edge.id
     ));
-  }, [cache, children, filter, metadata, prefixTokens]);
+  }, [cache, children, filter, metadata]);
 
-  /** True when the active filter collapses the prefix to a single game. */
-  const locksUniqueLine = currentOverlay?.support === 1;
-
-  /** Support-one child nodes whose source links should be lifted into this list. */
-  const sourceGameNodeIds = useMemo(() => {
-    const nodeIds = continuations
+  /** Support-one edges whose source links can be shown without blocking navigation. */
+  const sourceGameEdgeIds = useMemo(() => {
+    return continuations
       .filter(({ overlay }) => overlay.support === 1)
-      .map(({ edge }) => edge.child_id);
-
-    if (
-      nodeIds.length === 0
-      && locksUniqueLine
-      && currentNodeId !== null
-      && currentOverlay?.actual_ending_count === 0
-    ) {
-      nodeIds.push(currentNodeId);
-    }
-
-    return nodeIds;
-  }, [continuations, currentNodeId, currentOverlay?.actual_ending_count, locksUniqueLine]);
+      .map(({ edge }) => edge.id);
+  }, [continuations]);
 
   /**
    * Keeps keyboard/mouse selection aligned with the visible continuation list.
-   *
-   * Support-one leaves clear selection because the row becomes a source link
-   * rather than a navigable continuation.
    */
   useEffect(() => {
-    if (locksUniqueLine) {
-      setSelectedContinuationId(null);
-      return;
-    }
-
     setSelectedContinuationId((selected) => (
-      continuations.some(({ edge }) => edge.child_id === selected)
+      continuations.some(({ edge }) => edge.id === selected)
         ? selected
-        : continuations[0]?.edge.child_id ?? null
+        : continuations[0]?.edge.id ?? null
     ));
-  }, [continuations, locksUniqueLine]);
+  }, [continuations]);
 
   /** Scrolls the selected continuation into view inside the Opening Tree list. */
   useEffect(() => {
@@ -679,13 +662,18 @@ export default function OpeningExplorerPageClient() {
    * Failures stay silent: only foreground navigation surfaces errors to the UI.
    */
   useEffect(() => {
-    if (!metadata || currentNodeId === null || !cache.isFrontier(metadata.dataset_version, currentNodeId)) {
+    if (
+      !metadata
+      || currentNodeId === null
+      || currentStateId === null
+      || !cache.isFrontier(metadata.dataset_version, currentStateId)
+    ) {
       return;
     }
 
     const filterIdentity =
       `${filter.white?.trim().toLowerCase() ?? ""}\0${filter.black?.trim().toLowerCase() ?? ""}`;
-    const refillIdentity = `${metadata.dataset_version}:${currentNodeId}:${filterIdentity}`;
+    const refillIdentity = `${metadata.dataset_version}:${currentStateId}:${filterIdentity}`;
 
     if (attemptedIdleRefills.current.has(refillIdentity)) return;
 
@@ -710,6 +698,7 @@ export default function OpeningExplorerPageClient() {
         const response = await api.neighborhood({
           datasetVersion: metadata.dataset_version,
           nodeId: currentNodeId,
+          stateId: currentStateId,
           filter,
           signal: controller.signal,
         });
@@ -723,7 +712,7 @@ export default function OpeningExplorerPageClient() {
     });
 
     return () => cancelIdle(handle);
-  }, [api, cache, currentNodeId, filter, mergeResponse, metadata, revision]);
+  }, [api, cache, currentNodeId, currentStateId, filter, mergeResponse, metadata, revision]);
 
   /**
    * Advances one ply along `edge`, preferring a cache-local update.
@@ -738,11 +727,35 @@ export default function OpeningExplorerPageClient() {
     if (!metadata) return;
 
     const clickedAt = performance.now();
-    const cached = cache.getNode(metadata.dataset_version, edge.child_id);
+    const cached = cache.getState(metadata.dataset_version, edge.child_state_id);
+    const nextPath = [...path, {
+      edge_id: edge.id,
+      move_label: edge.move_label,
+      move_token: edge.move_token,
+      node_id: edge.child_id,
+      state_id: edge.child_state_id,
+    }];
+    const pinnedStateIds = nextPath.map((entry) => entry.state_id);
 
     if (!cached) {
       setMetrics((value) => ({ ...value, frontierStalls: value.frontierStalls + 1 }));
-      void loadNeighborhood(metadata, edge.child_id, filter, true);
+      gameDetailsController.current?.abort();
+      setCurrentNodeId(edge.child_id);
+      setCurrentStateId(edge.child_state_id);
+      setPath(nextPath);
+      setSelectedContinuationId(null);
+      setSourceGames({});
+      pinCachedPathNeighborhoods(metadata.dataset_version, pinnedStateIds);
+      router.push(
+        `/opening-explorer?node=${edge.child_id}&state=${edge.child_state_id}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
+      );
+      void loadNeighborhood(
+        metadata,
+        edge.child_id,
+        edge.child_state_id,
+        filter,
+        pinnedStateIds,
+      );
       return;
     }
 
@@ -750,23 +763,30 @@ export default function OpeningExplorerPageClient() {
     navigationController.current?.abort();
     gameDetailsController.current?.abort();
     setCurrentNodeId(edge.child_id);
-    setPath((previous) => [...previous, { move_token: edge.move_token, node_id: edge.child_id }]);
+    setCurrentStateId(edge.child_state_id);
+    setPath(nextPath);
     setSourceGames({});
     pinCachedPathNeighborhoods(
       metadata.dataset_version,
-      [...path.map((entry) => entry.node_id), edge.child_id],
+      pinnedStateIds,
     );
     setRevision((value) => value + 1);
     setMetrics((value) => ({ ...value, lastClickRenderMs: performance.now() - clickedAt }));
     router.push(
-      `/opening-explorer?node=${edge.child_id}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
+      `/opening-explorer?node=${edge.child_id}&state=${edge.child_state_id}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
     );
 
     if (
-      cached.child_count > 0
-      && cache.getChildren(metadata.dataset_version, edge.child_id).length === 0
+      cached.outgoing_count > 0
+      && cache.getChildren(metadata.dataset_version, edge.child_state_id).length === 0
     ) {
-      void loadNeighborhood(metadata, edge.child_id, filter, false);
+      void loadNeighborhood(
+        metadata,
+        edge.child_id,
+        edge.child_state_id,
+        filter,
+        pinnedStateIds,
+      );
     }
   }, [cache, filter, loadNeighborhood, metadata, path, pinCachedPathNeighborhoods, router]);
 
@@ -785,39 +805,47 @@ export default function OpeningExplorerPageClient() {
     navigationController.current?.abort();
     gameDetailsController.current?.abort();
 
-    const returnChildId = path[index + 1]?.node_id ?? null;
+    const returnEdgeId = path[index + 1]?.edge_id ?? null;
     const nextPath = path.slice(0, index + 1);
     const nodeId = nextPath.at(-1)?.node_id ?? metadata.root_node_id;
+    const stateId = nextPath.at(-1)?.state_id ?? metadata.root_state_id;
 
     setPath(nextPath);
     setCurrentNodeId(nodeId);
-    setSelectedContinuationId(returnChildId);
+    setCurrentStateId(stateId);
+    setSelectedContinuationId(returnEdgeId);
     setSourceGames({});
     pinCachedPathNeighborhoods(
       metadata.dataset_version,
-      nextPath.map((entry) => entry.node_id),
+      nextPath.map((entry) => entry.state_id),
     );
     setRevision((value) => value + 1);
     router.push(
-      `/opening-explorer?node=${nodeId}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
+      `/opening-explorer?node=${nodeId}&state=${stateId}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
     );
 
-    const cachedNode = cache.getNode(metadata.dataset_version, nodeId);
-    const cachedOverlay = cache.getOverlay(metadata.dataset_version, nodeId, filter);
+    const cachedState = cache.getState(metadata.dataset_version, stateId);
+    const cachedOverlay = cache.getStateOverlay(metadata.dataset_version, stateId, filter);
 
-    if (cachedNode && (
+    if (cachedState && (
       !cachedOverlay
-      || cache.getChildren(metadata.dataset_version, nodeId).length < cachedNode.child_count
+      || cache.getChildren(metadata.dataset_version, stateId).length < cachedState.outgoing_count
     )) {
-      void loadNeighborhood(metadata, nodeId, filter, false);
+      void loadNeighborhood(
+        metadata,
+        nodeId,
+        stateId,
+        filter,
+        nextPath.map((entry) => entry.state_id),
+      );
     }
   }, [cache, filter, loadNeighborhood, metadata, path, pinCachedPathNeighborhoods, router]);
 
   /**
    * Keyboard navigation for the Opening Tree.
    *
-   * Ignores events originating from form fields. Arrow Right is intentionally
-   * disabled on support-one leaves so users stop at the Chess.com source boundary.
+   * Ignores events originating from form fields. Support-one edges remain
+   * traversable because one game can bridge into a later shared position.
    */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -827,24 +855,22 @@ export default function OpeningExplorerPageClient() {
         return;
       }
 
-      if (!locksUniqueLine && (event.key === "ArrowDown" || event.key === "ArrowUp") && continuations.length > 0) {
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && continuations.length > 0) {
         event.preventDefault();
 
-        const currentIndex = continuations.findIndex(({ edge }) => edge.child_id === selectedContinuationId);
+        const currentIndex = continuations.findIndex(({ edge }) => edge.id === selectedContinuationId);
         const nextIndex = event.key === "ArrowDown"
           ? Math.min(currentIndex < 0 ? 0 : currentIndex + 1, continuations.length - 1)
           : Math.max(currentIndex < 0 ? 0 : currentIndex - 1, 0);
 
-        setSelectedContinuationId(continuations[nextIndex].edge.child_id);
+        setSelectedContinuationId(continuations[nextIndex].edge.id);
         return;
       }
 
       if (event.key === "ArrowRight") {
-        if (locksUniqueLine) return;
+        const selected = continuations.find(({ edge }) => edge.id === selectedContinuationId);
 
-        const selected = continuations.find(({ edge }) => edge.child_id === selectedContinuationId);
-
-        if (!selected || selected.overlay.support === 1) return;
+        if (!selected) return;
 
         event.preventDefault();
         navigate(selected.edge);
@@ -860,13 +886,13 @@ export default function OpeningExplorerPageClient() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [continuations, locksUniqueLine, navigate, navigateToBreadcrumb, path.length, selectedContinuationId]);
+  }, [continuations, navigate, navigateToBreadcrumb, path.length, selectedContinuationId]);
 
   /**
    * Applies the selected player in exactly one seat and refetches overlays.
    */
   const applyPlayerFilter = useCallback((seat: PlayerSeat) => {
-    if (!metadata || currentNodeId === null || !playerIsKnown) return;
+    if (!metadata || currentNodeId === null || currentStateId === null || !playerIsKnown) return;
 
     const player = draftPlayer.trim() || null;
     const nextFilter = seat === "white"
@@ -874,8 +900,14 @@ export default function OpeningExplorerPageClient() {
       : { white: null, black: player };
 
     setFilter(nextFilter);
-    void loadNeighborhood(metadata, currentNodeId, nextFilter, false);
-  }, [currentNodeId, draftPlayer, loadNeighborhood, metadata, playerIsKnown]);
+    void loadNeighborhood(
+      metadata,
+      currentNodeId,
+      currentStateId,
+      nextFilter,
+      path.map((entry) => entry.state_id),
+    );
+  }, [currentNodeId, currentStateId, draftPlayer, loadNeighborhood, metadata, path, playerIsKnown]);
 
   /** Applies the selected player using the currently selected seat. */
   const applyFilter = useCallback(() => {
@@ -889,6 +921,48 @@ export default function OpeningExplorerPageClient() {
       applyPlayerFilter(seat);
     }
   }, [applyPlayerFilter, filter, filterSeat]);
+
+  /** Clears player filtering and atomically returns navigation to the root. */
+  const clearPlayerFilter = useCallback(() => {
+    if (!metadata) return;
+
+    playerSearchGeneration.current += 1;
+    idleController.current?.abort();
+    gameDetailsController.current?.abort();
+
+    const rootPath: NavigationStep[] = [{
+      edge_id: null,
+      move_label: null,
+      move_token: null,
+      node_id: metadata.root_node_id,
+      state_id: metadata.root_state_id,
+    }];
+
+    setDraftPlayer("");
+    setPlayerQuery("");
+    setSuggestions([]);
+    setSuggestionsOpen(false);
+    setPlayerLookup({ query: "", status: "idle" });
+    setFilter(EMPTY_FILTER);
+    setCurrentNodeId(metadata.root_node_id);
+    setCurrentStateId(metadata.root_state_id);
+    setPath(rootPath);
+    setSelectedContinuationId(null);
+    setSourceGames({});
+    setError(null);
+    pinCachedPathNeighborhoods(metadata.dataset_version, [metadata.root_state_id]);
+    setRevision((value) => value + 1);
+    router.push(
+      `/opening-explorer?node=${metadata.root_node_id}&state=${metadata.root_state_id}&dataset=${encodeURIComponent(metadata.dataset_version)}`,
+    );
+    void loadNeighborhood(
+      metadata,
+      metadata.root_node_id,
+      metadata.root_state_id,
+      EMPTY_FILTER,
+      [metadata.root_state_id],
+    );
+  }, [loadNeighborhood, metadata, pinCachedPathNeighborhoods, router]);
 
   /**
    * Typeahead player search with stale-response protection.
@@ -928,10 +1002,10 @@ export default function OpeningExplorerPageClient() {
   useEffect(() => {
     gameDetailsController.current?.abort();
     setSourceGames(Object.fromEntries(
-      sourceGameNodeIds.map((nodeId) => [nodeId, { game: null, status: "loading" }]),
+      sourceGameEdgeIds.map((edgeId) => [edgeId, { game: null, status: "loading" }]),
     ));
 
-    if (sourceGameNodeIds.length === 0 || !metadata) {
+    if (sourceGameEdgeIds.length === 0 || !metadata) {
       return;
     }
 
@@ -940,21 +1014,21 @@ export default function OpeningExplorerPageClient() {
 
     gameDetailsController.current = controller;
 
-    for (const nodeId of sourceGameNodeIds) {
-      void api.gameExamples(metadata.dataset_version, nodeId, filter, 1, controller.signal)
+    for (const edgeId of sourceGameEdgeIds) {
+      void api.edgeGameExamples(metadata.dataset_version, edgeId, filter, 1, controller.signal)
         .then((response) => {
           if (disposed) return;
           const game = response.games[0] ?? null;
           setSourceGames((current) => ({
             ...current,
-            [nodeId]: { game, status: game?.url ? "loaded" : "error" },
+            [edgeId]: { game, status: game?.url ? "loaded" : "error" },
           }));
         })
         .catch((caught) => {
           if (disposed || (caught instanceof Error && caught.name === "AbortError")) return;
           setSourceGames((current) => ({
             ...current,
-            [nodeId]: { game: null, status: "error" },
+            [edgeId]: { game: null, status: "error" },
           }));
         });
     }
@@ -963,7 +1037,7 @@ export default function OpeningExplorerPageClient() {
       disposed = true;
       controller.abort();
     };
-  }, [api, filter, metadata, sourceGameNodeIds]);
+  }, [api, filter, metadata, sourceGameEdgeIds]);
 
   if (loading) {
     return (
@@ -977,7 +1051,7 @@ export default function OpeningExplorerPageClient() {
           <span>Loading opening dataset…</span>
         </div>
         <p className="max-w-sm text-sm text-slate-400">
-          Cold starts can take up to 20 seconds. Please be patient.
+          Cold starts can take about 30 seconds. Please be patient.
         </p>
       </div>
     );
@@ -995,7 +1069,14 @@ export default function OpeningExplorerPageClient() {
     );
   }
 
-  if (!metadata || currentNodeId === null || !currentNode || !position) {
+  if (
+    !metadata
+    || currentNodeId === null
+    || currentStateId === null
+    || !currentNode
+    || !currentState
+    || !position
+  ) {
     return (
       <div className="flex h-full items-center justify-center bg-slate-950 text-red-200">
         The selected prefix could not be reconstructed safely.
@@ -1004,11 +1085,11 @@ export default function OpeningExplorerPageClient() {
   }
 
   const cacheMetrics = cache.metrics();
-  const playedMoves = position.moves.map((move, index) => ({
-    label: move.label,
-    nodeId: path[index + 1].node_id,
-    pathIndex: index + 1,
-  }));
+  const playedMoves = path.flatMap((step, index) => step.move_label === null ? [] : [{
+    edgeId: step.edge_id,
+    label: step.move_label,
+    pathIndex: index,
+  }]);
   const moveRows = Array.from(
     { length: Math.ceil(playedMoves.length / 2) },
     (_, index) => ({
@@ -1039,8 +1120,8 @@ export default function OpeningExplorerPageClient() {
               fen={position.fen}
               size={boardSize}
               interactionsEnabled={false}
-              lastMoveFromSquare={(position.lastMove?.from ?? null) as Square | null}
-              lastMoveToSquare={(position.lastMove?.to ?? null) as Square | null}
+              lastMoveFromSquare={null as Square | null}
+              lastMoveToSquare={null as Square | null}
             />
           </div>
         </section>
@@ -1056,7 +1137,7 @@ export default function OpeningExplorerPageClient() {
                 {moveRows.map((row) => <li key={row.moveNumber} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1.5">
                   <span className="text-right font-mono text-xs text-slate-500">{row.moveNumber}.</span>
                   {[row.white, row.black].map((move, sideIndex) => move ? <button
-                    key={move.nodeId}
+                    key={move.edgeId}
                     type="button"
                     aria-label={`Go to position after ${move.label}`}
                     aria-current={move.pathIndex === path.length - 1 ? "true" : undefined}
@@ -1093,6 +1174,8 @@ export default function OpeningExplorerPageClient() {
               <dd>{metadata.format_version}</dd>
               <dt>Terminal policy</dt>
               <dd>{metadata.terminal_policy}</dd>
+              <dt>Replay policy</dt>
+              <dd>{metadata.replay_policy}</dd>
             </dl>
           </details>
         </aside>
@@ -1157,7 +1240,7 @@ export default function OpeningExplorerPageClient() {
                 </div> : null}
               </div>
               <button type="button" disabled={!playerIsKnown} onClick={applyFilter} className="shrink-0 rounded bg-cyan-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">Apply filter</button>
-              <button type="button" onClick={() => { playerSearchGeneration.current += 1; setDraftPlayer(""); setPlayerQuery(""); setSuggestions([]); setSuggestionsOpen(false); setPlayerLookup({ query: "", status: "idle" }); setFilter(EMPTY_FILTER); void loadNeighborhood(metadata, currentNodeId, EMPTY_FILTER, false); }} className="shrink-0 rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button>
+              <button type="button" onClick={clearPlayerFilter} className="shrink-0 rounded border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Clear</button>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Player seat">
               {(["white", "black"] as const).map((seat) => <button
@@ -1177,25 +1260,13 @@ export default function OpeningExplorerPageClient() {
             {!refreshing && currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
             <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {refreshing ? <div role="status" aria-live="polite" className="flex h-full min-h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div> : <>{continuations.map(({ edge, label, overlay }) => {
-                const selected = edge.child_id === selectedContinuationId;
-                const source = sourceGames[edge.child_id];
+                const selected = edge.id === selectedContinuationId;
+                const source = sourceGames[edge.id];
 
-                if (overlay.support === 1) {
-                  return <SourceGameRow
-                    key={edge.child_id}
-                    entry={source}
-                    label={label}
-                    onSelect={() => setSelectedContinuationId(edge.child_id)}
-                    register={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }}
-                    selected={selected}
-                  />;
-                }
-
-                return <button key={edge.child_id} ref={(element) => { if (element) continuationButtons.current.set(edge.child_id, element); else continuationButtons.current.delete(edge.child_id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} games`} onFocus={() => setSelectedContinuationId(edge.child_id)} onMouseEnter={() => setSelectedContinuationId(edge.child_id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>;
+                return <div key={edge.id} className="space-y-1"><button ref={(element) => { if (element) continuationButtons.current.set(edge.id, element); else continuationButtons.current.delete(edge.id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} games`} onFocus={() => setSelectedContinuationId(edge.id)} onMouseEnter={() => setSelectedContinuationId(edge.id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>{overlay.support === 1 ? <SourceGameRow entry={source} label={label} /> : null}</div>;
               })}
-              {continuations.length === 0 && locksUniqueLine && currentOverlay?.actual_ending_count === 0 ? <SourceGameRow entry={sourceGames[currentNodeId]} label="Game" /> : null}
               {currentOverlay && currentOverlay.actual_ending_count > 0 ? <div aria-label={`${currentOverlay.actual_ending_count} ${currentOverlay.actual_ending_count === 1 ? "game ends" : "games end"} at this position`} className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-slate-400"><span className="min-w-0 flex-1 font-mono text-sm text-slate-300">-</span><span className="text-xs"><strong className="text-slate-200">{currentOverlay.actual_ending_count}</strong></span><span className="w-44 text-right text-[10px] uppercase tracking-wide text-slate-500">ended here</span></div> : null}
-              {continuations.length === 0 && !locksUniqueLine && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No continuations from this position.</p> : null}</>}
+              {continuations.length === 0 && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No indexed continuations from this position.</p> : null}</>}
             </div>
           </section>
         </aside>

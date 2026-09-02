@@ -17,9 +17,11 @@ describe("opening explorer HTTP client", () => {
         adapter_policy: "policy-v1",
         coverage: { accepted_games: 1, source_fingerprint: "fixture" },
         dataset_version: "v1",
-        format_version: "packed-v1",
+        format_version: "packed-position-graph-v1",
+        replay_policy: "skip-unreplayable-source-game-v1",
         root_node_id: 0,
-        terminal_policy: "terminal-v1",
+        root_state_id: 0,
+        terminal_policy: "last-shared-placement-plus-one-or-game-end-v1",
       }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -53,9 +55,11 @@ describe("opening explorer HTTP client", () => {
       adapter_policy: "policy-v1",
       coverage: { accepted_games: 1, source_fingerprint: "fixture" },
       dataset_version: "v1",
-      format_version: "packed-v1",
+      format_version: "packed-position-graph-v1",
+      replay_policy: "skip-unreplayable-source-game-v1",
       root_node_id: 0,
-      terminal_policy: "terminal-v1",
+      root_state_id: 0,
+      terminal_policy: "last-shared-placement-plus-one-or-game-end-v1",
     };
     const fetcher: typeof fetch = async (_input, init) => {
       calls += 1;
@@ -91,9 +95,11 @@ describe("opening explorer HTTP client", () => {
         adapter_policy: "policy-v1",
         coverage: { accepted_games: 1, source_fingerprint: "fixture" },
         dataset_version: "v1",
-        format_version: "packed-v1",
+        format_version: "packed-position-graph-v1",
+        replay_policy: "skip-unreplayable-source-game-v1",
         root_node_id: 0,
-        terminal_policy: "terminal-v1",
+        root_state_id: 0,
+        terminal_policy: "last-shared-placement-plus-one-or-game-end-v1",
       }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -104,11 +110,12 @@ describe("opening explorer HTTP client", () => {
   });
 
   it("deduplicates overlapping versioned neighborhood requests", async () => {
-    let calls = 0;
-    const fetcher: typeof fetch = async () => {
-      calls += 1;
+    const requestedUrls: string[] = [];
+    const fetcher: typeof fetch = async (input) => {
+      requestedUrls.push(String(input));
       return new Response(JSON.stringify({
         anchor_node_id: 4,
+        anchor_state_id: 7,
         dataset_version: "v1",
         edges: [],
         filter: null,
@@ -119,11 +126,26 @@ describe("opening explorer HTTP client", () => {
           encoded_bytes: 1,
           returned_edges: 0,
           returned_nodes: 0,
+          returned_states: 0,
           visited_nodes: 0,
         },
-        nodes: [],
-        overlays: {},
-        path: [],
+        nodes: [{ id: 4, placement: "8/8/8/8/8/8/8/8", support: 1 }],
+        states: [{
+          id: 7,
+          node_id: 4,
+          outgoing_count: 0,
+          position_fen: "8/8/8/8/8/8/8/8 w - -",
+        }],
+        node_overlays: { "4": { support: 1 } },
+        state_overlays: {
+          "7": {
+            actual_ending_count: 0,
+            results: { win: 1 },
+            sole_game_ordinal: 0,
+            support: 1,
+          },
+        },
+        edge_overlays: {},
         target_forward_depth: 5,
       }), {
         status: 200,
@@ -132,10 +154,103 @@ describe("opening explorer HTTP client", () => {
     };
     const api = new OpeningExplorerApi("http://127.0.0.1:8765", fetcher);
 
-    const first = api.neighborhood({ datasetVersion: "v1", nodeId: 4 });
-    const second = api.neighborhood({ datasetVersion: "v1", nodeId: 4 });
+    const first = api.neighborhood({ datasetVersion: "v1", nodeId: 4, stateId: 7 });
+    const second = api.neighborhood({ datasetVersion: "v1", nodeId: 4, stateId: 7 });
     await Promise.all([first, second]);
 
-    expect(calls).toBe(1);
+    expect(requestedUrls).toHaveLength(1);
+    expect(requestedUrls[0]).toContain("/api/nodes/4/neighborhood?");
+    expect(requestedUrls[0]).toContain("state_id=7");
+  });
+
+  it("rejects a neighborhood whose anchor state belongs to another node", async () => {
+    const fetcher: typeof fetch = async () => new Response(JSON.stringify({
+      anchor_node_id: 4,
+      anchor_state_id: 7,
+      dataset_version: "v1",
+      edges: [],
+      filter: null,
+      frontiers: [],
+      instrumentation: {},
+      nodes: [
+        { id: 4, placement: "8/8/8/8/8/8/8/8", support: 1 },
+        { id: 5, placement: "8/8/8/8/8/8/8/K7", support: 1 },
+      ],
+      states: [{
+        id: 7,
+        node_id: 5,
+        outgoing_count: 0,
+        position_fen: "8/8/8/8/8/8/8/K7 w - -",
+      }],
+      node_overlays: { "4": { support: 1 }, "5": { support: 1 } },
+      state_overlays: {
+        "7": { actual_ending_count: 0, results: {}, sole_game_ordinal: 0, support: 1 },
+      },
+      edge_overlays: {},
+      target_forward_depth: 5,
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+    await expect(new OpeningExplorerApi(undefined, fetcher).neighborhood({
+      datasetVersion: "v1",
+      nodeId: 4,
+      stateId: 7,
+    })).rejects.toMatchObject({ code: "corrupt_response" });
+  });
+
+  it("rejects neighborhood overlays returned for a different player filter", async () => {
+    const fetcher: typeof fetch = async () => new Response(JSON.stringify({
+      anchor_node_id: 4,
+      anchor_state_id: 7,
+      dataset_version: "v1",
+      edges: [],
+      filter: { white_username: "bob", black_username: null },
+      frontiers: [],
+      instrumentation: {},
+      nodes: [{ id: 4, placement: "8/8/8/8/8/8/8/8", support: 1 }],
+      states: [{
+        id: 7,
+        node_id: 4,
+        outgoing_count: 0,
+        position_fen: "8/8/8/8/8/8/8/8 w - -",
+      }],
+      node_overlays: { "4": { support: 1 } },
+      state_overlays: {
+        "7": { actual_ending_count: 0, results: {}, sole_game_ordinal: 0, support: 1 },
+      },
+      edge_overlays: {},
+      target_forward_depth: 5,
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+    await expect(new OpeningExplorerApi(undefined, fetcher).neighborhood({
+      datasetVersion: "v1",
+      nodeId: 4,
+      stateId: 7,
+      filter: { white: "alice", black: null },
+    })).rejects.toMatchObject({ code: "corrupt_response" });
+  });
+
+  it("loads source games from the traversed edge endpoint", async () => {
+    let requestedUrl = "";
+    const fetcher: typeof fetch = async (input) => {
+      requestedUrl = String(input);
+      return new Response(JSON.stringify({
+        actual_ending_count: 0,
+        dataset_version: "v1",
+        edge_id: 19,
+        games: [],
+        limit: 1,
+        total_matching: 0,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+
+    await new OpeningExplorerApi(undefined, fetcher).edgeGameExamples(
+      "v1",
+      19,
+      { white: "alice", black: null },
+      1,
+    );
+
+    expect(requestedUrl).toContain("/api/edges/19/games?");
+    expect(requestedUrl).toContain("white=alice");
   });
 });

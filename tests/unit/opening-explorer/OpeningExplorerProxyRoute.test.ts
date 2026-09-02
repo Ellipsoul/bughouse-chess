@@ -44,6 +44,31 @@ describe("opening explorer local proxy", () => {
     expect(await response.json()).toEqual({ dataset_version: "v1" });
   });
 
+  it("forwards edge-scoped source-game reads and rejects unknown edge operations", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("OPENING_EXPLORER_SERVICE_URL", "http://127.0.0.1:8765");
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      void input;
+      return Response.json({ edge_id: 19, games: [] });
+    });
+    vi.stubGlobal("fetch", upstream);
+    const { GET } = await import("@/app/api/opening-explorer/[...path]/route");
+
+    const accepted = await GET(
+      new Request("http://localhost:3000/api/opening-explorer/api/edges/19/games?dataset_version=v1"),
+      { params: Promise.resolve({ path: ["api", "edges", "19", "games"] }) },
+    );
+    const rejected = await GET(
+      new Request("http://localhost:3000/api/opening-explorer/api/edges/19/neighborhood"),
+      { params: Promise.resolve({ path: ["api", "edges", "19", "neighborhood"] }) },
+    );
+
+    expect(accepted.status).toBe(200);
+    expect(String(upstream.mock.calls[0][0])).toContain("/api/edges/19/games?");
+    expect(rejected.status).toBe(404);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
   it("preserves immutable validators across the same-origin boundary", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const upstream = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {

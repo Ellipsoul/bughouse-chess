@@ -50,6 +50,8 @@ export interface NeighborhoodRequest {
   datasetVersion: string;
   /** Anchor node whose neighborhood should be returned. */
   nodeId: number;
+  /** Rules-state occurrence within the placement node. */
+  stateId: number;
   /** Prefetch depth target (never an unconditional radius). */
   targetForwardDepth?: number;
   /** Soft/hard node budget forwarded to the service. */
@@ -74,6 +76,18 @@ function addFilter(query: URLSearchParams, filter?: ExplorerFilter): void {
 
   if (white) query.set("white", white);
   if (black) query.set("black", black);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isId(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function corruptResponse(message: string): OpeningExplorerApiError {
+  return new OpeningExplorerApiError("corrupt_response", message);
 }
 
 /**
@@ -184,8 +198,36 @@ export class OpeningExplorerApi {
    *
    * @param signal - Optional abort signal for the initial page load.
    */
-  metadata(signal?: AbortSignal): Promise<DatasetMetadata> {
-    return this.json<DatasetMetadata>(`${this.baseUrl}/api/meta`, signal);
+  async metadata(signal?: AbortSignal): Promise<DatasetMetadata> {
+    const response = await this.json<Record<string, unknown>>(
+      `${this.baseUrl}/api/meta`,
+      signal,
+    );
+    const coverage = response.coverage;
+    const terminalPolicy = response.terminal_policy;
+
+    if (
+      response.format_version !== "packed-position-graph-v1"
+      || typeof response.adapter_policy !== "string"
+      || typeof response.dataset_version !== "string"
+      || !isId(response.root_node_id)
+      || !isId(response.root_state_id)
+      || ![
+        "strict-source-game-v1",
+        "skip-unreplayable-source-game-v1",
+      ].includes(String(response.replay_policy))
+      || !isRecord(coverage)
+      || !isId(coverage.accepted_games)
+      || typeof coverage.source_fingerprint !== "string"
+      || ![
+        "full-replay-game-end-v1",
+        "last-shared-placement-plus-one-or-game-end-v1",
+      ].includes(String(terminalPolicy))
+    ) {
+      throw corruptResponse("The opening service metadata is not a position graph.");
+    }
+
+    return response as unknown as DatasetMetadata;
   }
 
   /**
@@ -198,6 +240,7 @@ export class OpeningExplorerApi {
    */
   async neighborhood(request: NeighborhoodRequest): Promise<NeighborhoodResponse> {
     const query = new URLSearchParams({ dataset_version: request.datasetVersion });
+    query.set("state_id", String(request.stateId));
 
     if (request.targetForwardDepth !== undefined) {
       query.set("target_forward_depth", String(request.targetForwardDepth));
@@ -217,35 +260,104 @@ export class OpeningExplorerApi {
       `${this.baseUrl}/api/nodes/${request.nodeId}/neighborhood?${query}`,
       request.signal,
     );
+    const expectedWhite = request.filter?.white?.trim() || null;
+    const expectedBlack = request.filter?.black?.trim() || null;
+    const filterMatches = expectedWhite === null && expectedBlack === null
+      ? response.filter === null
+      : isRecord(response.filter)
+        && response.filter.white_username === expectedWhite
+        && response.filter.black_username === expectedBlack;
 
     if (
       response.dataset_version !== request.datasetVersion
       || response.anchor_node_id !== request.nodeId
+      || response.anchor_state_id !== request.stateId
+      || !filterMatches
       || !Array.isArray(response.nodes)
+      || !Array.isArray(response.states)
       || !Array.isArray(response.edges)
-      || !response.overlays
+      || !Array.isArray(response.frontiers)
+      || !isRecord(response.node_overlays)
+      || !isRecord(response.state_overlays)
+      || !isRecord(response.edge_overlays)
+      || !isRecord(response.instrumentation)
     ) {
-      throw new OpeningExplorerApiError(
-        "corrupt_response",
-        "The neighborhood response did not match the request.",
-      );
+      throw corruptResponse("The neighborhood response did not match the request.");
+    }
+
+    const nodes = new Map<number, NeighborhoodResponse["nodes"][number]>();
+    const states = new Map<number, NeighborhoodResponse["states"][number]>();
+    const edgeIds = new Set<number>();
+
+    for (const node of response.nodes) {
+      if (!isId(node?.id) || nodes.has(node.id) || typeof node.placement !== "string") {
+        throw corruptResponse("The neighborhood contains an invalid node.");
+      }
+      nodes.set(node.id, node);
+    }
+    for (const state of response.states) {
+      if (
+        !isId(state?.id)
+        || states.has(state.id)
+        || !isId(state.node_id)
+        || !nodes.has(state.node_id)
+        || typeof state.position_fen !== "string"
+      ) {
+        throw corruptResponse("The neighborhood contains an invalid state.");
+      }
+      states.set(state.id, state);
+    }
+    if (
+      !nodes.has(request.nodeId)
+      || states.get(request.stateId)?.node_id !== request.nodeId
+    ) {
+      throw corruptResponse("The neighborhood omitted or mismatched its anchor.");
+    }
+    for (const edge of response.edges) {
+      if (
+        !isId(edge?.id)
+        || edgeIds.has(edge.id)
+        || !states.has(edge.parent_state_id)
+        || states.get(edge.child_state_id)?.node_id !== edge.child_id
+        || typeof edge.move_token !== "string"
+        || typeof edge.move_label !== "string"
+        || !response.edge_overlays[String(edge.id)]
+      ) {
+        throw corruptResponse("The neighborhood contains an invalid edge.");
+      }
+      edgeIds.add(edge.id);
+    }
+    for (const nodeId of nodes.keys()) {
+      if (!response.node_overlays[String(nodeId)]) {
+        throw corruptResponse("The neighborhood omitted a node overlay.");
+      }
+    }
+    for (const stateId of states.keys()) {
+      if (!response.state_overlays[String(stateId)]) {
+        throw corruptResponse("The neighborhood omitted a state overlay.");
+      }
+    }
+    for (const frontier of response.frontiers) {
+      if (states.get(frontier?.state_id)?.node_id !== frontier?.node_id) {
+        throw corruptResponse("The neighborhood contains an invalid frontier.");
+      }
     }
 
     return response;
   }
 
   /**
-   * Loads a capped set of example games for a node under an optional filter.
+   * Loads a capped set of example games for one traversed edge.
    *
    * @param datasetVersion - Active dataset version.
-   * @param nodeId - Node whose matching games should be returned.
+   * @param edgeId - Edge whose matching games should be returned.
    * @param filter - Seat filter to apply server-side.
    * @param limit - Maximum examples to request (default 6).
    * @param signal - Optional abort signal for leaf/detail loads.
    */
-  gameExamples(
+  async edgeGameExamples(
     datasetVersion: string,
-    nodeId: number,
+    edgeId: number,
     filter: ExplorerFilter,
     limit = 6,
     signal?: AbortSignal,
@@ -257,10 +369,20 @@ export class OpeningExplorerApi {
 
     addFilter(query, filter);
 
-    return this.json<GameExamplesResponse>(
-      `${this.baseUrl}/api/nodes/${nodeId}/games?${query}`,
+    const response = await this.json<GameExamplesResponse>(
+      `${this.baseUrl}/api/edges/${edgeId}/games?${query}`,
       signal,
     );
+    if (
+      response.dataset_version !== datasetVersion
+      || response.edge_id !== edgeId
+      || !Array.isArray(response.games)
+      || !Number.isSafeInteger(response.total_matching)
+      || !Number.isSafeInteger(response.actual_ending_count)
+    ) {
+      throw corruptResponse("The edge game response did not match the request.");
+    }
+    return response;
   }
 
   /**
@@ -291,10 +413,7 @@ export class OpeningExplorerApi {
     );
 
     if (response.dataset_version !== datasetVersion || !Array.isArray(response.players)) {
-      throw new OpeningExplorerApiError(
-        "corrupt_response",
-        "The player response did not match the dataset.",
-      );
+      throw corruptResponse("The player response did not match the dataset.");
     }
 
     return response.players.map((player) => player.username);

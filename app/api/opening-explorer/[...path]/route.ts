@@ -39,6 +39,7 @@ export const maxDuration = 60;
  * - `api/players`
  * - `api/nodes/{digits}/neighborhood`
  * - `api/nodes/{digits}/games`
+ * - `api/edges/{digits}/games`
  *
  * @param path - Path segments after `/api/opening-explorer/`.
  */
@@ -49,9 +50,11 @@ function isAllowedReadPath(path: string[]): boolean {
 
   return path.length === 4
     && path[0] === "api"
-    && path[1] === "nodes"
     && /^\d+$/.test(path[2])
-    && (path[3] === "neighborhood" || path[3] === "games");
+    && (
+      (path[1] === "nodes" && (path[3] === "neighborhood" || path[3] === "games"))
+      || (path[1] === "edges" && path[3] === "games")
+    );
 }
 
 /**

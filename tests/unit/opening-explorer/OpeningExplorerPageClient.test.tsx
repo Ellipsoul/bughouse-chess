@@ -21,11 +21,12 @@ const mocks = vi.hoisted(() => ({
   neighborhood: vi.fn(),
   games: vi.fn(),
   players: vi.fn(),
+  searchParams: vi.fn(() => new URLSearchParams()),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mocks.searchParams(),
 }));
 
 vi.mock("@/app/components/board/ChessBoard", () => ({
@@ -35,14 +36,85 @@ vi.mock("@/app/components/board/ChessBoard", () => ({
 vi.mock("@/app/components/opening-explorer/api", () => ({
   OpeningExplorerApiError: class extends Error {},
   OpeningExplorerApi: class {
-    metadata = mocks.metadata;
-    neighborhood = mocks.neighborhood;
-    gameExamples = mocks.games;
+    metadata = async (...args: unknown[]) => {
+      const metadata = await mocks.metadata(...args);
+      return {
+        ...metadata,
+        format_version: "packed-position-graph-v1",
+        replay_policy: metadata.replay_policy ?? "skip-unreplayable-source-game-v1",
+        root_state_id: metadata.root_state_id ?? 0,
+        terminal_policy: "full-replay-game-end-v1",
+      };
+    };
+    neighborhood = async (...args: unknown[]) => toGraphResponse(await mocks.neighborhood(...args));
+    edgeGameExamples = mocks.games;
     searchPlayers = mocks.players;
   },
 }));
 
 import OpeningExplorerPageClient from "@/app/components/opening-explorer/OpeningExplorerPageClient";
+
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+const STATE_FENS: Record<number, string> = {
+  0: START,
+  1: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3",
+  2: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3",
+  3: "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq -",
+};
+const MOVE_LABELS: Record<string, string> = { gv: "Nf3", lB: "d4", mC: "e4" };
+
+/** Upgrade legacy prefix fixtures so the suite exercises the graph client contract. */
+/* eslint-disable @typescript-eslint/no-explicit-any -- bounded adapter for legacy-shaped fixtures */
+function toGraphResponse(response: any) {
+  if (Array.isArray(response.states)) return response;
+  const states = response.nodes.map((node: any) => ({
+    id: node.id,
+    node_id: node.id,
+    outgoing_count: node.child_count,
+    position_fen: STATE_FENS[node.id] ?? START,
+  }));
+  const edges = response.edges.map((edge: any) => ({
+    child_id: edge.child_id,
+    child_state_id: edge.child_id,
+    id: edge.child_id,
+    move_label: MOVE_LABELS[edge.move_token] ?? edge.move_token,
+    move_token: edge.move_token,
+    parent_state_id: edge.parent_id,
+  }));
+  return {
+    ...response,
+    anchor_state_id: response.anchor_node_id,
+    edge_overlays: Object.fromEntries(edges.map((edge: any) => [
+      String(edge.id),
+      {
+        results: response.overlays[String(edge.child_id)]?.results ?? {},
+        sole_game_ordinal: response.overlays[String(edge.child_id)]?.sole_game_ordinal ?? null,
+        support: response.overlays[String(edge.child_id)]?.support ?? 0,
+      },
+    ])),
+    edges,
+    frontiers: response.frontiers.map((frontier: any) => ({
+      ...frontier,
+      state_id: frontier.node_id,
+    })),
+    instrumentation: {
+      ...response.instrumentation,
+      returned_states: states.length,
+    },
+    node_overlays: Object.fromEntries(response.nodes.map((node: any) => [
+      String(node.id),
+      { support: response.overlays[String(node.id)]?.support ?? 0 },
+    ])),
+    nodes: response.nodes.map((node: any) => ({
+      id: node.id,
+      placement: (STATE_FENS[node.id] ?? START).split(" ")[0],
+      support: response.overlays[String(node.id)]?.support ?? 0,
+    })),
+    state_overlays: response.overlays,
+    states,
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Minimal neighborhood fixture: root with one child (`mC` → e4).
@@ -85,6 +157,8 @@ async function choosePlayer(username: string): Promise<void> {
 describe("OpeningExplorerPageClient", () => {
   beforeEach(() => {
     mocks.push.mockReset();
+    mocks.searchParams.mockReset();
+    mocks.searchParams.mockReturnValue(new URLSearchParams());
     mocks.games.mockReset();
     mocks.games.mockResolvedValue({
       actual_ending_count: 0,
@@ -109,10 +183,71 @@ describe("OpeningExplorerPageClient", () => {
   it("sets a patient cold-start expectation only while the opening dataset loads", async () => {
     render(<OpeningExplorerPageClient />);
 
-    expect(screen.getByText("Cold starts can take up to 20 seconds. Please be patient.")).toBeInTheDocument();
+    expect(screen.getByText("Cold starts can take about 30 seconds. Please be patient.")).toBeInTheDocument();
 
     await screen.findByRole("heading", { name: "Opening explorer" });
-    expect(screen.queryByText("Cold starts can take up to 20 seconds. Please be patient.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cold starts can take about 30 seconds. Please be patient.")).not.toBeInTheDocument();
+  });
+
+  it("uses nonzero graph root ids when the URL has no explicit anchor", async () => {
+    mocks.metadata.mockResolvedValue({
+      adapter_policy: "opening-adapter-v2-short-non-checkmate",
+      coverage: { accepted_games: 1, source_fingerprint: "fixture" },
+      dataset_version: "dataset-1",
+      root_node_id: 12,
+      root_state_id: 34,
+    });
+    mocks.neighborhood.mockResolvedValue({
+      anchor_node_id: 12,
+      anchor_state_id: 34,
+      dataset_version: "dataset-1",
+      edges: [],
+      edge_overlays: {},
+      filter: null,
+      frontiers: [],
+      instrumentation: {
+        budget_exception: false,
+        elapsed_microseconds: 1,
+        encoded_bytes: 100,
+        returned_edges: 0,
+        returned_nodes: 1,
+        returned_states: 1,
+        visited_nodes: 1,
+      },
+      node_overlays: { "12": { support: 1 } },
+      nodes: [{ id: 12, placement: START.split(" ")[0], support: 1 }],
+      state_overlays: {
+        "34": { actual_ending_count: 1, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+      },
+      states: [{ id: 34, node_id: 12, outgoing_count: 0, position_fen: START }],
+      target_forward_depth: 5,
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    await screen.findByRole("heading", { name: "Opening explorer" });
+    expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      nodeId: 12,
+      stateId: 34,
+    }));
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain(START);
+  });
+
+  it("ignores node and state ids from a stale dataset URL", async () => {
+    mocks.searchParams.mockReturnValue(new URLSearchParams({
+      dataset: "old-dataset",
+      node: "999",
+      state: "888",
+    }));
+
+    render(<OpeningExplorerPageClient />);
+
+    await screen.findByRole("heading", { name: "Opening explorer" });
+    expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      datasetVersion: "dataset-1",
+      nodeId: 0,
+      stateId: 0,
+    }));
   });
 
   it("shows subsequent neighborhood loading inside the candidate move list", async () => {
@@ -170,7 +305,7 @@ describe("OpeningExplorerPageClient", () => {
 
     await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("4P3"));
     expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeClick);
-    expect(mocks.push).toHaveBeenCalledWith("/opening-explorer?node=1&dataset=dataset-1");
+    expect(mocks.push).toHaveBeenCalledWith("/opening-explorer?node=1&state=1&dataset=dataset-1");
   });
 
   it("offers one searchable player combobox with a separate White or Black seat choice", async () => {
@@ -229,6 +364,59 @@ describe("OpeningExplorerPageClient", () => {
     await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
       filter: { white: null, black: "alice" },
     })));
+  });
+
+  it("resets the board and explorer to the root when the filtered player is cleared", async () => {
+    mocks.players.mockResolvedValue(["alice"]);
+    mocks.neighborhood.mockImplementation((request: {
+      filter?: { white?: string | null; black?: string | null };
+      nodeId: number;
+    }) => {
+      if (request.nodeId === 1) {
+        return Promise.resolve({
+          ...neighborhoodResponse,
+          anchor_node_id: 1,
+          edges: [],
+          filter: request.filter?.white
+            ? { white_username: request.filter.white, black_username: null }
+            : null,
+          nodes: [neighborhoodResponse.nodes[1]],
+          overlays: {
+            "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+          },
+          path: [
+            { move_token: null, node_id: 0 },
+            { move_token: "mC", node_id: 1 },
+          ],
+        });
+      }
+
+      return Promise.resolve(neighborhoodResponse);
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /e4, 6 games/i }));
+    await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("4P3"));
+
+    await choosePlayer("alice");
+    fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
+    await waitFor(() => expect(mocks.neighborhood).toHaveBeenCalledWith(expect.objectContaining({
+      nodeId: 1,
+      filter: { white: "alice", black: null },
+    })));
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => expect(screen.getByText("No moves yet")).toBeInTheDocument());
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+    );
+    expect(mocks.neighborhood).toHaveBeenLastCalledWith(expect.objectContaining({
+      nodeId: 0,
+      filter: { white: null, black: null },
+    }));
+    expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=0&state=0&dataset=dataset-1");
   });
 
   it("shows decoded moves without TCN and sorts the move list by descending game count", async () => {
@@ -303,7 +491,7 @@ describe("OpeningExplorerPageClient", () => {
     const gameLink = await screen.findByRole("link", { name: /d4.*Alice.*1–0.*Bob/i });
     expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=456");
     expect(gameLink).toHaveAttribute("target", "_blank");
-    expect(screen.queryByRole("button", { name: /d4/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /d4, 1 games/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /e4, 6 games/i })).toBeInTheDocument();
     expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
     expect(mocks.games).toHaveBeenCalledWith(
@@ -352,15 +540,69 @@ describe("OpeningExplorerPageClient", () => {
 
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
     await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("3P4"));
-    expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=2&dataset=dataset-1");
+    expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=2&state=2&dataset=dataset-1");
 
     expect(fireEvent.keyDown(window, { key: "ArrowLeft" })).toBe(false);
     await waitFor(() => expect(screen.getByText("No moves yet")).toBeInTheDocument());
-    expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=0&dataset=dataset-1");
+    expect(mocks.push).toHaveBeenLastCalledWith("/opening-explorer?node=0&state=0&dataset=dataset-1");
     await waitFor(() => expect(screen.getByRole("button", { name: /d4, 2 games/i })).toHaveAttribute("aria-current", "true"));
 
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
     await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("3P4"));
+  });
+
+  it("keeps client history when a cycle returns to the same node and state", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      anchor_node_id: 0,
+      anchor_state_id: 0,
+      dataset_version: "dataset-1",
+      edge_overlays: {
+        "10": { results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+        "11": { results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+      },
+      edges: [
+        { child_id: 1, child_state_id: 1, id: 10, move_label: "Nf3", move_token: "gv", parent_state_id: 0 },
+        { child_id: 0, child_state_id: 0, id: 11, move_label: "Ng1", move_token: "MU", parent_state_id: 1 },
+      ],
+      filter: null,
+      frontiers: [],
+      instrumentation: {
+        budget_exception: false,
+        elapsed_microseconds: 1,
+        encoded_bytes: 800,
+        returned_edges: 2,
+        returned_nodes: 2,
+        returned_states: 2,
+        visited_nodes: 2,
+      },
+      node_overlays: { "0": { support: 2 }, "1": { support: 2 } },
+      nodes: [
+        { id: 0, placement: START.split(" ")[0], support: 2 },
+        { id: 1, placement: STATE_FENS[3].split(" ")[0], support: 2 },
+      ],
+      state_overlays: {
+        "0": { actual_ending_count: 0, results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+        "1": { actual_ending_count: 0, results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+      },
+      states: [
+        { id: 0, node_id: 0, outgoing_count: 1, position_fen: START },
+        { id: 1, node_id: 1, outgoing_count: 1, position_fen: STATE_FENS[3] },
+      ],
+      target_forward_depth: 5,
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Nf3, 2 games/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Ng1, 2 games/i }));
+
+    await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain(START));
+    expect(screen.getByRole("button", { name: "Go to position after Nf3" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to position after Ng1" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    await waitFor(() => expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("5N2"));
+    expect(screen.queryByRole("button", { name: "Go to position after Ng1" })).not.toBeInTheDocument();
   });
 
   it("keeps complete ancestor move lists pinned through bounded-cache pressure", async () => {
@@ -413,8 +655,8 @@ describe("OpeningExplorerPageClient", () => {
     const requestsBeforeBack = mocks.neighborhood.mock.calls.length;
     fireEvent.keyDown(window, { key: "ArrowLeft" });
 
-    await waitFor(() => expect(screen.getByText("d4")).toBeInTheDocument());
-    expect(screen.getByText("Nf3")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 games/i })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /Nf3, 1 games/i })).toBeInTheDocument();
     expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeBack);
   });
 
@@ -511,7 +753,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(within(moveList).queryByRole("button", { name: "Inspect bounded game details" })).not.toBeInTheDocument();
   });
 
-  it("opens the source game from a sole continuation without advancing the board", async () => {
+  it("keeps a sole continuation navigable while exposing its source game", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,
       overlays: {
@@ -546,10 +788,12 @@ describe("OpeningExplorerPageClient", () => {
     const gameLink = await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i });
     expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=123");
     expect(gameLink).toHaveAttribute("target", "_blank");
-    expect(screen.queryByRole("button", { name: /e4/i })).not.toBeInTheDocument();
-    expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(true);
-    expect(mocks.push).not.toHaveBeenCalled();
-    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
+    expect(screen.getByRole("button", { name: /e4, 1 games/i })).toBeInTheDocument();
+    expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(
+      "/opening-explorer?node=1&state=1&dataset=dataset-1",
+    ));
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("4P3");
     expect(mocks.games).toHaveBeenCalledWith(
       "dataset-1",
       1,
@@ -660,7 +904,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(mocks.games).not.toHaveBeenCalled();
   });
 
-  it("keeps a source-game link when the packed terminal policy stops at support one", async () => {
+  it("does not invent a source edge when a graph state has no continuation", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,
       edges: [],
@@ -695,12 +939,10 @@ describe("OpeningExplorerPageClient", () => {
 
     render(<OpeningExplorerPageClient />);
 
-    expect(await screen.findByRole("link", { name: /Source game.*Alice.*1–0.*Bob/i })).toHaveAttribute(
-      "href",
-      "https://bughouse.aronteh.com/?gameId=123",
-    );
+    await screen.findByText("No indexed continuations from this position.");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.getByText("1 game")).toBeInTheDocument();
-    expect(screen.queryByText("No continuations from this position.")).not.toBeInTheDocument();
+    expect(mocks.games).not.toHaveBeenCalled();
   });
 
   it("places the played move list between the board and the candidate-move controls", async () => {

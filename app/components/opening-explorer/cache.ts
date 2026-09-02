@@ -1,48 +1,22 @@
-/**
- * @module opening-explorer/cache
- *
- * Bounded in-memory cache for opening-explorer neighborhoods.
- *
- * Structural nodes and edges are keyed by `(dataset_version, node_id)`.
- * Filter overlays are keyed by `(dataset_version, normalized_filter, node_id)`
- * so changing a player filter does not discard reusable geometry.
- *
- * The visited path and its immediate children are pinned against LRU eviction
- * so ordinary backward navigation stays local and instant. Evicting a child
- * re-marks its parent as a frontier so idle prefetch can refill it later.
- *
- * Native HTTP caching remains a second tier beneath this working set; this
- * module is intentionally the fast, bounded first tier (default 5,000 nodes).
- */
+/** Bounded graph cache keyed by dataset, state occurrence, edge, and filter. */
 
 import type {
+  EdgeOverlay,
   ExplorerFilter,
   NeighborhoodResponse,
   NodeOverlay,
+  StateOverlay,
   StructuralEdge,
   StructuralNode,
+  StructuralState,
 } from "./types";
 
-/**
- * Builds a stable cache identity for a White/Black filter.
- *
- * Usernames are trimmed and lower-cased so typographically equivalent inputs
- * share overlay entries.
- *
- * @param filter - Seat filter from the UI or a response echo.
- */
 export function normalizedFilterKey(filter: ExplorerFilter): string {
   const white = filter.white?.trim().toLocaleLowerCase() ?? "";
   const black = filter.black?.trim().toLocaleLowerCase() ?? "";
-
   return `white=${white}&black=${black}`;
 }
 
-/**
- * Converts a service filter echo into the same key used by client state.
- *
- * @param filter - Neighborhood response filter object, possibly null.
- */
 function responseFilterKey(filter: NeighborhoodResponse["filter"]): string {
   return normalizedFilterKey({
     white: filter?.white_username ?? null,
@@ -50,9 +24,6 @@ function responseFilterKey(filter: NeighborhoodResponse["filter"]): string {
   });
 }
 
-/**
- * Running counters exposed for the prototype instrumentation panel.
- */
 interface CacheMetrics {
   cacheHits: number;
   cacheMisses: number;
@@ -61,15 +32,16 @@ interface CacheMetrics {
   usedNodes: number;
 }
 
-/**
- * Versioned LRU cache for structural nodes, edges, overlays, and frontiers.
- */
 export class OpeningExplorerCache {
-  private readonly maximumNodes: number;
+  private readonly maximumStates: number;
   private activeVersion: string | null = null;
-  private structures = new Map<string, StructuralNode>();
-  private overlays = new Map<string, NodeOverlay>();
+  private nodes = new Map<string, StructuralNode>();
+  private states = new Map<string, StructuralState>();
+  private nodeOverlays = new Map<string, NodeOverlay>();
+  private stateOverlays = new Map<string, StateOverlay>();
+  private edgeOverlays = new Map<string, EdgeOverlay>();
   private edges = new Map<string, Map<number, StructuralEdge>>();
+  private reverseParents = new Map<string, Set<number>>();
   private frontiers = new Set<string>();
   private recency = new Map<string, number>();
   private pinned = new Set<string>();
@@ -82,239 +54,211 @@ export class OpeningExplorerCache {
     usedNodes: 0,
   };
 
-  /**
-   * @param maximumNodes - Maximum structural nodes retained before LRU eviction.
-   */
-  constructor(maximumNodes = 5_000) {
-    if (maximumNodes < 1) {
-      throw new Error("maximumNodes must be positive");
+  constructor(maximumStates = 5_000) {
+    if (maximumStates < 1) throw new Error("maximumStates must be positive");
+    this.maximumStates = maximumStates;
+  }
+
+  private nodeKey(version: string, nodeId: number): string {
+    return `${version}:node:${nodeId}`;
+  }
+
+  private stateKey(version: string, stateId: number): string {
+    return `${version}:state:${stateId}`;
+  }
+
+  private overlayKey(
+    version: string,
+    filterKey: string,
+    kind: "node" | "state" | "edge",
+    id: number,
+  ): string {
+    return `${version}:${filterKey}:${kind}:${id}`;
+  }
+
+  private deleteOverlays(kind: "node" | "state" | "edge", id: number): void {
+    const overlays = kind === "node"
+      ? this.nodeOverlays
+      : kind === "state"
+        ? this.stateOverlays
+        : this.edgeOverlays;
+
+    for (const key of overlays.keys()) {
+      if (key.endsWith(`:${kind}:${id}`)) overlays.delete(key);
     }
-
-    this.maximumNodes = maximumNodes;
   }
 
-  /**
-   * Builds the structural cache key for a versioned node.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Structural node id.
-   */
-  private key(version: string, nodeId: number): string {
-    return `${version}:${nodeId}`;
-  }
-
-  /**
-   * Builds the overlay cache key for a versioned, filtered node.
-   *
-   * @param version - Active dataset version.
-   * @param filterKey - Output of {@link normalizedFilterKey}.
-   * @param nodeId - Structural node id.
-   */
-  private overlayKey(version: string, filterKey: string, nodeId: number): string {
-    return `${version}:${filterKey}:${nodeId}`;
-  }
-
-  /**
-   * Switches the active dataset version, clearing all retained records.
-   *
-   * Idempotent when the version is unchanged so repeated metadata loads do not
-   * thrash a warm cache.
-   *
-   * @param version - Newly published dataset version.
-   */
   activateDataset(version: string): void {
     if (this.activeVersion === version) return;
-
     this.activeVersion = version;
-    this.structures.clear();
-    this.overlays.clear();
+    this.nodes.clear();
+    this.states.clear();
+    this.nodeOverlays.clear();
+    this.stateOverlays.clear();
+    this.edgeOverlays.clear();
     this.edges.clear();
+    this.reverseParents.clear();
     this.frontiers.clear();
     this.recency.clear();
     this.pinned.clear();
   }
 
-  /**
-   * Merges a neighborhood response into structural, edge, overlay, and frontier maps.
-   *
-   * Nodes present in the response lose any previous frontier mark. Eviction runs
-   * after the merge so the working set never permanently exceeds `maximumNodes`.
-   *
-   * @param response - Validated neighborhood payload from the API client.
-   */
   merge(response: NeighborhoodResponse): void {
     this.activateDataset(response.dataset_version);
-
     const filterKey = responseFilterKey(response.filter);
-
-    this.counters.returnedNodes += response.nodes.length;
+    this.counters.returnedNodes += response.states.length;
 
     for (const node of response.nodes) {
-      const key = this.key(response.dataset_version, node.id);
+      this.nodes.set(this.nodeKey(response.dataset_version, node.id), node);
+      const overlay = response.node_overlays[String(node.id)];
+      if (overlay) {
+        this.nodeOverlays.set(
+          this.overlayKey(response.dataset_version, filterKey, "node", node.id),
+          overlay,
+        );
+      }
+    }
 
-      this.structures.set(key, node);
+    for (const state of response.states) {
+      const key = this.stateKey(response.dataset_version, state.id);
+      this.states.set(key, state);
       this.recency.set(key, ++this.tick);
       this.frontiers.delete(key);
-
-      const overlay = response.overlays[String(node.id)];
-
+      const overlay = response.state_overlays[String(state.id)];
       if (overlay) {
-        this.overlays.set(
-          this.overlayKey(response.dataset_version, filterKey, node.id),
+        this.stateOverlays.set(
+          this.overlayKey(response.dataset_version, filterKey, "state", state.id),
           overlay,
         );
       }
     }
 
     for (const edge of response.edges) {
-      const parentKey = this.key(response.dataset_version, edge.parent_id);
-      const children = this.edges.get(parentKey) ?? new Map<number, StructuralEdge>();
+      const parentKey = this.stateKey(response.dataset_version, edge.parent_state_id);
+      const outgoing = this.edges.get(parentKey) ?? new Map<number, StructuralEdge>();
+      outgoing.set(edge.id, edge);
+      this.edges.set(parentKey, outgoing);
 
-      children.set(edge.child_id, edge);
-      this.edges.set(parentKey, children);
+      const childKey = this.stateKey(response.dataset_version, edge.child_state_id);
+      const parents = this.reverseParents.get(childKey) ?? new Set<number>();
+      parents.add(edge.parent_state_id);
+      this.reverseParents.set(childKey, parents);
+
+      const overlay = response.edge_overlays[String(edge.id)];
+      if (overlay) {
+        this.edgeOverlays.set(
+          this.overlayKey(response.dataset_version, filterKey, "edge", edge.id),
+          overlay,
+        );
+      }
     }
 
     for (const frontier of response.frontiers) {
-      this.frontiers.add(this.key(response.dataset_version, frontier.node_id));
+      this.frontiers.add(this.stateKey(response.dataset_version, frontier.state_id));
     }
-
     this.evict();
   }
 
-  /**
-   * Pins the given nodes against LRU eviction (typically the active path).
-   *
-   * Replaces the previous pin set entirely, then evicts if needed.
-   *
-   * @param version - Active dataset version.
-   * @param nodeIds - Node ids that must remain resident.
-   */
-  pin(version: string, nodeIds: readonly number[]): void {
-    this.pinned = new Set(nodeIds.map((nodeId) => this.key(version, nodeId)));
+  pin(version: string, stateIds: readonly number[]): void {
+    this.pinned = new Set(stateIds.map((stateId) => this.stateKey(version, stateId)));
     this.evict();
   }
 
-  /**
-   * Reports whether a structural node is currently resident.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Structural node id.
-   */
-  hasNode(version: string, nodeId: number): boolean {
-    return this.structures.has(this.key(version, nodeId));
+  hasState(version: string, stateId: number): boolean {
+    return this.states.has(this.stateKey(version, stateId));
   }
 
-  /**
-   * Returns a structural node and records a cache hit/miss.
-   *
-   * Hits refresh LRU recency and increment `usedNodes` for instrumentation.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Structural node id.
-   */
   getNode(version: string, nodeId: number): StructuralNode | undefined {
-    const key = this.key(version, nodeId);
-    const node = this.structures.get(key);
+    return this.nodes.get(this.nodeKey(version, nodeId));
+  }
 
-    if (!node) {
+  getState(version: string, stateId: number): StructuralState | undefined {
+    const key = this.stateKey(version, stateId);
+    const state = this.states.get(key);
+    if (!state) {
       this.counters.cacheMisses += 1;
       return undefined;
     }
-
     this.counters.cacheHits += 1;
     this.counters.usedNodes += 1;
     this.recency.set(key, ++this.tick);
-
-    return node;
+    return state;
   }
 
-  /**
-   * Returns the filter overlay for a node, if one was previously merged.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Structural node id.
-   * @param filter - Active seat filter.
-   */
-  getOverlay(version: string, nodeId: number, filter: ExplorerFilter): NodeOverlay | undefined {
-    return this.overlays.get(
-      this.overlayKey(version, normalizedFilterKey(filter), nodeId),
+  getNodeOverlay(version: string, nodeId: number, filter: ExplorerFilter): NodeOverlay | undefined {
+    return this.nodeOverlays.get(
+      this.overlayKey(version, normalizedFilterKey(filter), "node", nodeId),
     );
   }
 
-  /**
-   * Lists immediate child edges whose child nodes are still resident.
-   *
-   * Edges whose children were evicted are omitted so the UI never offers a
-   * continuation that cannot be rendered from cache without a refill.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Parent node id.
-   */
-  getChildren(version: string, nodeId: number): StructuralEdge[] {
-    return [...(this.edges.get(this.key(version, nodeId))?.values() ?? [])]
-      .filter((edge) => this.hasNode(version, edge.child_id))
-      .sort((left, right) => left.move_token.localeCompare(right.move_token));
+  getStateOverlay(version: string, stateId: number, filter: ExplorerFilter): StateOverlay | undefined {
+    return this.stateOverlays.get(
+      this.overlayKey(version, normalizedFilterKey(filter), "state", stateId),
+    );
   }
 
-  /**
-   * Reports whether a node is marked as a truncated expansion frontier.
-   *
-   * @param version - Active dataset version.
-   * @param nodeId - Structural node id.
-   */
-  isFrontier(version: string, nodeId: number): boolean {
-    return this.frontiers.has(this.key(version, nodeId));
+  getEdgeOverlay(version: string, edgeId: number, filter: ExplorerFilter): EdgeOverlay | undefined {
+    return this.edgeOverlays.get(
+      this.overlayKey(version, normalizedFilterKey(filter), "edge", edgeId),
+    );
   }
 
-  /**
-   * Returns a snapshot of instrumentation counters.
-   */
+  getChildren(version: string, stateId: number): StructuralEdge[] {
+    return [...(this.edges.get(this.stateKey(version, stateId))?.values() ?? [])]
+      .filter((edge) => this.hasState(version, edge.child_state_id))
+      .sort((left, right) => left.move_label.localeCompare(right.move_label) || left.id - right.id);
+  }
+
+  isFrontier(version: string, stateId: number): boolean {
+    return this.frontiers.has(this.stateKey(version, stateId));
+  }
+
   metrics(): CacheMetrics {
     return { ...this.counters };
   }
 
-  /**
-   * Evicts the oldest unpinned structural nodes until size fits the budget.
-   *
-   * When a child is evicted, its parent is re-marked as a frontier so idle
-   * prefetch can refill the missing neighborhood later. Matching overlays for
-   * the evicted node id are also removed.
-   */
   private evict(): void {
-    while (this.structures.size > this.maximumNodes) {
+    while (this.states.size > this.maximumStates) {
       let candidate: string | null = null;
       let oldest = Number.POSITIVE_INFINITY;
-
       for (const [key, tick] of this.recency) {
         if (!this.pinned.has(key) && tick < oldest) {
           candidate = key;
           oldest = tick;
         }
       }
-
       if (!candidate) break;
 
-      const evictedNode = this.structures.get(candidate);
-
-      this.structures.delete(candidate);
+      const state = this.states.get(candidate);
+      const outgoing = [...(this.edges.get(candidate)?.values() ?? [])];
+      this.states.delete(candidate);
       this.recency.delete(candidate);
       this.edges.delete(candidate);
       this.frontiers.delete(candidate);
 
-      if (evictedNode?.parent_id !== null && evictedNode?.parent_id !== undefined) {
-        const parentKey = this.key(this.activeVersion!, evictedNode.parent_id);
-
-        if (this.structures.has(parentKey)) {
-          this.frontiers.add(parentKey);
+      if (state) {
+        const parents = this.reverseParents.get(candidate) ?? new Set<number>();
+        for (const parentStateId of parents) {
+          const parentKey = this.stateKey(this.activeVersion!, parentStateId);
+          if (this.states.has(parentKey)) this.frontiers.add(parentKey);
         }
-      }
-
-      for (const key of this.overlays.keys()) {
-        if (key.endsWith(`:${candidate.split(":").at(-1)}`)) {
-          this.overlays.delete(key);
+        this.reverseParents.delete(candidate);
+        for (const edge of outgoing) {
+          const childKey = this.stateKey(this.activeVersion!, edge.child_state_id);
+          const childParents = this.reverseParents.get(childKey);
+          childParents?.delete(state.id);
+          if (childParents?.size === 0) this.reverseParents.delete(childKey);
+          this.deleteOverlays("edge", edge.id);
         }
+        const nodeStillUsed = [...this.states.values()].some(
+          (cached) => cached.node_id === state.node_id,
+        );
+        if (!nodeStillUsed) {
+          this.nodes.delete(this.nodeKey(this.activeVersion!, state.node_id));
+          this.deleteOverlays("node", state.node_id);
+        }
+        this.deleteOverlays("state", state.id);
       }
-
       this.counters.evictedNodes += 1;
     }
   }
