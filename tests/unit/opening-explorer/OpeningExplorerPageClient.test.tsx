@@ -886,6 +886,57 @@ describe("OpeningExplorerPageClient", () => {
     expect(screen.queryByText("The opening artifact or response could not be read safely.")).not.toBeInTheDocument();
   });
 
+  it("loads visible support-one source games serially", async () => {
+    mocks.neighborhood.mockResolvedValue({
+      ...neighborhoodResponse,
+      edges: [
+        { child_id: 1, move_token: "mC", parent_id: 0 },
+        { child_id: 2, move_token: "lB", parent_id: 0 },
+      ],
+      nodes: [
+        { child_count: 2, id: 0, interval_end: 2, interval_start: 0, move_token: null, parent_id: null, ply: 0 },
+        { child_count: 0, id: 1, interval_end: 1, interval_start: 0, move_token: "mC", parent_id: 0, ply: 1 },
+        { child_count: 0, id: 2, interval_end: 2, interval_start: 1, move_token: "lB", parent_id: 0, ply: 1 },
+      ],
+      overlays: {
+        "0": { actual_ending_count: 0, results: { win: 2 }, sole_game_ordinal: null, support: 2 },
+        "1": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 0, support: 1 },
+        "2": { actual_ending_count: 0, results: { win: 1 }, sole_game_ordinal: 1, support: 1 },
+      },
+    });
+    let resolveFirst: ((response: unknown) => void) | undefined;
+    mocks.games.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveFirst = resolve;
+    }));
+    mocks.games.mockResolvedValue({
+      actual_ending_count: 0,
+      dataset_version: "dataset-1",
+      edge_id: 1,
+      games: [],
+      limit: 1,
+      total_matching: 0,
+    });
+
+    render(<OpeningExplorerPageClient />);
+
+    await waitFor(() => expect(mocks.games).toHaveBeenCalledTimes(1));
+    expect(mocks.games.mock.calls[0]?.[1]).toBe(2);
+
+    await act(async () => {
+      resolveFirst?.({
+        actual_ending_count: 0,
+        dataset_version: "dataset-1",
+        edge_id: 2,
+        games: [],
+        limit: 1,
+        total_matching: 0,
+      });
+    });
+
+    await waitFor(() => expect(mocks.games).toHaveBeenCalledTimes(2));
+    expect(mocks.games.mock.calls[1]?.[1]).toBe(1);
+  });
+
   it("renders a sole-game terminal as the ending row without loading a separate game card", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,

@@ -998,7 +998,12 @@ export default function OpeningExplorerPageClient() {
     }
   }, [api, metadata]);
 
-  /** Auto-loads bounded game details for every visible support-one child. */
+  /**
+   * Loads bounded game details for visible support-one children one at a time.
+   *
+   * These links are supplementary, so serial loading avoids turning one page
+   * render into a burst of independent cold-start requests to the read service.
+   */
   useEffect(() => {
     gameDetailsController.current?.abort();
     setSourceGames(Object.fromEntries(
@@ -1014,24 +1019,34 @@ export default function OpeningExplorerPageClient() {
 
     gameDetailsController.current = controller;
 
-    for (const edgeId of sourceGameEdgeIds) {
-      void api.edgeGameExamples(metadata.dataset_version, edgeId, filter, 1, controller.signal)
-        .then((response) => {
+    const loadSourceGames = async () => {
+      for (const edgeId of sourceGameEdgeIds) {
+        try {
+          const response = await api.edgeGameExamples(
+            metadata.dataset_version,
+            edgeId,
+            filter,
+            1,
+            controller.signal,
+          );
+
           if (disposed) return;
           const game = response.games[0] ?? null;
           setSourceGames((current) => ({
             ...current,
             [edgeId]: { game, status: game?.url ? "loaded" : "error" },
           }));
-        })
-        .catch((caught) => {
+        } catch (caught) {
           if (disposed || (caught instanceof Error && caught.name === "AbortError")) return;
           setSourceGames((current) => ({
             ...current,
             [edgeId]: { game: null, status: "error" },
           }));
-        });
-    }
+        }
+      }
+    };
+
+    void loadSourceGames();
 
     return () => {
       disposed = true;
