@@ -4,7 +4,7 @@ export interface DatasetMetadata {
   adapter_policy: string;
   coverage: { accepted_games: number; source_fingerprint: string };
   dataset_version: string;
-  format_version: "packed-position-graph-v1";
+  format_version: "packed-position-graph-v1" | "packed-position-graph-v2";
   /** Piece-placement node containing the standard initial board. */
   root_node_id: number;
   /** Rules-state occurrence used to begin navigation. */

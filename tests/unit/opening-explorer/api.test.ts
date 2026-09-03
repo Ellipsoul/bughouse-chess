@@ -17,7 +17,7 @@ describe("opening explorer HTTP client", () => {
         adapter_policy: "policy-v1",
         coverage: { accepted_games: 1, source_fingerprint: "fixture" },
         dataset_version: "v1",
-        format_version: "packed-position-graph-v1",
+        format_version: "packed-position-graph-v2",
         replay_policy: "skip-unreplayable-source-game-v1",
         root_node_id: 0,
         root_state_id: 0,

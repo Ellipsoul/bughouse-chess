@@ -207,7 +207,9 @@ export class OpeningExplorerApi {
     const terminalPolicy = response.terminal_policy;
 
     if (
-      response.format_version !== "packed-position-graph-v1"
+      !["packed-position-graph-v1", "packed-position-graph-v2"].includes(
+        String(response.format_version),
+      )
       || typeof response.adapter_policy !== "string"
       || typeof response.dataset_version !== "string"
       || !isId(response.root_node_id)
