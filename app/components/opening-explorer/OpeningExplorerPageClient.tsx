@@ -15,7 +15,7 @@
  * - Cached forward steps update local path/state without a network round-trip
  * - Missing children count as frontier stalls and trigger a foreground refill
  * - Idle prefetch refills truncated frontiers opportunistically
- * - Support-one edges remain navigable and may also expose a source-game link
+ * - Support-one edges render only as source-game rows; Right opens a loaded link
  * - Actual endings render as an unclickable `-` row
  */
 
@@ -231,7 +231,7 @@ function SourceGameRow({
   entry: SourceGameEntry | undefined;
   label: string;
   onSelect?: () => void;
-  register?: (element: HTMLAnchorElement | null) => void;
+  register?: (element: HTMLElement | null) => void;
   selected?: boolean;
 }) {
   const game = entry?.game;
@@ -239,8 +239,11 @@ function SourceGameRow({
   if (!game?.url) {
     return (
       <div
+        ref={register}
+        aria-current={selected ? "true" : undefined}
         aria-label={`${label}, ${entry?.status === "error" ? "source game unavailable" : "loading source game"}`}
-        className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${entry?.status === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"}`}
+        onMouseEnter={onSelect}
+        className={`flex w-full items-center gap-3 rounded-lg border bg-slate-950 px-3 py-3 ${entry?.status === "error" ? "border-red-500/40 text-red-300" : "border-slate-700 text-slate-400"} ${selected ? "ring-1 ring-cyan-400/30" : ""}`}
       >
         <span className="font-mono text-sm text-slate-200">{label}</span>
         <span className="flex-1 text-center text-xs">{entry?.status === "error" ? "Source game could not be loaded." : "Loading source game…"}</span>
@@ -632,7 +635,7 @@ export default function OpeningExplorerPageClient() {
     ));
   }, [cache, children, filter, metadata]);
 
-  /** Support-one edges whose source links can be shown without blocking navigation. */
+  /** Support-one edges represented by a source-game row instead of a move button. */
   const sourceGameEdgeIds = useMemo(() => {
     return continuations
       .filter(({ overlay }) => overlay.support === 1)
@@ -844,8 +847,8 @@ export default function OpeningExplorerPageClient() {
   /**
    * Keyboard navigation for the Opening Tree.
    *
-   * Ignores events originating from form fields. Support-one edges remain
-   * traversable because one game can bridge into a later shared position.
+   * Ignores events originating from form fields. Right activates the selected
+   * source-game link for support-one edges, or traverses a shared continuation.
    */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -873,7 +876,12 @@ export default function OpeningExplorerPageClient() {
         if (!selected) return;
 
         event.preventDefault();
-        navigate(selected.edge);
+        if (selected.overlay.support === 1) {
+          const row = continuationButtons.current.get(selected.edge.id);
+          if (row instanceof HTMLAnchorElement) row.click();
+        } else {
+          navigate(selected.edge);
+        }
         return;
       }
 
@@ -1001,8 +1009,8 @@ export default function OpeningExplorerPageClient() {
   /**
    * Loads bounded game details for visible support-one children one at a time.
    *
-   * These links are supplementary, so serial loading avoids turning one page
-   * render into a burst of independent cold-start requests to the read service.
+   * Serial loading avoids turning one page render into a burst of independent
+   * cold-start requests to the read service; each pending row stays in place.
    */
   useEffect(() => {
     gameDetailsController.current?.abort();
@@ -1277,8 +1285,16 @@ export default function OpeningExplorerPageClient() {
               {refreshing ? <div role="status" aria-live="polite" className="flex h-full min-h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div> : <>{continuations.map(({ edge, label, overlay }) => {
                 const selected = edge.id === selectedContinuationId;
                 const source = sourceGames[edge.id];
+                const register = (element: HTMLElement | null) => {
+                  if (element) continuationButtons.current.set(edge.id, element);
+                  else continuationButtons.current.delete(edge.id);
+                };
 
-                return <div key={edge.id} className="space-y-1"><button ref={(element) => { if (element) continuationButtons.current.set(edge.id, element); else continuationButtons.current.delete(edge.id); }} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} games`} onFocus={() => setSelectedContinuationId(edge.id)} onMouseEnter={() => setSelectedContinuationId(edge.id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>{overlay.support === 1 ? <SourceGameRow entry={source} label={label} /> : null}</div>;
+                if (overlay.support === 1) {
+                  return <SourceGameRow key={edge.id} entry={source} label={label} selected={selected} onSelect={() => setSelectedContinuationId(edge.id)} register={register} />;
+                }
+
+                return <button key={edge.id} ref={register} type="button" aria-current={selected ? "true" : undefined} aria-label={`${label}, ${overlay.support} games`} onFocus={() => setSelectedContinuationId(edge.id)} onMouseEnter={() => setSelectedContinuationId(edge.id)} onClick={() => navigate(edge)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-cyan-400 bg-slate-800 ring-1 ring-cyan-400/30" : "border-slate-700 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-800"}`}><span className="min-w-0 flex-1 font-mono text-sm text-white">{label}</span><span className="text-right text-xs text-slate-400"><strong className="text-slate-200">{overlay.support}</strong></span><OutcomeBar results={overlay.results} support={overlay.support} /></button>;
               })}
               {currentOverlay && currentOverlay.actual_ending_count > 0 ? <div aria-label={`${currentOverlay.actual_ending_count} ${currentOverlay.actual_ending_count === 1 ? "game ends" : "games end"} at this position`} className="flex w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-slate-400"><span className="min-w-0 flex-1 font-mono text-sm text-slate-300">-</span><span className="text-xs"><strong className="text-slate-200">{currentOverlay.actual_ending_count}</strong></span><span className="w-44 text-right text-[10px] uppercase tracking-wide text-slate-500">ended here</span></div> : null}
               {continuations.length === 0 && currentOverlay?.actual_ending_count === 0 && currentOverlay.support !== 0 ? <p className="text-sm text-slate-400">No indexed continuations from this position.</p> : null}</>}

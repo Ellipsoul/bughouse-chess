@@ -465,33 +465,52 @@ describe("OpeningExplorerPageClient", () => {
         "2": { actual_ending_count: 1, results: { resigned: 1 }, sole_game_ordinal: 6, support: 1 },
       },
     });
-    mocks.games.mockImplementation((_version: string, nodeId: number) => Promise.resolve({
-      actual_ending_count: 1,
-      dataset_version: "dataset-1",
-      games: nodeId === 2 ? [{
-        actual_ending: true,
-        black_rating: 2100,
-        black_result: "resigned",
-        black_username: "Bob",
-        ordinal: 6,
-        provenance_flags: [],
-        source: "chess.com",
-        url: "https://www.chess.com/game/live/456",
-        uuid: "game-2",
-        white_rating: 2200,
-        white_result: "win",
-        white_username: "Alice",
-      }] : [],
-      limit: 1,
-      node_id: nodeId,
-      total_matching: nodeId === 2 ? 1 : 0,
+    let resolveGame: (() => void) | undefined;
+    mocks.games.mockImplementation((_version: string, nodeId: number) => new Promise((resolve) => {
+      resolveGame = () => resolve({
+        actual_ending_count: 1,
+        dataset_version: "dataset-1",
+        games: nodeId === 2 ? [{
+          actual_ending: true,
+          black_rating: 2100,
+          black_result: "resigned",
+          black_username: "Bob",
+          ordinal: 6,
+          provenance_flags: [],
+          source: "chess.com",
+          url: "https://www.chess.com/game/live/456",
+          uuid: "game-2",
+          white_rating: 2200,
+          white_result: "win",
+          white_username: "Alice",
+        }] : [],
+        limit: 1,
+        node_id: nodeId,
+        total_matching: nodeId === 2 ? 1 : 0,
+      });
     }));
     render(<OpeningExplorerPageClient />);
 
+    await screen.findByLabelText("d4, loading source game");
+    const choices = screen.getByLabelText("Candidate move choices");
+    expect(within(choices).getAllByText("d4")).toHaveLength(1);
+    expect(within(choices).queryByRole("button", { name: /d4, 1 games/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /e4, 6 games/i })).toHaveAttribute("aria-current", "true"));
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(mocks.push).not.toHaveBeenCalled();
+
+    await act(async () => resolveGame?.());
     const gameLink = await screen.findByRole("link", { name: /d4.*Alice.*1–0.*Bob/i });
     expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=456");
     expect(gameLink).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("button", { name: /d4, 1 games/i })).toBeInTheDocument();
+    expect(within(choices).getAllByText("d4")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /d4, 1 games/i })).not.toBeInTheDocument();
+    expect(gameLink).toHaveAttribute("aria-current", "true");
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    expect(screen.getByRole("button", { name: /e4, 6 games/i })).toHaveAttribute("aria-current", "true");
+    fireEvent.mouseEnter(gameLink);
+    expect(gameLink).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("button", { name: /e4, 6 games/i })).toBeInTheDocument();
     expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("8/8/8/8");
     expect(mocks.games).toHaveBeenCalledWith(
@@ -655,8 +674,9 @@ describe("OpeningExplorerPageClient", () => {
     const requestsBeforeBack = mocks.neighborhood.mock.calls.length;
     fireEvent.keyDown(window, { key: "ArrowLeft" });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /d4, 1 games/i })).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /Nf3, 1 games/i })).toBeInTheDocument();
+    const choices = screen.getByLabelText("Candidate move choices");
+    await waitFor(() => expect(within(choices).getByText("d4")).toBeInTheDocument());
+    expect(within(choices).getByText("Nf3")).toBeInTheDocument();
     expect(mocks.neighborhood).toHaveBeenCalledTimes(requestsBeforeBack);
   });
 
@@ -753,7 +773,7 @@ describe("OpeningExplorerPageClient", () => {
     expect(within(moveList).queryByRole("button", { name: "Inspect bounded game details" })).not.toBeInTheDocument();
   });
 
-  it("keeps a sole continuation navigable while exposing its source game", async () => {
+  it("opens a sole continuation's source link with ArrowRight without advancing the board", async () => {
     mocks.neighborhood.mockResolvedValue({
       ...neighborhoodResponse,
       overlays: {
@@ -788,12 +808,12 @@ describe("OpeningExplorerPageClient", () => {
     const gameLink = await screen.findByRole("link", { name: /e4.*Alice.*1–0.*Bob/i });
     expect(gameLink).toHaveAttribute("href", "https://bughouse.aronteh.com/?gameId=123");
     expect(gameLink).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("button", { name: /e4, 1 games/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /e4, 1 games/i })).not.toBeInTheDocument();
+    const click = vi.spyOn(gameLink, "click").mockImplementation(() => {});
     expect(fireEvent.keyDown(window, { key: "ArrowRight" })).toBe(false);
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(
-      "/opening-explorer?node=1&state=1&dataset=dataset-1",
-    ));
-    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain("4P3");
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(screen.getByTestId("single-opening-board").dataset.fen).toContain(START);
     expect(mocks.games).toHaveBeenCalledWith(
       "dataset-1",
       1,
@@ -839,6 +859,9 @@ describe("OpeningExplorerPageClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
     await waitFor(() => expect(mocks.games).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.neighborhood.mock.calls.length).toBeGreaterThanOrEqual(3));
+    const choices = screen.getByLabelText("Candidate move choices");
+    expect(within(choices).getAllByText("e4")).toHaveLength(1);
+    expect(within(choices).queryByRole("button")).not.toBeInTheDocument();
 
     resolveGame?.({
       actual_ending_count: 0,
@@ -867,6 +890,8 @@ describe("OpeningExplorerPageClient", () => {
       "https://bughouse.aronteh.com/?gameId=123",
     );
     expect(screen.queryByText("Loading source game…")).not.toBeInTheDocument();
+    expect(within(choices).getAllByText("e4")).toHaveLength(1);
+    expect(within(choices).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("ends the loading state when a source game cannot be loaded", async () => {
@@ -882,6 +907,11 @@ describe("OpeningExplorerPageClient", () => {
     render(<OpeningExplorerPageClient />);
 
     expect(await screen.findByText("Source game could not be loaded.")).toBeInTheDocument();
+    const choices = screen.getByLabelText("Candidate move choices");
+    expect(within(choices).getAllByText("e4")).toHaveLength(1);
+    expect(within(choices).queryByRole("button")).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(mocks.push).not.toHaveBeenCalled();
     expect(screen.queryByText("Loading source game…")).not.toBeInTheDocument();
     expect(screen.queryByText("The opening artifact or response could not be read safely.")).not.toBeInTheDocument();
   });
