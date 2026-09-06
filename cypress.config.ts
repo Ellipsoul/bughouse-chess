@@ -8,6 +8,9 @@
 import { defineConfig } from "cypress";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { readFile } from "node:fs/promises";
+import { getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 /**
  * Test environment variables for Firebase Emulator Suite.
@@ -27,6 +30,7 @@ const testEnv = {
 };
 
 export default defineConfig({
+  fixturesFolder: "tests/fixtures",
   component: {
     devServer: {
       framework: "react",
@@ -96,6 +100,25 @@ export default defineConfig({
     setupNodeEvents(on, config) {
       // Task for clearing emulators from Node.js context
       on("task", {
+        async seedPreviewShare() {
+          if (process.env.FIRESTORE_EMULATOR_HOST !== "127.0.0.1:8080") {
+            throw new Error("Preview fixtures require the local Firestore emulator");
+          }
+          const app = getApps().find(app => app.name === "cypress")
+            ?? initializeApp({ projectId: "demo-bughouse" }, "cypress");
+          const db = getFirestore(app);
+          const original = JSON.parse(await readFile("tests/fixtures/chesscom/160842422747.json", "utf8"));
+          const partner = JSON.parse(await readFile("tests/fixtures/chesscom/160842422749.json", "utf8"));
+          const ref = db.collection("sharedGames").doc("preview-e2e");
+          await ref.set({ type: "game", schemaVersion: 2 });
+          await ref.collection("games").doc("0").set({ index: 0, type: "single", data: { original, partner } });
+          return ref.id;
+        },
+        async chesscomRequests() {
+          const log = process.env.CHESSCOM_REQUEST_LOG;
+          if (!log) throw new Error("Run E2E tests through npm run test:e2e");
+          return (await readFile(log, "utf8")).split("\n").filter(Boolean).map(line => JSON.parse(line));
+        },
         async clearFirestoreEmulator() {
           const response = await fetch(
             `http://${testEnv.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/demo-bughouse/databases/(default)/documents`,

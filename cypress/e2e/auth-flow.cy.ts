@@ -46,9 +46,7 @@ describe("Authentication Flow", () => {
         // Note: Due to how Firebase Auth persistence works, we may need to reload
         cy.reload();
 
-        // The profile page should eventually show the authenticated state
-        // or remain on anonymous state if auth doesn't persist
-        cy.get("h1", { timeout: 10000 }).should("be.visible");
+        cy.get("h1:visible", { timeout: 10000 }).should("have.text", "Profile Test User");
       });
     });
   });
@@ -100,16 +98,10 @@ describe("Authentication Flow", () => {
         cy.visit("/profile");
         cy.reload();
 
-        // Check if sign out button exists
-        // Note: Auth state may not persist properly, so we check what's visible
-        cy.get("body").then(($body) => {
-          if ($body.text().includes("Sign Out")) {
-            cy.contains("button", "Sign Out").should("be.visible");
-          } else {
-            // Auth didn't persist, which is expected in some configurations
-            cy.contains("button", "Sign In with Google").should("be.visible");
-          }
-        });
+        cy.get("h1:visible", { timeout: 10000 }).should("have.text", "Sign Out Test");
+        cy.contains("button:visible", "Sign Out").click();
+        cy.contains("h1", "Anonymous User").should("be.visible");
+        cy.contains("button", "Sign In with Google").should("be.visible");
       });
     });
   });

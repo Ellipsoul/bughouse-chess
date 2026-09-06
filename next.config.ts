@@ -8,6 +8,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  outputFileTracingIncludes: {
+    "/api/social-preview": ["./public/preview-pieces/*.png", "./public/og-image.png"],
+  },
   images: {
     remotePatterns: [
       {

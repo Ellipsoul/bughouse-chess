@@ -475,7 +475,8 @@ export default function GameViewerPage() {
                 throw new Error(nonBughouseError);
               }
 
-              const partnerId = await findPartnerGameId(trimmedId);
+              const partnerId = originalGame.game.partnerGameId?.toString()
+                ?? await findPartnerGameId(trimmedId);
               const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;
 
               return {
@@ -1195,7 +1196,8 @@ export default function GameViewerPage() {
               return;
             }
 
-            const partnerId = await findPartnerGameId(sanitizedId);
+            const partnerId = originalGame.game.partnerGameId?.toString()
+              ?? await findPartnerGameId(sanitizedId);
             if (seq !== prefetchSeqRef.current) return;
 
             const partnerGame = partnerId ? await fetchChessGame(partnerId) : null;

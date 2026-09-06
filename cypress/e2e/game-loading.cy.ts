@@ -9,27 +9,16 @@ describe("Game Loading", () => {
   /**
    * Known fixture game IDs from recorded fixtures.
    */
-  const SINGLE_GAME_ID = "160064848971";
-  const SECOND_GAME_ID = "160064848973";
+  const SINGLE_GAME_ID = "160842422747";
+  const SECOND_GAME_ID = "160842423883";
 
-  /** Narrows Cypress network intercept call objects for URL assertions. */
+  /** Narrows server-side fixture request records for URL assertions. */
   const toInterceptCalls = (calls: unknown): Array<{ request: { url: string } }> =>
     calls as unknown as Array<{ request: { url: string } }>;
   const countCallsForGameId = (
     calls: Array<{ request: { url: string } }>,
     gameId: string,
   ) => calls.filter((call) => call.request.url.endsWith(`/${gameId}`)).length;
-
-  beforeEach(() => {
-    // Mock Chess.com API calls with fixtures for all tests
-    cy.intercept("GET", "**/callback/live/game/*", (req) => {
-      const gameId = req.url.split("/").pop();
-      req.reply({
-        fixture: `chesscom/${gameId}.json`,
-        statusCode: 200,
-      });
-    }).as("chesscomApi");
-  });
 
   describe("Home Page Load", () => {
     it("loads the home page successfully", () => {
@@ -110,7 +99,7 @@ describe("Game Loading", () => {
       // Capture requests for the target game before explicit load submit
       // (covers prefetch path when it resolves in time).
       cy.wait(600);
-      cy.get("@chesscomApi.all").then((calls) => {
+      cy.task("chesscomRequests").then((calls) => {
         secondGameCallCountBeforeLoad = countCallsForGameId(
           toInterceptCalls(calls),
           SECOND_GAME_ID,
@@ -132,7 +121,7 @@ describe("Game Loading", () => {
       // The newly loaded game should only be fetched once. If URL sync re-triggers
       // the auto-load effect, this adds an extra request for the same game.
       cy.wait(800);
-      cy.get("@chesscomApi.all").then((calls) => {
+      cy.task("chesscomRequests").then((calls) => {
         const secondGameCalls = countCallsForGameId(toInterceptCalls(calls), SECOND_GAME_ID);
         expect(secondGameCalls - secondGameCallCountBeforeLoad).to.be.lte(1);
       });
@@ -151,86 +140,37 @@ describe("Game Loading", () => {
   });
 
   describe("Match Navigation URL Sync", () => {
-    it("updates URL while navigating non-shared match games", () => {
+    beforeEach(() => {
       cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
-
-      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
-        timeout: 20000,
-      }).should("exist");
-
+      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`).should("exist");
       cy.get('button[aria-label="Find match games"]').click();
-      cy.contains("button", "Full Match (4 Players)", { timeout: 10000 }).click();
+      cy.contains("button", "Full Match (4 Players)").click();
+      // The recorded match contains seven games. Wait for discovery, rather than
+      // passing this test while the initial one-game navigation is still disabled.
+      cy.get('button[aria-label="Select game from match"]', { timeout: 30000 })
+        .should("contain.text", "Game 1 of 7");
+      cy.get('button[aria-label="Next game"]').should("not.be.disabled");
+    });
 
-      cy.get('button[aria-label="Next game"]', { timeout: 30000 }).should("exist");
-      cy.get("body").then(($body) => {
-        const nextButton = $body.find('button[aria-label="Next game"]');
-        if (nextButton.length > 0 && !nextButton.prop("disabled")) {
-          cy.get('button[aria-label="Next game"]').click();
-          cy.location("search").should("include", "gameId=");
-          cy.location("search").should("not.include", "sharedId=");
-        } else {
-          // Some fixture seeds may not yield additional match games in all environments.
-          // Keep a baseline assertion that URL remains canonical and non-shared.
-          cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
-          cy.location("search").should("not.include", "sharedId=");
-        }
-      });
+    it("updates URL while navigating non-shared match games", () => {
+      cy.get('button[aria-label="Next game"]').click();
+      cy.location("search").should("include", `gameId=${SECOND_GAME_ID}`);
+      cy.location("search").should("not.include", "sharedId=");
     });
 
     it("keeps match state while syncing URL on non-shared navigation", () => {
-      let callsBeforeNavigation: Array<{ request: { url: string } }> = [];
-
-      cy.visit(`/?gameId=${SINGLE_GAME_ID}`);
-
-      cy.get(`button[aria-label="Copy share link for game ${SINGLE_GAME_ID}"]`, {
-        timeout: 20000,
-      }).should("exist");
-
-      cy.get('button[aria-label="Find match games"]').click();
-      cy.contains("button", "Full Match (4 Players)", { timeout: 10000 }).click();
-
-      cy.get('button[aria-label="Next game"]', { timeout: 30000 }).should("exist");
-      cy.get("body").then(($body) => {
-        const nextButton = $body.find('button[aria-label="Next game"]');
-        if (nextButton.length > 0 && !nextButton.prop("disabled")) {
-          cy.get("@chesscomApi.all").then((calls) => {
-            callsBeforeNavigation = toInterceptCalls(calls);
-          });
-
-          cy.get('button[aria-label="Next game"]').click();
-
-          cy.location("search").then((search) => {
-            const params = new URLSearchParams(search);
-            const navigatedGameId = params.get("gameId");
-            if (!navigatedGameId) {
-              throw new Error("Expected non-shared match navigation to set a gameId in the URL.");
-            }
-
-            cy.get('button[aria-label="Select game from match"]', { timeout: 10000 }).should(
-              "contain.text",
-              "Game 2 of",
-            );
-            cy.get('button[aria-label="Find match games"]').should("not.exist");
-
-            cy.wait(800);
-            cy.get("@chesscomApi.all").then((callsAfterNavigation) => {
-              const beforeCount = countCallsForGameId(
-                callsBeforeNavigation,
-                navigatedGameId,
-              );
-              const afterCount = countCallsForGameId(
-                toInterceptCalls(callsAfterNavigation),
-                navigatedGameId,
-              );
-              expect(afterCount).to.equal(beforeCount);
-            });
-          });
-        } else {
-          // Keep deterministic assertions for environments where fixture discovery
-          // yields only one game and navigation cannot advance.
-          cy.location("search").should("include", `gameId=${SINGLE_GAME_ID}`);
-          cy.location("search").should("not.include", "sharedId=");
-        }
+      cy.task("chesscomRequests").then(calls => {
+        const beforeCount = countCallsForGameId(toInterceptCalls(calls), SECOND_GAME_ID);
+        expect(beforeCount).to.be.greaterThan(0);
+        cy.get('button[aria-label="Next game"]').click();
+        cy.location("search").should("include", `gameId=${SECOND_GAME_ID}`);
+        cy.get('button[aria-label="Select game from match"]').should("contain.text", "Game 2 of 7");
+        cy.get('button[aria-label="Find match games"]').should("not.exist");
+        // Observe a bounded window for an unwanted background refetch.
+        cy.wait(800);
+        cy.task("chesscomRequests").then(afterCalls => {
+          expect(countCallsForGameId(toInterceptCalls(afterCalls), SECOND_GAME_ID)).to.equal(beforeCount);
+        });
       });
     });
   });
@@ -248,7 +188,7 @@ describe("Game Loading", () => {
         (win as Window & { __logoResetMarker?: string }).__logoResetMarker = "alive";
       });
 
-      cy.get("@chesscomApi.all").then((calls) => {
+      cy.task("chesscomRequests").then((calls) => {
         callCountBeforeReset = countCallsForGameId(
           toInterceptCalls(calls),
           SINGLE_GAME_ID,
@@ -270,7 +210,7 @@ describe("Game Loading", () => {
 
       // Reset should not re-trigger loading of the previous game ID.
       cy.wait(800);
-      cy.get("@chesscomApi.all").then((calls) => {
+      cy.task("chesscomRequests").then((calls) => {
         const callCountAfterReset = countCallsForGameId(
           toInterceptCalls(calls),
           SINGLE_GAME_ID,

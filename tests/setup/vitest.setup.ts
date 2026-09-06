@@ -1,4 +1,25 @@
 import "@testing-library/jest-dom/vitest";
+import { afterAll } from "vitest";
+
+// Node's Web Storage globals can shadow JSDOM's storage in Vitest. Use the
+// current test document's storage, rather than Node's file-backed implementation.
+// Node-environment suites (e.g. image routes) do not have a JSDOM instance.
+const testDom = (globalThis as typeof globalThis & {
+  jsdom?: { window: Pick<Window, "localStorage" | "sessionStorage"> };
+}).jsdom;
+if (testDom) {
+  for (const key of ["localStorage", "sessionStorage"] as const) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      get: () => testDom.window[key],
+    });
+    afterAll(() => {
+      if (original) Object.defineProperty(globalThis, key, original);
+      else Reflect.deleteProperty(globalThis, key);
+    });
+  }
+}
 
 /**
  * Shared test setup for Vitest.

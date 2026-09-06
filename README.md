@@ -543,3 +543,26 @@ Contributions are welcome — especially around:
 
 If you’re adding new domain logic, prefer pure functions in `app/utils/**` and
 accompany them with unit tests under `tests/unit/**`.
+
+### Dynamic link previews
+
+Game links (`?gameId=...`, including legacy `gameid`) and saved shares
+(`?sharedId=...`) expose a 1200 × 630 PNG through `/api/social-preview` in their
+server-rendered Open Graph and Twitter metadata. The existing share URLs work
+without changes:
+
+- `ply=N`: both boards after N moves in the combined timeline (0 is the initial position).
+- No `ply`: the final position; saved matches and partner series use their first stored game.
+- Homepage, unavailable games, missing partner boards, or replay failures: the Relay artwork.
+
+The renderer reuses the replay engine and bundled board artwork. Direct links read
+Chess.com; saved shares read only their public parent document and first indexed
+game using the existing Firebase Admin configuration. No database migration or
+image-storage service is required. Source reads revalidate after five minutes;
+rendered images can be cached by the CDN for one hour. Social platforms also cache
+previews independently, so previously posted links may retain their old thumbnail.
+
+Deploy the changes through the normal release process, then verify a new game,
+position, and match link in the target social app. Ensure `NEXT_PUBLIC_SITE_URL`
+points to the public deployment and the existing Firebase Admin variables are
+configured. Local fixture tests do not establish live Discord or Firebase success.

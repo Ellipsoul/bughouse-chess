@@ -24,6 +24,11 @@ import admin from "firebase-admin";
  */
 export function getAdminFirestore(): admin.firestore.Firestore {
   const projectId = process.env.FIREBASE_PROJECT_ID;
+  // Emulator runs use a demo project and need no production service-account key.
+  if (process.env.FIRESTORE_EMULATOR_HOST && projectId?.startsWith("demo-")) {
+    if (admin.apps.length === 0) admin.initializeApp({ projectId });
+    return admin.firestore();
+  }
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
 
