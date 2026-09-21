@@ -214,7 +214,7 @@ export default function GameViewerPage() {
   const pendingInternalMatchNavigationGameIdRef = useRef<string | null>(null);
   const lastAutoLoadedSharedIdRef = useRef<string | null>(null);
   const [analysisIsDirty, setAnalysisIsDirty] = useState(false);
-  const isDesktopLayout = useMediaQuery("(min-width: 1400px)");
+  const isDesktopLayout = useMediaQuery("(min-width: 1200px)");
   const isCompactLandscape = useCompactLandscape();
   const { shouldSuggestLandscape } = usePhonePortraitLandscapeHint();
   const { label: gamesLoadedLabel } = useGameLoadCounterLabel(loadedGameId);
@@ -1437,15 +1437,14 @@ export default function GameViewerPage() {
       {isDesktopLayout ? <GameLoadCounterFloating label={gamesLoadedLabel} /> : null}
       <header
         className={[
-          // Fixed positioning ensures the header renders above the sidebar regardless of
-          // stacking context issues in the flex layout. The header spans the full viewport width.
-          "fixed top-0 left-0 right-0 z-50 bg-gray-800 border-b border-gray-700 shadow-md",
+          // Keep the header in flow so wrapped controls reserve their actual height.
+          "bh-viewer-header relative z-50 shrink-0 bg-gray-800 border-b border-gray-700",
           isCompactLandscape ? "py-1" : "py-3",
         ].join(" ")}
       >
         <div
           className={[
-            "mx-auto flex w-full max-w-400 items-center px-4 sm:px-6 lg:px-8",
+            "bh-viewer-toolbar flex w-full items-center px-3 lg:px-5",
             isCompactLandscape ? "gap-3" : "gap-6",
           ].join(" ")}
         >
@@ -1472,7 +1471,7 @@ export default function GameViewerPage() {
           <form
             onSubmit={handleSubmit}
             className={[
-              "flex-1 max-w-lg",
+              "bh-viewer-form min-w-0 flex-1 max-w-lg",
               // In compact landscape, prioritize keeping the right-side controls visible.
               isCompactLandscape ? "max-w-md" : "max-w-lg",
             ].join(" ")}
@@ -1485,7 +1484,7 @@ export default function GameViewerPage() {
                   onChange={(e) => handleGameIdInputChange(e.target.value)}
                   placeholder="Enter chess.com Game ID or URL"
                   className={[
-                    "flex-1 rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 outline-none transition-all",
+                    "min-w-0 flex-1 rounded bg-gray-900 border border-gray-600 text-white placeholder-gray-400 outline-none transition-all",
                     "focus:border-mariner-400 focus:ring-1 focus:ring-mariner-500/50",
                     isCompactLandscape ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
                   ].join(" ")}
@@ -1511,7 +1510,7 @@ export default function GameViewerPage() {
           {/* Match Navigation and Game ID section */}
           <div
             className={[
-            "ml-auto inline-flex items-center",
+            "bh-viewer-navigation ml-auto inline-flex items-center",
               isCompactLandscape ? "gap-2" : "gap-3",
             ].join(" ")}
           >
@@ -1559,20 +1558,12 @@ export default function GameViewerPage() {
         </div>
       </header>
 
-      {/* Main content region: keep the page itself non-scrolling by constraining overflow here.
-          The move list(s) inside the analysis UI remain independently scrollable.
-          pt-16/pt-12 accounts for the fixed header height (header py-3 + content ~40px = ~64px, or ~48px in compact). */}
-      <main
-        className={[
-          "flex w-full flex-1 overflow-x-hidden",
-          // In compact landscape, allow the user to scroll down to the move list.
-          isCompactLandscape ? "overflow-y-auto pt-12" : "overflow-hidden pt-16",
-        ].join(" ")}
-      >
+      {/* The analysis region owns scrolling; the toolbar reserves its actual height. */}
+      <main className="flex min-h-0 w-full flex-1 overflow-hidden">
         <div
           className={[
-            "mx-auto flex w-full max-w-400 flex-1 min-h-0 flex-col justify-start min-[1400px]:justify-center px-4 sm:px-6 lg:px-8",
-            isCompactLandscape ? "py-2" : "py-4",
+            "flex w-full flex-1 min-h-0 flex-col px-2 sm:px-3 lg:px-5",
+            "py-3",
           ].join(" ")}
         >
           {/*

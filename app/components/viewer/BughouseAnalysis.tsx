@@ -380,143 +380,72 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   /**
    * Responsive board sizing.
    *
-   * The app is designed primarily for iPad/tablet and larger. For phone landscape, we
-   * intentionally trade density for usability (smaller player bars, tighter gaps, smaller
-   * control buttons) and allow the move list to be reached by scrolling the page shell.
+   * Landscape keeps the paired boards together. CSS selects the arrangement and
+   * density; its measured dimensions determine the square board size. Portrait
+   * stacks boards when necessary, with notation reachable inside the viewer.
    */
-  const layout = useMemo(() => {
-    if (isCompactLandscape) {
-      return {
-        defaultBoardSize: 360,
-        minBoardSize: 210,
-        reserveColumnWidthPx: 64, // Tailwind `w-16`
-        gapPx: 8, // Tailwind `gap-2`
-        nameBlockPx: 34,
-        columnPaddingPx: 6,
-        minMoveListHeightPx: 0, // move list can be reached by scrolling in compact mode
-        controlsGapPx: 8, // gap between boards and controls
-        sectionsGapPx: 16, // gap between left column and move list (stacked)
-        controlButtonSizeClass: "h-8 w-8",
-        controlIconSizeClass: "h-4 w-4",
-      };
-    }
+  const layout = useMemo(() => ({
+    controlButtonSizeClass: "h-10 w-10",
+    controlIconSizeClass: "h-5 w-5",
+  }), []);
+  const [geometry, setGeometry] = useState({
+    boardSize: 320,
+    reserveWidth: 48,
+    gap: 12,
+    stacked: false,
+    nameBlockHeight: 48,
+    columnPadding: 8,
+  });
+  const { boardSize, nameBlockHeight, columnPadding } = geometry;
 
-    return {
-      defaultBoardSize: 400,
-      minBoardSize: 260,
-      reserveColumnWidthPx: 64, // Tailwind `w-16`
-      gapPx: 16, // Tailwind `gap-4`
-      nameBlockPx: 44,
-      columnPaddingPx: 12,
-      minMoveListHeightPx: 220,
-      controlsGapPx: 16,
-      sectionsGapPx: 24,
-      controlButtonSizeClass: "h-10 w-10",
-      controlIconSizeClass: "h-5 w-5",
-    };
-  }, [isCompactLandscape]);
-
-  const BH_DESKTOP_MIN_WIDTH_PX = 1400;
-  const [boardSize, setBoardSize] = useState(layout.defaultBoardSize);
   useEffect(() => {
-    const boardsContainer = boardsContainerRef.current;
-    if (!boardsContainer) return;
+    const boards = boardsContainerRef.current;
+    const analysis = analysisContainerRef.current;
+    if (!boards || !analysis) return;
 
+    // CSS owns layout modes; measure their actual space for chessboard.js, which needs pixels.
     const computeBoardSize = () => {
-      // Width-driven cap (always): reserve | boardA | boardB | reserve => 3 gaps
-      const availableWidth =
-        boardsContainer.clientWidth - (layout.reserveColumnWidthPx * 2 + layout.gapPx * 3);
-      const widthCandidate = Math.floor(availableWidth / 2);
-
-      // Height-driven cap (stacked/tablet and fullscreen): ensure the complete board work area,
-      // including player bars and controls, stays inside its available viewport.
-      let heightCap = layout.defaultBoardSize;
-      const isDesktop =
-        typeof window !== "undefined" &&
-        window.matchMedia(`(min-width: ${BH_DESKTOP_MIN_WIDTH_PX}px)`).matches;
-
-      if (isBoardsFullscreen) {
-        const fullscreenPanel = fullscreenPanelRef.current;
-        const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
-
-        if (fullscreenPanel) {
-          const panelStyles = window.getComputedStyle(fullscreenPanel);
-          const verticalPadding =
-            (Number.parseFloat(panelStyles.paddingTop) || 0) +
-            (Number.parseFloat(panelStyles.paddingBottom) || 0);
-          const availablePlayAreaHeight =
-            fullscreenPanel.clientHeight -
-            verticalPadding -
-            controlsHeight -
-            layout.controlsGapPx;
-          const maxBoardSizeFromHeight =
-            availablePlayAreaHeight - layout.nameBlockPx * 2 - layout.columnPaddingPx * 2;
-
-          if (Number.isFinite(maxBoardSizeFromHeight)) {
-            heightCap = Math.floor(maxBoardSizeFromHeight);
-          }
-        }
-      } else if (!isDesktop) {
-        const containerHeight = (() => {
-          if (typeof window === "undefined") return 0;
-          const el = analysisContainerRef.current;
-          if (!el) return 0;
-
-          // In compact landscape we allow the analysis content to grow taller than the viewport
-          // (so the move list can be reached by scrolling). For board sizing, we still want to
-          // cap to the *visible viewport height* so boards+controls stay in view.
-          if (isCompactLandscape) {
-            const top = el.getBoundingClientRect().top;
-            return Math.max(0, Math.floor(window.innerHeight - top));
-          }
-
-          return el.clientHeight;
-        })();
-        const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
-
-        const GAP_BOARDS_CONTROLS_PX = layout.controlsGapPx;
-        const GAP_SECTIONS_PX = layout.sectionsGapPx;
-        const MIN_MOVELIST_HEIGHT_PX = layout.minMoveListHeightPx;
-
-        if (containerHeight > 0) {
-          const availablePlayAreaHeight =
-            containerHeight -
-            controlsHeight -
-            GAP_BOARDS_CONTROLS_PX -
-            // Only reserve move list space in non-compact modes.
-            (MIN_MOVELIST_HEIGHT_PX > 0 ? GAP_SECTIONS_PX + MIN_MOVELIST_HEIGHT_PX : 0);
-
-          const maxBoardSizeFromHeight =
-            availablePlayAreaHeight - layout.nameBlockPx * 2 - layout.columnPaddingPx * 2;
-
-          if (Number.isFinite(maxBoardSizeFromHeight)) {
-            heightCap = Math.floor(maxBoardSizeFromHeight);
-          }
-        }
+      const styles = window.getComputedStyle(boards);
+      const reserveWidth = parseFloat(styles.getPropertyValue("--bh-reserve-width")) || 48;
+      const gap = parseFloat(styles.columnGap) || 12;
+      const stacked = styles.getPropertyValue("--bh-stack-boards").trim() === "1";
+      const sideList = styles.getPropertyValue("--bh-side-list").trim() === "1";
+      const widthCap = stacked
+        ? boards.clientWidth - reserveWidth - gap
+        : (boards.clientWidth - reserveWidth * 2 - gap * 3) / 2;
+      const nameBlockHeight = parseFloat(styles.getPropertyValue("--bh-name-height")) || 48;
+      const columnPadding = parseFloat(styles.getPropertyValue("--bh-column-padding")) || 8;
+      const controlsHeight = controlsContainerRef.current?.clientHeight ?? 40;
+      const panel = fullscreenPanelRef.current;
+      const controlsGap = panel ? parseFloat(window.getComputedStyle(panel).rowGap) || 0 : 12;
+      const chrome = nameBlockHeight * 2 + columnPadding * 2 + controlsHeight + controlsGap;
+      let heightCap = Infinity;
+      if (isBoardsFullscreen && fullscreenPanelRef.current) {
+        const panel = fullscreenPanelRef.current;
+        const padding = window.getComputedStyle(panel);
+        const available = panel.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+        heightCap = stacked ? (available - controlsHeight - controlsGap - gap) / 2 - nameBlockHeight * 2 - columnPadding * 2 : available - chrome;
+      } else if (!stacked) {
+        // Short windows may scroll rather than making the squares unusably small.
+        const shortViewport = window.innerHeight <= 500;
+        const notationSpace = sideList || shortViewport ? 0 : 180;
+        heightCap = Math.max(shortViewport ? 80 : 220, analysis.clientHeight - chrome - notationSpace);
       }
-
-      const capped = Math.min(widthCandidate, heightCap);
-      const nextSize = Math.max(
-        layout.minBoardSize,
-        isBoardsFullscreen ? capped : Math.min(layout.defaultBoardSize, capped),
-      );
-      setBoardSize((prev) => (prev === nextSize ? prev : nextSize));
+      const next = { boardSize: Math.max(80, Math.floor(Math.min(widthCap, heightCap))), reserveWidth, gap, stacked, nameBlockHeight, columnPadding };
+      setGeometry(previous => Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
     };
-
     computeBoardSize();
-    const resizeObserver = new ResizeObserver(() => computeBoardSize());
-    resizeObserver.observe(boardsContainer);
-    if (analysisContainerRef.current) {
-      resizeObserver.observe(analysisContainerRef.current);
-    }
-    if (controlsContainerRef.current) {
-      resizeObserver.observe(controlsContainerRef.current);
-    }
-    if (fullscreenPanelRef.current) {
-      resizeObserver.observe(fullscreenPanelRef.current);
-    }
-    return () => resizeObserver.disconnect();
-  }, [BH_DESKTOP_MIN_WIDTH_PX, isBoardsFullscreen, isCompactLandscape, layout]);
+    const observer = new ResizeObserver(computeBoardSize);
+    observer.observe(boards);
+    observer.observe(analysis);
+    if (controlsContainerRef.current) observer.observe(controlsContainerRef.current);
+    if (fullscreenPanelRef.current) observer.observe(fullscreenPanelRef.current);
+    window.addEventListener("resize", computeBoardSize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", computeBoardSize);
+    };
+  }, [isBoardsFullscreen, isCompactLandscape]);
 
   const processedGame = useMemo(() => {
     if (!gameData) return null;
@@ -940,10 +869,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
     "hover:bg-gray-700 disabled:bg-gray-900 disabled:text-gray-600 disabled:border-gray-800 disabled:cursor-not-allowed " +
     "transition-colors";
 
-  const playAreaHeight = boardSize + layout.nameBlockPx * 2 + layout.columnPaddingPx * 2;
+  const playAreaHeight = boardSize + nameBlockHeight * 2 + columnPadding * 2;
   const reserveHeight = playAreaHeight;
   const controlsWidth =
-    boardSize * 2 + layout.reserveColumnWidthPx * 2 + layout.gapPx * 3;
+    geometry.stacked ? boardSize + geometry.reserveWidth + geometry.gap : boardSize * 2 + geometry.reserveWidth * 2 + geometry.gap * 3;
 
   const canGoBack = state.cursorNodeId !== state.tree.rootId;
   const canGoForward = Boolean(state.tree.nodesById[state.cursorNodeId]?.children.length);
@@ -1450,38 +1379,13 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           ? getClockTintClasses({ diffDeciseconds, team, isFrozen: options.clocksFrozen })
           : null;
       const neutralText = options.clocksFrozen ? "text-white/55" : "text-white/90";
-      /**
-       * `isCompactLandscape` is tuned for phone-landscape (short viewport height), so it will not
-       * trigger on iPad Mini landscape. However, iPad Mini can still yield relatively small boards
-       * once we account for reserve columns + gaps, and at that point the player name bar needs
-       * to “tighten up” earlier to avoid excessive truncation.
-       */
-      const NARROW_PLAYER_BAR_BOARD_SIZE_PX = 340;
-      const HIDE_TITLE_BADGE_BOARD_SIZE_PX = 360;
-      const HIDE_RATING_BOARD_SIZE_PX = 320;
-
-      const isNarrowPlayerBar = boardSize <= NARROW_PLAYER_BAR_BOARD_SIZE_PX;
-      const shouldHideTitleBadge = isCompactLandscape || boardSize <= HIDE_TITLE_BADGE_BOARD_SIZE_PX;
-      const shouldHideRating = (isCompactLandscape && boardSize <= 235) || boardSize <= HIDE_RATING_BOARD_SIZE_PX;
-
+      const isNarrowPlayerBar = boardSize < 340;
       return (
         <div
-          className={[
-            "relative flex items-center justify-between w-full shrink-0 font-bold text-white",
-            isNarrowPlayerBar ? "tracking-normal" : "tracking-wide",
-            // On very small phone-landscape viewports, prioritize showing player names.
-            isCompactLandscape
-              ? "px-2 text-xs"
-              : isNarrowPlayerBar
-                ? "px-2 text-sm"
-                : "px-3 text-base lg:text-xl",
-          ].join(" ")}
-          /**
-           * Important invariant:
-           * Keep player bars a fixed height across *all* states (pre-load, loaded, analysis variations),
-           * otherwise the `justify-between` board columns will vertically offset the boards from each other.
-           */
-          style={{ width: boardSize, height: layout.nameBlockPx }}
+          className="bh-player-bar relative text-white"
+          data-compact={isNarrowPlayerBar ? "true" : "false"}
+          data-material-edge={options.cornerMaterial?.corner.startsWith("top") ? "top" : options.cornerMaterial ? "bottom" : undefined}
+          style={{ width: boardSize, height: nameBlockHeight, "--bh-player-font": `${Math.max(12, Math.min(18, boardSize / 24))}px` } as React.CSSProperties}
         >
         {options.cornerMaterial ? (
           <BoardCornerMaterial
@@ -1490,40 +1394,14 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             density={isCompactLandscape || isNarrowPlayerBar ? "compact" : "default"}
           />
         ) : null}
-        <div
-          className={[
-            "flex items-center min-w-0",
-            isCompactLandscape || isNarrowPlayerBar ? "gap-1.5" : "gap-2",
-          ].join(" ")}
-        >
-          <div
-            className={[
-              "flex items-center min-w-0",
-              isCompactLandscape || isNarrowPlayerBar ? "gap-1.5" : "gap-2",
-            ].join(" ")}
-          >
-            {/* On very small screens, titles consume too much horizontal space. */}
-            {!shouldHideTitleBadge ? <ChessTitleBadge chessTitle={player.chessTitle} /> : null}
-            <span
-              className={[
-                "truncate min-w-0",
-                isCompactLandscape || isNarrowPlayerBar ? "text-[11px] leading-tight" : "",
-              ].join(" ")}
-              title={player.username}
-            >
+        <div className="bh-player-identity">
+          <div className="bh-player-details">
+            <ChessTitleBadge chessTitle={player.chessTitle} />
+            <span className="bh-player-name" title={player.username} tabIndex={0}>
               {player.username}
             </span>
-            {typeof player.rating === "number" &&
-            Number.isFinite(player.rating) &&
-            !shouldHideRating ? (
-              <span
-                className={[
-                  "shrink-0 font-semibold text-white/60",
-                  isCompactLandscape ? "text-[10px]" : "text-xs lg:text-sm",
-                ].join(" ")}
-              >
-                ({Math.round(player.rating)})
-              </span>
+            {typeof player.rating === "number" && Number.isFinite(player.rating) ? (
+              <span className="bh-player-rating">({Math.round(player.rating)})</span>
             ) : null}
           </div>
           <ChevronLeft
@@ -1539,7 +1417,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
         {shouldRenderClocks && typeof clockValue === "number" ? (
           <span
             className={[
-              "font-mono text-base lg:text-lg tabular-nums rounded px-2 py-0.5 transition-colors",
+              "bh-player-clock font-mono tabular-nums rounded transition-colors",
               options.clocksFrozen
                 ? "bg-gray-950/40"
                 : "bg-transparent",
@@ -1557,7 +1435,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       </div>
       );
     },
-    [boardSize, clockSnapshot, formatClock, isCompactLandscape, layout.nameBlockPx, shouldRenderClocks],
+    [boardSize, clockSnapshot, formatClock, isCompactLandscape, nameBlockHeight, shouldRenderClocks],
   );
 
   const getSideToMove = useCallback((fen: string): "white" | "black" => {
@@ -1932,7 +1810,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       const boardConfig = getBoardDisplayConfig(boardId);
       return (
         <div
-          className="flex flex-col justify-start w-16 min-w-10 h-full"
+          className="bh-reserve-column"
           data-role="reserve-column"
           data-board-id={boardId}
         >
@@ -1977,10 +1855,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
 
       return (
         <div
-          className={[
-            "flex flex-col items-center justify-between h-full",
-            isCompactLandscape ? "py-1 gap-1" : "py-2 gap-2",
-          ].join(" ")}
+          className="bh-board-column"
           data-role="board-column"
           data-board-id={boardId}
         >
@@ -2062,7 +1937,6 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
       handleAttemptMove,
       handleAttemptReserveDrop,
       handleSquareClick,
-      isCompactLandscape,
       isLiveReplayPlaying,
       players,
       renderPlayerBar,
@@ -2074,10 +1948,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
   return (
     <div
       ref={analysisContainerRef}
-      className={[
-        "w-full mx-auto min-w-0 flex min-[1400px]:h-auto",
-        isCompactLandscape ? "h-auto overflow-visible" : "h-full min-h-0 overflow-hidden",
-      ].join(" ")}
+      className="bh-analysis scrollbar-thin"
       style={
         {
           /**
@@ -2085,30 +1956,20 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
            * We use a variable (instead of inline `height`) so responsive classes can override
            * height in stacked/tablet mode.
            */
-          ["--bh-play-area-height" as never]: `${playAreaHeight}px`,
+          "--bh-play-area-height": `${playAreaHeight}px`,
+          "--bh-board-size": `${boardSize}px`,
         } as React.CSSProperties
       }
     >
       <div
-        className={[
-          "flex min-w-0 flex-col min-[1400px]:flex-row justify-center items-center min-[1400px]:items-start",
-          isCompactLandscape ? "gap-3" : "gap-6",
-          // In default modes the analysis shell is viewport-clamped, so the inner layout uses flex-1.
-          isCompactLandscape ? "" : "flex-1 min-h-0",
-        ].join(" ")}
+        className="bh-workspace"
       >
         {/* Left Column: Boards + Controls */}
         <div
           ref={fullscreenPanelRef}
           data-testid="analysis-board-panel"
           data-fullscreen={isBoardsFullscreen ? "true" : "false"}
-          className={[
-            "flex flex-col items-center min-w-0 relative w-full min-[1400px]:w-auto min-[1400px]:grow",
-            isCompactLandscape ? "gap-2" : "gap-4",
-            isBoardsFullscreen
-              ? "h-full w-full min-[1400px]:w-full min-[1400px]:grow-0 justify-center overflow-hidden bg-gray-900 p-4 lg:p-6"
-              : "",
-          ].join(" ")}
+          className="bh-board-panel"
         >
           {state.pendingPromotion && (
             <PromotionPicker
@@ -2144,11 +2005,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
           {/* Boards Container with Reserves */}
           <div
             ref={boardsContainerRef}
-            className={[
-              "flex w-full justify-center items-stretch min-w-0",
-              isCompactLandscape ? "gap-2" : "gap-4",
-            ].join(" ")}
-            style={{ height: playAreaHeight }}
+            className="bh-boards"
             data-testid="boards-container"
           >
             {renderReserveColumn(leftBoardId)}
@@ -2162,10 +2019,10 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
             ref={controlsContainerRef}
             data-testid="analysis-controls"
             className={[
-              "grid w-full max-w-full items-center px-1",
+              "bh-controls grid w-full max-w-full items-center px-1",
               "grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto]",
             ].join(" ")}
-            style={{ maxWidth: controlsWidth }}
+            style={{ maxWidth: Math.max(420, controlsWidth) }}
           >
             {/* Fullscreen + live replay controls: left side */}
             <div className="shrink-0 inline-flex items-center gap-1 sm:gap-2">
@@ -2320,17 +2177,7 @@ const BughouseAnalysis: React.FC<BughouseAnalysisProps> = ({
              fullscreen viewport so the available space goes entirely to the two boards. */
           <div
             data-testid="analysis-move-list-panel"
-            className={[
-              // Stacked / tablet: full width under the boards.
-              "w-full min-w-0 overflow-x-hidden",
-              // Default (viewport-clamped): consume remaining height so the move list is always visible.
-              isCompactLandscape ? "shrink-0" : "flex-1 min-h-0",
-              // Desktop: fixed right column, height aligned to board play area.
-              "min-[1400px]:flex-none min-[1400px]:shrink-0 min-[1400px]:w-90 min-[1400px]:h-(--bh-play-area-height)",
-              // Compact landscape: give the move list a bounded height so it can scroll internally
-              // after the user scrolls down to it.
-              isCompactLandscape ? "h-70 max-h-[60vh]" : "",
-            ].join(" ")}
+            className="bh-move-panel"
           >
             <MoveListWithVariations
               tree={state.tree}
