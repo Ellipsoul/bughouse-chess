@@ -334,10 +334,10 @@ and the URL fragment. A missing or unknown value falls back to Net Material.
 The route remains statically prerendered and no insight data is fetched again.
 
 The route imports `app/data/player-material-insights.json` at build time. The
-current 1,081-player file is 207,085 bytes uncompressed and 56,953 bytes with
-deterministic `gzip -9 -n`. The lazy-loaded projections are 832,605 bytes raw /
-145,922 bytes gzipped for king height, 1,939,993 / 609,730 bytes for drop heat
-maps, and 2,360,343 / 414,276 bytes for material game highs. None is part of the
+current 1,137-player file is 217,427 bytes uncompressed and 59,354 bytes with
+deterministic `gzip -9 -n`. The lazy-loaded projections are 858,039 bytes raw /
+150,342 bytes gzipped for king height, 2,032,360 / 633,948 bytes for drop heat
+maps, and 2,475,103 / 433,944 bytes for material game highs. None is part of the
 initial material view. The browser needs no
 SQLite reader, runtime database, route handler, or opening-explorer service
 request. Material rows use a full desktop table and compact five-piece ledgers
