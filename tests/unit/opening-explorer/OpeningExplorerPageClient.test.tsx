@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/app/components/board/ChessBoard", () => ({
-  default: ({ fen }: { fen: string }) => <div data-testid="single-opening-board" data-fen={fen} />,
+  default: ({ fen, size }: { fen: string; size: number }) => <div data-testid="single-opening-board" data-fen={fen} style={{ width: size, height: size }} />,
 }));
 
 vi.mock("@/app/components/opening-explorer/api", () => ({
@@ -178,6 +178,33 @@ describe("OpeningExplorerPageClient", () => {
     });
     mocks.neighborhood.mockResolvedValue(neighborhoodResponse);
     mocks.players.mockResolvedValue([]);
+  });
+
+  it("fits the board to its mounted slot after asynchronous loading and container resizing", async () => {
+    let slotWidth = 329;
+    let notifyResize: (() => void) | undefined;
+    vi.stubGlobal("innerWidth", 393);
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) { notifyResize = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        return new DOMRect(0, 100, this.getAttribute("aria-label") === "Opening board" ? slotWidth : 0, 400);
+      });
+    const view = render(<OpeningExplorerPageClient />);
+    try {
+      const board = await screen.findByTestId("single-opening-board");
+      await waitFor(() => expect(board).toHaveStyle({ width: "303px", height: "303px" }));
+      slotWidth = 280;
+      act(() => notifyResize?.());
+      await waitFor(() => expect(board).toHaveStyle({ width: "254px", height: "254px" }));
+    } finally {
+      view.unmount();
+      bounds.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("sets a patient cold-start expectation only while the opening dataset loads", async () => {

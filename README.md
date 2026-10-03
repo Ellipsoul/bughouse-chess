@@ -193,7 +193,7 @@ that service.
 ```bash
 cd ~/Desktop/Coding_Adventures/bughouse-opening-explorer
 
-.venv/bin/python -m bughouse_explorer.opening.service artifacts/opening/full-post-qualification-20260802-v2-a --port 8765
+PYTHONPATH=. .venv/bin/python -m bughouse_explorer.opening.service artifacts/opening/full-position-graph-through-202608-v2 --port 8765
 ```
 
 Replace the second argument with whatever artifact you want to build the tree
@@ -224,29 +224,36 @@ server-only `OPENING_EXPLORER_SERVICE_*` variables. Never expose them through a
 `NEXT_PUBLIC_*` variable. Unknown proxy operations return not-found behavior;
 unavailable upstream services return a bounded `503` response.
 
-The full local scale-up is complete and documented in the sibling repository at
-`bughouse-opening-explorer/docs/FULL_OPENING_TREE_SCALE_UP_RESULT_2026-08-04.md`.
+Production metadata checked on 3 October 2026 reports the August position graph:
+6,747,980 games, dataset `68a97678c3df093d243473e0844b373d669ac335`, in
+`packed-position-graph-v2` format. The validated local September candidate contains
+6,899,477 games, dataset `137962bc5eace0f0c5ce4e50c2889d459a66087e`, and
+3,463,810,827 bytes including its v2 manifest. Its actual August-to-September
+incremental export matches both independent full references byte-for-byte.
+Migration and release evidence are recorded in
+[`OPENING_INCREMENTAL_RESULT_2026-10-03.md`](https://github.com/Ellipsoul/bughouse-opening-explorer/blob/main/docs/OPENING_INCREMENTAL_RESULT_2026-10-03.md).
 The page now emits low-cardinality browser performance marks and the proxy adds
-its upstream duration to `Server-Timing`. The 6,516,478-game full artifact has
-not been uploaded; a protected Vercel Large Functions Preview and any later
-Production switch remain separate approval gates.
+its upstream duration to `Server-Timing`. A September local candidate does not
+change the served dataset; upload, protected Preview and Production cutover remain
+separate approval gates. The server-side proxy defaults to 45 seconds, with a
+60-second maximum; an explicit deployment override may be shorter.
 
 Possible next moves are ordered by descending game support and use White-win,
 draw, and Black-win bars. Use Up/Down to select a continuation, Right to play
-it, and Left to return along the cached prefix. At desktop widths the board
+it, and Left to return along the cached played line. At desktop widths the board
 expands beside a dedicated played-line move list; the far-right controls stack
 the player filter, possible next moves, and instrumentation. The filter accepts
 one corpus-backed player and a White/Black seat choice; autocomplete remains
 visible while typing, and Apply stays disabled until the input exactly matches
-an indexed username. A game ending at the current prefix appears as an
-unclickable `-` row. Once a prefix contains exactly one game and one
-continuation, that move becomes a link to the source game in Relay's Bughouse
+an indexed username. A game ending at the current state appears as an
+unclickable `-` row. A continuation supported by exactly one game becomes a
+link to that source game in Relay's Bughouse
 analysis board and shows both players plus the result; keyboard navigation
-deliberately stops at that boundary. The analysis link opens in a new tab. If the
-packed terminal policy has already stopped materializing at the first global
-support-one prefix, the same bounded metadata lookup appears as a `Game` source
-row instead. The earlier bounded multi-game inspection panel is intentionally
-omitted from the user-facing UI.
+deliberately stops at that boundary. The analysis link opens in a new tab. The
+packed graph retains moves through the last shared placement plus one move (or
+the actual game end). Source links use bounded
+edge-game metadata requests. The earlier bounded multi-game inspection panel is
+intentionally omitted from the user-facing UI.
 
 ### Player Insights
 

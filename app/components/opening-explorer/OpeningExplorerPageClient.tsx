@@ -328,6 +328,7 @@ export default function OpeningExplorerPageClient() {
   /** Identities of idle frontier refills already attempted this session. */
   const attemptedIdleRefills = useRef(new Set<string>());
   const continuationButtons = useRef(new Map<number, HTMLElement>());
+  const continuationList = useRef<HTMLDivElement | null>(null);
   const boardArea = useRef<HTMLElement | null>(null);
   const playerPicker = useRef<HTMLDivElement | null>(null);
 
@@ -355,19 +356,24 @@ export default function OpeningExplorerPageClient() {
    * Keeps the board square within the available layout slot on resize.
    *
    * Desktop widths reserve space for the move list / controls columns; the
-   * board is clamped between 260px and 680px.
+   * board stays within its slot and is capped at 680px. Mobile rows retain
+   * their content height and scroll with the rest of the page.
    */
   useEffect(() => {
+    if (loading) return;
+
     const resize = () => {
       const rect = boardArea.current?.getBoundingClientRect();
       const reservedWidth = window.innerWidth >= 1280 ? 780 : window.innerWidth >= 1024 ? 430 : 32;
       const availableWidth = rect && rect.width > 0
-        ? rect.width - 24
+        ? rect.width - 26
         : window.innerWidth - reservedWidth;
       const boardTop = rect && rect.top > 0 ? rect.top : 140;
-      const availableHeight = window.innerHeight - boardTop - 92;
+      const availableHeight = window.innerWidth >= 1024
+        ? window.innerHeight - boardTop - 92
+        : 680;
 
-      setBoardSize(Math.max(260, Math.min(680, availableWidth, availableHeight)));
+      setBoardSize(Math.max(1, Math.min(680, availableWidth, availableHeight)));
     };
 
     resize();
@@ -384,7 +390,7 @@ export default function OpeningExplorerPageClient() {
       observer?.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [loading]);
 
   /**
    * Merges a neighborhood into the LRU cache and updates instrumentation.
@@ -656,7 +662,16 @@ export default function OpeningExplorerPageClient() {
   /** Scrolls the selected continuation into view inside the Opening Tree list. */
   useEffect(() => {
     if (selectedContinuationId === null) return;
-    continuationButtons.current.get(selectedContinuationId)?.scrollIntoView?.({ block: "nearest" });
+    const button = continuationButtons.current.get(selectedContinuationId);
+    const list = continuationList.current;
+    if (!button || !list) return;
+    const buttonBounds = button.getBoundingClientRect();
+    const listBounds = list.getBoundingClientRect();
+    if (buttonBounds.top < listBounds.top) {
+      list.scrollTop += buttonBounds.top - listBounds.top;
+    } else if (buttonBounds.bottom > listBounds.bottom) {
+      list.scrollTop += buttonBounds.bottom - listBounds.bottom;
+    }
   }, [selectedContinuationId]);
 
   /**
@@ -1135,7 +1150,8 @@ export default function OpeningExplorerPageClient() {
         <section
           ref={boardArea}
           aria-label="Opening board"
-          className="flex min-h-0 min-w-0 flex-col items-center justify-center lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:overflow-hidden xl:row-span-1"
+          className="flex min-w-0 flex-col items-center justify-center lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:overflow-hidden xl:row-span-1"
+          style={{ minHeight: boardSize + 26 }}
         >
           <div className="rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-2xl">
             <ChessBoard
@@ -1281,7 +1297,7 @@ export default function OpeningExplorerPageClient() {
           <section aria-label="Opening Tree" className="flex min-h-88 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:min-h-0">
             <div className="flex items-center justify-between"><h2 className="font-semibold">Opening Tree</h2>{refreshing ? null : <span className="text-xs text-slate-400">{currentOverlay?.support ?? 0} {currentOverlay?.support === 1 ? "game" : "games"}</span>}</div>
             {!refreshing && currentOverlay?.support === 0 ? <p className="mt-3 rounded bg-slate-950 p-3 text-sm text-slate-400">No games match this exact White/Black filter at the current prefix.</p> : null}
-            <div aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <div ref={continuationList} aria-label="Candidate move choices" className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {refreshing ? <div role="status" aria-live="polite" className="flex h-full min-h-40 items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /><span>Loading...</span></div> : <>{continuations.map(({ edge, label, overlay }) => {
                 const selected = edge.id === selectedContinuationId;
                 const source = sourceGames[edge.id];
