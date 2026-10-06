@@ -22,6 +22,10 @@ interface RenderedSquare {
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 
+/**
+ * Read only FEN placement for display, ignoring promoted-piece `~` suffixes.
+ * This tolerant parser does not validate move legality or the full FEN contract.
+ */
 function parsePosition(fen: string): Map<string, string> {
   const pieces = new Map<string, string>();
   const rows = fen.split(" ")[0]?.split("/") ?? [];
@@ -50,6 +54,11 @@ function pieceCode(piece: string): string {
   return `${color}${piece.toUpperCase()}`;
 }
 
+/**
+ * Render an accessible, non-interactive position using the viewer's square palette.
+ * `label` describes the whole image; orientation flips both ranks and files.
+ * Piece images use the external chessboardjs artwork host, without a rules engine.
+ */
 function StaticChessBoard({
   fen,
   orientation = "white",

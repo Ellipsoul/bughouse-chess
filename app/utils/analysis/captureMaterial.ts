@@ -89,7 +89,8 @@ export function cloneCaptureMaterialLedger(
  * - `capturerSide` gains points
  * - the opponent on the same board loses the same amount
  *
- * This function is immutable: it returns a new ledger object.
+ * Does not mutate the input; returns a cloned ledger for a nonzero capture value
+ * and the original ledger when the resolved value is zero.
  */
 export function applyCaptureToLedger(params: {
   ledger: BughouseCaptureMaterialLedger;

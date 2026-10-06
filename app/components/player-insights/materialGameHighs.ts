@@ -3,6 +3,10 @@ import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";
 export type MaterialGameHighDirection = "won" | "lost";
 export type MaterialGameHighColor = "white" | "black" | "both";
 
+/**
+ * Precomputed qualifying game and final board. `netMaterialX2` stores twice the
+ * signed score to represent half-points as integers; `endTime` is Unix seconds.
+ */
 export interface MaterialGameHigh {
   url: string;
   endTime: number | null;
@@ -11,6 +15,10 @@ export interface MaterialGameHigh {
   netMaterialX2: number;
 }
 
+/**
+ * Static top-game projection. `gamesByPreset` follows `presetOrder`; each
+ * direction contains its already-ranked games, independently computed per preset.
+ */
 export interface MaterialGameHighsData {
   schemaVersion: 1;
   dataset: {
@@ -34,6 +42,9 @@ export interface MaterialGameHighsData {
   }>;
 }
 
+/**
+ * Player ranked by the first retained game; null score means no qualifying game.
+ */
 export interface MaterialGameHighLeaderboardRow {
   rank: number;
   username: string;
@@ -43,6 +54,9 @@ export interface MaterialGameHighLeaderboardRow {
   games: MaterialGameHigh[];
 }
 
+/**
+ * One-based page preserving cohort ranks across name and minimum-games filtering.
+ */
 export interface MaterialGameHighLeaderboardPage {
   rows: MaterialGameHighLeaderboardRow[];
   page: number;
@@ -51,6 +65,18 @@ export interface MaterialGameHighLeaderboardPage {
   totalPages: number;
 }
 
+/**
+ * Rank precomputed game highs without replaying games or reselecting top games.
+ *
+ * Won sorts highest first; lost sorts most negative first. Null scores remain
+ * last, with username tie-breaking. Ranks precede BOTH minimum-games and name
+ * filters (unlike king height). Returned game arrays alias the source projection.
+ *
+ * @param page - One-based page, clamped after filtering.
+ * @param pageSize - Positive integer supplied by the UI.
+ * @throws Error if the requested preset is absent from the projection.
+ * @returns Rows with doubled integer scores converted to display points.
+ */
 export function buildMaterialGameHighsLeaderboard({
   data,
   preset,

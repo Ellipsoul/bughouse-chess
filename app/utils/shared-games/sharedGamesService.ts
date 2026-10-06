@@ -552,6 +552,10 @@ export async function shareGame(
  * Shares a match (multiple games with the same players).
  * Stores metadata in main document and each game in subcollection.
  *
+ * Commits parent/index documents first, then game chunks of 100. The overall
+ * upload is not atomic: a failed chunk leaves earlier writes in place, and the
+ * failure result reports progress without rolling back those documents.
+ *
  * @param userId - Firebase Auth UID of the sharer
  * @param username - Username of the sharer
  * @param matchGames - Array of match games to share

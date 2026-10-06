@@ -1,5 +1,8 @@
 /** Browser-safe contracts for the transposition-aware opening graph. */
 
+/**
+ * Versioned service metadata used to select the root state and invalidate caches.
+ */
 export interface DatasetMetadata {
   adapter_policy: string;
   coverage: { accepted_games: number; source_fingerprint: string };
@@ -15,6 +18,9 @@ export interface DatasetMetadata {
     | "last-shared-placement-plus-one-or-game-end-v1";
 }
 
+/**
+ * Optional seat-specific usernames; null means that seat is unrestricted.
+ */
 export interface ExplorerFilter {
   white: string | null;
   black: string | null;
@@ -48,10 +54,16 @@ export interface StructuralEdge {
   move_label: string;
 }
 
+/**
+ * Filter-specific distinct-game support for a placement node.
+ */
 export interface NodeOverlay {
   support: number;
 }
 
+/**
+ * Filter-specific support, results, and actual endings at a rules-state occurrence.
+ */
 export interface StateOverlay {
   actual_ending_count: number;
   results: Record<string, number>;
@@ -59,12 +71,19 @@ export interface StateOverlay {
   support: number;
 }
 
+/**
+ * Filter-specific move support and results; a sole ordinal identifies a one-game edge.
+ */
 export interface EdgeOverlay {
   results: Record<string, number>;
   sole_game_ordinal: number | null;
   support: number;
 }
 
+/**
+ * Bounded graph response. Overlay record keys are stringified IDs; frontier states
+ * mark where another request may be needed. Structural and overlay data stay separate.
+ */
 export interface NeighborhoodResponse {
   anchor_node_id: number;
   anchor_state_id: number;
@@ -94,6 +113,9 @@ export interface NeighborhoodResponse {
   target_forward_depth: number;
 }
 
+/**
+ * Source-game metadata for an inspected edge; a missing public URL is allowed.
+ */
 export interface GameExample {
   actual_ending: boolean;
   ordinal: number;
@@ -109,6 +131,9 @@ export interface GameExample {
   provenance_flags: string[];
 }
 
+/**
+ * Bounded edge-game listing; `total_matching` may exceed the returned `games` length.
+ */
 export interface GameExamplesResponse {
   actual_ending_count: number;
   dataset_version: string;

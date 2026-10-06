@@ -33,8 +33,9 @@ for **drops**, **variations**, **live replay**, and **fast navigation**.
   current position.
 - **Clock advantage visualization**: See time differences between teams with
   color-coded indicators
-- **Material tracking**: Track captured pieces for bughouse scoring (pawn=1,
-  knight/bishop=3, rook=5, queen=9)
+- **Material tracking**: Track signed capture totals. The default Bughouse preset
+  uses pawn=1.5, knight/bishop=3, rook=4, queen=7; Settings also offers Standard
+  values (1, 3, 3, 5, 9). Captured promoted pieces count as pawns.
 - **Chess title badges**: Player titles (GM, IM, FM, etc.) are displayed next to
   usernames
 - **Live replay mode**: play the match back in (approximate) real time using the
@@ -82,7 +83,9 @@ Relay can help you **discover and step through subsequent games** with the same
 four players and the same team pairings (rate-limited to be gentle to
 chess.com).
 
-- **Match discovery**: Automatically finds all games in a match sequence
+- **Match discovery**: Scans monthly archives for nearby games, bounded by time
+  gaps and archive availability. Choose the same four-player match or one
+  partner pair playing against changing opponents; results may be incomplete.
 - **Match score tracking**: See wins, losses, and draws across the match
 - **Board orientation**: Automatically maintains correct board orientation as
   teams swap colors
@@ -113,6 +116,8 @@ chess.com).
 - **Settings**: Customize your experience
   - **Board annotation color**: Choose your preferred color for board highlights
     and arrows
+  - **Piece values**: Choose Bughouse or Standard capture-material scoring
+  - **Live replay auto-advance**: Continue to the next discovered match game
   - **Cross-device sync**: Preferences sync across devices for authenticated
     users
   - **Local storage fallback**: Non-authenticated users can still save
@@ -122,9 +127,11 @@ chess.com).
 
 - **Installable**: Add Relay to your home screen for a native app-like
   experience
-- **Landscape lock**: Android phones automatically lock to landscape orientation
-  for optimal viewing
-- **Offline-ready**: Core functionality works offline once games are loaded
+- **Landscape preference**: The manifest requests landscape orientation for
+  Android phone user agents; enforcement depends on the browser/install mode
+- **Network requirements**: Replay and analysis use in-memory game state once
+  loaded. There is no service worker or guaranteed offline reload; fetching games,
+  remote artwork, sharing, and account operations still need a connection.
 
 ### Quick-open helpers (optional)
 
@@ -146,35 +153,39 @@ chess.com).
 - **chessboard.js** (with **jQuery**) for board rendering
 - **Vitest** for unit tests + **Cypress Component Testing** for UI components
 
+For detailed contracts and maintenance workflows, see the
+[architecture guide](docs/architecture.md), [development guide](docs/development.md),
+and [data and service guide](docs/data-and-services.md).
+
 ### Architecture map (where to look)
 
-- **Local opening-explorer experiment**: `app/opening-explorer/page.tsx`,
+- **Opening-explorer production trial**: `app/opening-explorer/page.tsx`,
   `app/components/opening-explorer/`. This is a separate one-board surface and
   does not share viewer replay, analysis, move-tree, or URL state.
 - **Player Insights**: `app/player-insights/page.tsx`,
   `app/components/player-insights/`, and the checked static projection at
-  `app/data/player-*-insights.json`. This route has no runtime data API.
+  `app/data/player-*.json`. This route has no runtime data API.
 
 - **Core bughouse rules / move application**: `app/utils/analysis/applyMove.ts`
 - **Analysis tree + navigation + promotions/variations**:
-  `app/components/useAnalysisState.ts`
+  `app/components/moves/useAnalysisState.ts`
 - **Clock simulation + live replay primitives**:
   `app/utils/analysis/buildBughouseClockTimeline.ts`,
   `app/utils/analysis/liveReplay.ts`
-- **Move ordering + chess.com ingestion**: `app/utils/moveOrdering.ts`,
+- **Move ordering + chess.com ingestion**: `app/utils/board/moveOrdering.ts`,
   `app/chesscom_movelist_parse.ts`
 - **Replay controller (imperative stepping + undo)**:
-  `app/utils/replayController.ts`
-- **Main UI**: `app/components/GameViewerPage.tsx`,
-  `app/components/BughouseAnalysis.tsx`
-- **Shared games**: `app/utils/sharedGamesService.ts`,
+  `app/utils/replay/replayController.ts`
+- **Main UI**: `app/components/viewer/GameViewerPage.tsx`,
+  `app/components/viewer/BughouseAnalysis.tsx`
+- **Shared games**: `app/utils/shared-games/sharedGamesService.ts`,
   `app/shared-games/SharedGamesPageClient.tsx`
-- **User preferences**: `app/utils/userPreferencesService.ts`,
-  `app/components/SettingsModal.tsx`
+- **User preferences**: `app/utils/preferences/userPreferencesService.ts`,
+  `app/components/modals/SettingsModal.tsx`
 - **Authentication**: `app/auth/AuthProvider.tsx`, `app/auth/useAuth.ts`
-- **Username service**: `app/utils/usernameService.ts`
-- **Match discovery**: `app/utils/matchDiscovery.ts`,
-  `app/components/MatchNavigation.tsx`
+- **Username service**: `app/utils/preferences/usernameService.ts`
+- **Match discovery**: `app/utils/discovery/matchDiscovery.ts`,
+  `app/components/match/MatchNavigation.tsx`
 
 ### Opening-explorer experiment
 
@@ -410,25 +421,25 @@ and
 
 Relay supports:
 
-- **Firestore** (Admin SDK) for:
-  - A single global metric: **how many games were loaded**
-  - **Shared games**: Public collection of games shared by users
-  - **User preferences**: Per-user settings (board annotation color, etc.)
-  - **Username reservations**: Unique username registry
-  - **User shared games**: Index of games shared by each user
+- **Firestore Admin SDK** for the global game-load metric, server-rendered shared
+  game summaries, social previews, and maintenance scripts
+- **Firestore Web SDK** for browser shared-game reads/writes, private preferences,
+  username reservations, and each user's shared-game index
 - **Firebase Analytics** (Web SDK) for basic interaction tracking (e.g. "Load
   Game" clicks)
 - **Firebase Authentication** for Google sign-in
 
 Privacy design:
 
-- The browser does **not** talk to Firestore directly for most operations.
+- The browser talks directly to Firestore for sharing, profiles, and preferences;
+  these operations are governed by the checked-in `firestore.rules`.
 - The app uses server routes (e.g., `/api/metrics/game-load`) which
   increment/read counters stored at Firestore document `metrics/global`.
 - The metric is intentionally anonymous and low-cardinality (no per-game IDs
-  stored).
+  stored). Its GET and POST routes are public; POST validates the body but does
+  not verify an authentication or App Check token.
 - Shared games are public and can be viewed by anyone, but only authenticated
-  users can create them.
+  users with a reserved username can create them.
 - User preferences are private and only accessible by the user who created them.
 
 #### Firebase / Firestore setup (local + production)
@@ -452,7 +463,7 @@ FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccou
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
 ```
 
-**Client-side (Firebase Analytics + App Check):**
+**Client-side (Auth + Firestore, with optional Analytics and App Check):**
 
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
@@ -465,8 +476,10 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-XXXXXXXXXX"
 NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY="your-recaptcha-v3-site-key"
 ```
 
-Security recommendation: you can keep Firestore rules fully locked down (deny
-all). The server uses Firebase Admin SDK and bypasses rules.
+Deploy the checked-in `firestore.rules` for browser-backed features. Deny-all
+rules would disable sharing, username reservation, and preference sync. Admin
+SDK reads/writes bypass rules, so successful server reads do not establish that
+browser access is configured correctly.
 
 #### Firestore indexes (programmatic configuration)
 
@@ -518,11 +531,14 @@ control.
 ### Run locally
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. Use Node.js 22.12+ (or a compatible newer LTS)
+for the current dependency set. The basic viewer needs no Firebase credentials;
+account features require the configuration above. See the
+[development guide](docs/development.md) for emulator tests and optional services.
 
 ### Useful scripts
 
@@ -530,7 +546,15 @@ Open `http://localhost:3000`.
 - `npm run format`: ESLint auto-fix
 - `npm run test:unit`: Vitest unit tests once
 - `npm run test:component`: Cypress component tests headlessly
-- `npm run fixtures:record`: record chess.com fixtures for tests
+- `npm run test:e2e`: Cypress browser flows with owned demo emulators and Next.js
+- `npm run test:all`: unit, component, and end-to-end suites
+- `npm run build` / `npm start`: production build and local production server
+- `npm run fixtures:record -- <gameId>`: record chess.com fixtures for tests
+- `npm run fixtures:record:match -- <gameId>`: record a discovered match
+
+Fixture recording accesses live Chess.com and rewrites fixture files. Database
+migration commands and their dry-run behavior are documented in the
+[data and service guide](docs/data-and-services.md).
 
 ### Testing strategy
 
@@ -538,6 +562,9 @@ Open `http://localhost:3000`.
   simulation, parsing).
 - **Component tests (Cypress)** cover UI components like promotion selection,
   variation selection, move tree rendering, and reserve interactions.
+- **End-to-end tests (Cypress)** cover game loading, authentication, sharing,
+  settings, and previews with recorded Chess.com responses and Firebase emulators.
+  See [`tests/env/README.md`](tests/env/README.md) for environment isolation.
 
 ### Contributing
 

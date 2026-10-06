@@ -208,6 +208,10 @@ function KingHeightRow({ row }: { row: KingHeightLeaderboardRow }) {
   );
 }
 
+/**
+ * Present the static height distribution with local search, sorting, and pagination.
+ * The UI starts at a 1,000-game minimum; source-game links open the two-board viewer.
+ */
 export default function KingHeightInsight({ data }: { data: KingHeightInsightsData }) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);

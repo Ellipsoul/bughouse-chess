@@ -43,6 +43,9 @@ export interface BughousePositionSnapshot {
   captureMaterial: BughouseCaptureMaterialLedger;
 }
 
+/**
+ * User move intent before legality validation; an omitted promotion may trigger the picker.
+ */
 export interface AttemptedNormalMove {
   kind: "normal";
   board: BughouseBoardId;
@@ -51,6 +54,9 @@ export interface AttemptedNormalMove {
   promotion?: BughousePromotionPiece;
 }
 
+/**
+ * Reserve placement intent for one logical board and its side to move.
+ */
 export interface AttemptedDropMove {
   kind: "drop";
   board: BughouseBoardId;
@@ -93,6 +99,10 @@ export interface BughouseHalfMove {
   };
 }
 
+/**
+ * One position in the analysis tree. Root has no incoming move; child IDs refer
+ * to entries in `nodesById`, with at most one designated mainline continuation.
+ */
 export interface AnalysisNode {
   id: string;
   parentId: string | null;
@@ -112,6 +122,9 @@ export interface AnalysisNode {
   mainChildId: string | null;
 }
 
+/**
+ * Serializable tree indexed by stable node IDs; board positions live on every node.
+ */
 export interface AnalysisTree {
   rootId: string;
   nodesById: Record<string, AnalysisNode>;

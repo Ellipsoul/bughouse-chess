@@ -5,6 +5,10 @@ export type MaterialInsight = "net-material" | "net-material-per-game";
 export type MaterialSortKey = "net" | "games" | MaterialPieceType;
 export type SortDirection = "asc" | "desc";
 
+/**
+ * Build-time material projection. Player `pieces` entries are [won, lost] counts
+ * aligned with `pieceOrder`; each preset uses that same order for its weights.
+ */
 export interface MaterialInsightsData {
   schemaVersion: 1;
   dataset: {
@@ -30,6 +34,10 @@ export interface MaterialInsightsData {
   }>;
 }
 
+/**
+ * Raw piece counts, even in the per-game view; the presentation layer divides
+ * won/lost/net by analyzed games when rendering that view.
+ */
 export interface MaterialPieceLedger {
   type: MaterialPieceType;
   won: number;
@@ -37,6 +45,9 @@ export interface MaterialPieceLedger {
   net: number;
 }
 
+/**
+ * Ranked player with a weighted score; per-game score is null when no games were analyzed.
+ */
 export interface MaterialLeaderboardRow {
   rank: number;
   username: string;
@@ -47,6 +58,9 @@ export interface MaterialLeaderboardRow {
   pieces: MaterialPieceLedger[];
 }
 
+/**
+ * One-based, clamped pagination result. Empty results still report one page.
+ */
 export interface MaterialLeaderboardPage {
   rows: MaterialLeaderboardRow[];
   page: number;
@@ -55,6 +69,17 @@ export interface MaterialLeaderboardPage {
   totalPages: number;
 }
 
+/**
+ * Derive weighted material scores without mutating the static projection.
+ *
+ * Ranks are assigned before case-insensitive name search and pagination. Piece
+ * sorting uses unweighted net counts (per analyzed game in the per-game view).
+ * Null values sort last in either direction; username breaks ties.
+ *
+ * @param page - Requested one-based page, clamped to the filtered result range.
+ * @param pageSize - Positive integer supplied by the UI's page-size selector.
+ * @returns Ranked rows with raw piece ledgers and a preset-weighted score.
+ */
 export function buildMaterialLeaderboard({
   data,
   preset,
