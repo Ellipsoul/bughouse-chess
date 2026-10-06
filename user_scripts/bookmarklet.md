@@ -10,7 +10,7 @@ application while you're currently viewing a chess.com Bughouse game.
 2. Right click on the bookmark and click `Edit...`, this will bring up the a
    window like this:
 
-![Bookmarklet](/public/assets/Bookmarklet.png)
+![Bookmarklet](../public/assets/Bookmarklet.png)
 
 3. Copy the code below into the URL of the bookmark, and rename the bookmark to
    anything you like.

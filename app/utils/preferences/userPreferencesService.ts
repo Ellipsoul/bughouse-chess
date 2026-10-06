@@ -298,8 +298,8 @@ export async function saveUserPreferencesToFirestore(
 
 /**
  * Loads the board annotation color preference using the following priority:
- * 1. localStorage (if present, for immediate loading)
- * 2. Firestore (if authenticated and localStorage is empty)
+ * 1. localStorage (if the color differs from the default, for immediate loading)
+ * 2. Firestore (if authenticated and the local color resolves to the default)
  * 3. Default value
  *
  * This function should be called on app initialization.
@@ -313,7 +313,7 @@ export async function loadBoardAnnotationColor(
     return localColor;
   }
 
-  // If authenticated and no localStorage value, check Firestore
+  // A default-valued local color also falls through to the remote preference.
   if (userId) {
     const firestorePrefs = await loadUserPreferencesFromFirestore(userId);
     if (firestorePrefs?.boardAnnotationColor) {

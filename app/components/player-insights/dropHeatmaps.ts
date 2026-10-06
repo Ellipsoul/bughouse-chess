@@ -1,6 +1,10 @@
 export type DropPieceType = "pawn" | "knight" | "bishop" | "rook" | "queen";
 export type DropColorMode = "combined" | "white" | "black";
 
+/**
+ * Static drop counts indexed by [color][piece][square]. Color tuple order is
+ * White, Black; piece and square axes follow `pieceOrder` and `squareOrder`.
+ */
 export interface DropHeatmapInsightsData {
   schemaVersion: 1;
   dataset: {
@@ -25,6 +29,10 @@ export interface DropHeatmapInsightsData {
   }>;
 }
 
+/**
+ * Display counts and per-piece square probabilities. `representedGames` follows
+ * the selected color mode; probabilities divide by piece drops, not games.
+ */
 export interface DropHeatmapRow {
   username: string;
   displayName: string;
@@ -35,10 +43,24 @@ export interface DropHeatmapRow {
   probabilities: number[][];
 }
 
+/**
+ * Reflect ranks in a 64-square, rank-major array while preserving files (a1 ↔ a8).
+ */
 function reflectedRankIndex(squareIndex: number): number {
   return (7 - Math.floor(squareIndex / 8)) * 8 + (squareIndex % 8);
 }
 
+/**
+ * Build a player's display distribution for a color mode.
+ *
+ * Combined mode reflects only Black's ranks before adding White's counts.
+ * Single-color modes preserve source coordinates and reuse the source `drops`
+ * array; callers must not mutate it. A piece with no drops has zero probabilities.
+ *
+ * @param player - Checked projection row with White/Black channels.
+ * @param colorMode - Combined own-side view, or exact White/Black source squares.
+ * @returns Counts, totals, and probabilities in the projection's piece/square order.
+ */
 export function deriveDropHeatmapRow(
   player: DropHeatmapInsightsData["players"][number],
   colorMode: DropColorMode,
@@ -76,6 +98,13 @@ export function deriveDropHeatmapRow(
   };
 }
 
+/**
+ * Sum tracked-player channels, then apply the same orientation as individual rows.
+ *
+ * The displayed game count comes from dataset metadata, not the sum of player
+ * counts: a game can contribute to more than one tracked player's row.
+ * The aggregate uses the dataset analyzed-game count in every color mode.
+ */
 export function deriveTrackedCohortDropHeatmapRow(
   data: DropHeatmapInsightsData,
   colorMode: DropColorMode,

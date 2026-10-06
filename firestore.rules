@@ -11,8 +11,8 @@ rules_version = '2';
  * - All writes require authentication
  * - Shared games are publicly readable but only writable by fully-authenticated users
  *
- * Note: The emulator does not enforce these rules by default.
- * To test with rules, start emulator with: firebase emulators:start --only firestore
+ * firebase.json points the Firestore emulator at this rules file.
+ * Firebase Admin SDK operations bypass these rules, including in emulator tests.
  *
  * @see https://firebase.google.com/docs/firestore/security/get-started
  */
@@ -38,7 +38,7 @@ service cloud.firestore {
     }
 
     // Helper function to check if user has reserved a username (fully authenticated)
-    // This requires the user document to exist with a username field
+    // This checks user-document existence; it does not inspect the username field.
     function isFullyAuthenticated() {
       return isAuthenticated()
              && exists(/databases/$(database)/documents/users/$(request.auth.uid));
@@ -216,18 +216,17 @@ service cloud.firestore {
        *
        * This subcollection stores the actual game data to avoid the 1MB document limit.
        *
-       * Note: We cannot use get() to check parent document ownership on create because
-       * batch writes evaluate rules before any documents are written. The parent document
-       * and subcollection documents are created in the same batch, so get() would fail.
-       * Security is maintained because the batch is atomic - if parent creation fails
-       * validation, the whole batch fails.
+       * The client may create these documents in later batches after the parent.
+       * The create rule below checks authentication and document shape only; it
+       * does not check parent existence or ownership. Parent create validation
+       * applies to the parent write, not to independent subcollection writes.
        */
       match /games/{gameIndex} {
         // Anyone can read game data (public)
         allow read: if true;
 
         // Only fully authenticated users can create game data
-        // The parent document validation (in the same batch) ensures proper ownership
+        // Parent ownership is not checked by this create rule.
         allow create: if isFullyAuthenticated()
                       && request.resource.data.keys().hasAll(['index', 'type', 'data'])
                       && request.resource.data.index is number;

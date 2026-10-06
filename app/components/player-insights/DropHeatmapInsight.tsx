@@ -232,6 +232,10 @@ function ColorModeControl({
   );
 }
 
+/**
+ * Show the tracked cohort when no players are selected, otherwise compare selected
+ * players by piece. Color mode changes the derived data, not board display orientation.
+ */
 export default function DropHeatmapInsight({ data }: { data: DropHeatmapInsightsData }) {
   const [query, setQuery] = useState("");
   const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);

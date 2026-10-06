@@ -6,6 +6,9 @@ import { previewParams, previewPosition } from "@/app/utils/social-preview/posit
 import { loadPreview } from "@/app/utils/social-preview/loadPreview.server";
 import { PreviewImage } from "@/app/utils/social-preview/PreviewImage";
 
+/**
+ * Serve bundled Relay artwork with a short browser cache when a preview is unavailable.
+ */
 async function fallback() {
   return new Response(await readFile(path.join(process.cwd(), "public/og-image.png")), {
     headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=60" },
@@ -22,6 +25,11 @@ async function loadSprites() {
   return Object.fromEntries(entries) as Record<string, string>;
 }
 
+/**
+ * Render a 1200 × 630 PNG for a game/share and optional applied global ply.
+ * Missing sources and load/replay/render failures use the branded fallback.
+ * Successful images cache for five minutes in browsers and one hour on a CDN.
+ */
 export async function GET(request: Request) {
   const params = previewParams(new URL(request.url).searchParams);
   if (!params) return fallback();

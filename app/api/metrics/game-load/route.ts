@@ -1,7 +1,7 @@
 /**
  * @module api/metrics/game-load
  *
- * Public read / authenticated-style write endpoint for a single global `gamesLoaded` counter.
+ * Public read/write endpoint for a single global `gamesLoaded` counter.
  * `gameId` in POST body is validated but intentionally not persisted (low-cardinality metric).
  */
 import { NextResponse, type NextRequest } from "next/server";
@@ -99,7 +99,8 @@ export async function GET(): Promise<NextResponse<MetricsResponse>> {
 /**
  * Increments the global `gamesLoaded` counter by 1.
  *
- * Body: `{ gameId: string }`
+ * Body: `{ gameId: string }`. No authentication or App Check token is verified here.
+ * Invalid bodies return 400; storage failures return 200 with a zero counter.
  *
  * The `gameId` is used for validation/telemetry boundaries only. We do not store it
  * in Firestore to keep the metric anonymous and low-cardinality.

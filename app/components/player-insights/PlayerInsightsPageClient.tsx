@@ -127,6 +127,9 @@ const INSIGHTS: Array<{
 ];
 const DEFAULT_INSIGHT: PlayerInsight = "net-material";
 
+/**
+ * Resolve a shareable insight query value; unknown or missing values use Net Material.
+ */
 function parsePlayerInsight(value: string | null): PlayerInsight {
   return INSIGHTS.some((insight) => insight.id === value)
     ? value as PlayerInsight
@@ -307,6 +310,11 @@ function LeaderboardRow({
   );
 }
 
+/**
+ * Host the static insight views and synchronize the selected chip with the URL.
+ * Material data is supplied by the route; other projections load on demand.
+ * Optional data props let tests exercise those views without loading production JSON.
+ */
 export default function PlayerInsightsPageClient({
   data,
   kingHeightData,

@@ -27,7 +27,7 @@ import {
 /**
  * Firebase client configuration.
  *
- * This file is **client-only**; importing it from server components will throw.
+ * This module declares a client boundary; use `firebaseAdmin.ts` for server reads.
  *
  * ## Required environment variables
  *
@@ -142,8 +142,9 @@ export function initializeFirebaseAppCheck(): AppCheck | null {
 /**
  * Gets or initializes Firebase Analytics instance.
  *
- * Returns `null` if Analytics is not supported (e.g., in SSR, or if measurementId is missing).
- * Firebase Analytics requires browser environment and a valid measurementId.
+ * Returns `null` outside the browser or when Firebase reports unsupported APIs.
+ * Configuration/initialization errors propagate to the caller; this accessor
+ * does not independently reject a missing measurement ID.
  *
  * Note: Firebase Analytics has built-in throttling to prevent excessive event logging,
  * so manual throttling is not necessary.

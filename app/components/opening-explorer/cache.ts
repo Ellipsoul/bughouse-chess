@@ -11,6 +11,10 @@ import type {
   StructuralState,
 } from "./types";
 
+/**
+ * Canonicalize the two username filters for overlay keys; missing and blank
+ * usernames share a key. Structural graph entries do not depend on this filter.
+ */
 export function normalizedFilterKey(filter: ExplorerFilter): string {
   const white = filter.white?.trim().toLocaleLowerCase() ?? "";
   const black = filter.black?.trim().toLocaleLowerCase() ?? "";
@@ -24,6 +28,10 @@ function responseFilterKey(filter: NeighborhoodResponse["filter"]): string {
   });
 }
 
+/**
+ * Lifetime counters for this cache instance. Historical `*Nodes` names count
+ * state occurrences for returned, used, and evicted entries.
+ */
 interface CacheMetrics {
   cacheHits: number;
   cacheMisses: number;
@@ -32,6 +40,13 @@ interface CacheMetrics {
   usedNodes: number;
 }
 
+/**
+ * Mutable, in-memory cache for one active dataset and multiple filter overlays.
+ *
+ * Navigation uses state IDs, not placement node IDs. Eviction is least-recently
+ * used by state access/merge; pinned played-line states may exceed the configured
+ * limit. Returned graph objects are shared references and must not be mutated.
+ */
 export class OpeningExplorerCache {
   private readonly maximumStates: number;
   private activeVersion: string | null = null;
@@ -88,6 +103,10 @@ export class OpeningExplorerCache {
     }
   }
 
+  /**
+   * Discard graph data, overlays, and pins when the version changes.
+   * Lifetime metrics are intentionally retained; activating the same version is a no-op.
+   */
   activateDataset(version: string): void {
     if (this.activeVersion === version) return;
     this.activeVersion = version;
@@ -103,6 +122,10 @@ export class OpeningExplorerCache {
     this.pinned.clear();
   }
 
+  /**
+   * Merge a validated neighborhood, activate its dataset, then evict unpinned states.
+   * Structural entries are shared across filters; statistics stay filter-specific.
+   */
   merge(response: NeighborhoodResponse): void {
     this.activateDataset(response.dataset_version);
     const filterKey = responseFilterKey(response.filter);
@@ -159,6 +182,10 @@ export class OpeningExplorerCache {
     this.evict();
   }
 
+  /**
+   * Replace the entire pin set (normally the played line), then enforce the state limit.
+   * Pins protect cached states from eviction; they do not fetch absent states.
+   */
   pin(version: string, stateIds: readonly number[]): void {
     this.pinned = new Set(stateIds.map((stateId) => this.stateKey(version, stateId)));
     this.evict();
@@ -172,6 +199,10 @@ export class OpeningExplorerCache {
     return this.nodes.get(this.nodeKey(version, nodeId));
   }
 
+  /**
+   * Read a state, updating hit/miss counters and recency. Other lookup methods
+   * do not record state accesses; a missing state returns undefined.
+   */
   getState(version: string, stateId: number): StructuralState | undefined {
     const key = this.stateKey(version, stateId);
     const state = this.states.get(key);
@@ -203,16 +234,27 @@ export class OpeningExplorerCache {
     );
   }
 
+  /**
+   * Return only edges whose child states remain cached, sorted by label then ID.
+   * The UI applies support ordering separately using the active filter overlays.
+   */
   getChildren(version: string, stateId: number): StructuralEdge[] {
     return [...(this.edges.get(this.stateKey(version, stateId))?.values() ?? [])]
       .filter((edge) => this.hasState(version, edge.child_state_id))
       .sort((left, right) => left.move_label.localeCompare(right.move_label) || left.id - right.id);
   }
 
+  /**
+   * Report an incomplete neighborhood, either from the response budget/depth
+   * or because eviction removed a child; callers can request more data.
+   */
   isFrontier(version: string, stateId: number): boolean {
     return this.frontiers.has(this.stateKey(version, stateId));
   }
 
+  /**
+   * Return a detached snapshot of lifetime counters, not current cache sizes.
+   */
   metrics(): CacheMetrics {
     return { ...this.counters };
   }

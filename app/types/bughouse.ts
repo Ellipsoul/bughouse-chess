@@ -146,7 +146,7 @@ export interface ProcessedGameData {
   };
   /** Chronologically merged move list used for replay and live analysis. */
   combinedMoves: BughouseMove[];
-  /** Initial clock time per player in seconds (from chess.com `baseTime1`). */
+  /** Initial clock value from chess.com `baseTime1`, consumed directly as deciseconds. */
   initialTime: number;
   /** Increment per move in seconds (from chess.com `timeIncrement1`). */
   timeIncrement: number;

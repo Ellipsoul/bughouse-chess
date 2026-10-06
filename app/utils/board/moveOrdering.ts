@@ -78,7 +78,8 @@ function getPlayersByColor(game: ChessGame | null | undefined): {
 
 /**
  * Normalize two chess.com game payloads into a combined bughouse move timeline.
- * Timestamps are converted to deciseconds so boards can be merged chronologically.
+ * Raw remaining-clock deciseconds are reconstructed as elapsed deciseconds
+ * so boards can be merged chronologically; a missing partner leaves board B empty.
  */
 export function processGameData(
   originalGame: ChessGame,
@@ -167,8 +168,8 @@ export function processGameData(
   }
 
   // Calculate move times and create combined move list
-  // BaseTime1 and moveTimestamps appear to be in the same unit (likely deciseconds for Bughouse)
-  // so we don't need to scale BaseTime1.
+  // Consume baseTime1 directly in the same decisecond unit as moveTimestamps.
+  // Only the seconds-based increment is scaled in calculateMoveTimes.
   result.combinedMoves = createCombinedMoveList(
     result.originalGame,
     result.partnerGame,
@@ -286,10 +287,10 @@ function calculateMoveTimes(
    * - elapsed = given - remaining.
    *
    * Units:
-   * - `initialTime` from chess.com is in seconds.
+   * - `initialTime` is consumed directly as deciseconds (no scaling here).
    * - `timeIncrement` is in seconds.
    * - `timestamps[]` values are in deciseconds.
-   * - Therefore we multiply increments by 10 to express everything in deciseconds.
+   * - Only `timeIncrement` is multiplied by 10 for decisecond arithmetic.
    */
   if (!timestamps.length) return [];
 

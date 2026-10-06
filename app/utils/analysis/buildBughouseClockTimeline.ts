@@ -29,6 +29,9 @@ export interface BughouseClockTimelineMeta {
   clampedToZeroEvents: number;
 }
 
+/**
+ * Global clock snapshots, per-move decrements, and diagnostics for repaired timing.
+ */
 export interface BughouseClockTimelineResult {
   /**
    * `timeline[0]` is the game start; `timeline[i+1]` is the clock snapshot *after*
@@ -89,8 +92,8 @@ function decrementRunningClock(
  * global moves is \(Δt = t_i - t_{i-1}\).
  *
  * Important: This function intentionally does **not** apply increment after moves. This
- * matches the current plan for the revamp; we can add increment later as a single, localized
- * change after the move-count update.
+ * is the current display behavior even though ingestion accounts for increment
+ * when reconstructing elapsed move timestamps.
  *
  * Worked example (deciseconds):
  * - initialTime = 3000 (5:00.0)

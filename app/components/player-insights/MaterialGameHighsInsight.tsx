@@ -25,6 +25,9 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 });
 
+/**
+ * Convert the projection's doubled integer points to signed, half-point display text.
+ */
 function formatMaterial(netMaterialX2: number): string {
   const value = netMaterialX2 / 2;
   const absolute = materialFormatter.format(Math.abs(value));
@@ -93,6 +96,10 @@ function GameCard({
   );
 }
 
+/**
+ * Display precomputed top-three games for the chosen preset and direction.
+ * Filtering and pagination are local; final boards do not instantiate replay state.
+ */
 export default function MaterialGameHighsInsight({
   data,
   preset,

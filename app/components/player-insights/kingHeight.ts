@@ -3,6 +3,10 @@ import type { SortDirection } from "@/app/components/player-insights/leaderboard
 export type KingHeightColor = "white" | "black" | "both";
 export type KingHeightSortKey = "average" | "touchdowns";
 
+/**
+ * Static king-height projection. `heights` contains game counts aligned with
+ * `heightOrder`; heights are normalized relative to each king's own back rank.
+ */
 export interface KingHeightInsightsData {
   schemaVersion: 1;
   dataset: {
@@ -30,6 +34,10 @@ export interface KingHeightInsightsData {
   }>;
 }
 
+/**
+ * Derived chart row. Probabilities divide bucket counts by analyzed games;
+ * zero-game players have zero probabilities and a null average.
+ */
 export interface KingHeightLeaderboardRow {
   rank: number;
   username: string;
@@ -41,6 +49,9 @@ export interface KingHeightLeaderboardRow {
   heightEightGames: KingHeightInsightsData["players"][number]["heightEightGames"];
 }
 
+/**
+ * One-based page of ranked king-height rows, including filtered result totals.
+ */
 export interface KingHeightLeaderboardPage {
   rows: KingHeightLeaderboardRow[];
   page: number;
@@ -49,6 +60,18 @@ export interface KingHeightLeaderboardPage {
   totalPages: number;
 }
 
+/**
+ * Compute king-height averages and distributions from the checked projection.
+ *
+ * Sorts by average or touchdown count, with username tie-breaking and null
+ * averages last. The minimum-games filter runs BEFORE ranks are assigned;
+ * name search and pagination run afterward and preserve those ranks.
+ * Source player arrays are reused in returned rows and must be treated as read-only.
+ *
+ * @param page - One-based page, clamped after filtering.
+ * @param pageSize - Positive integer; callers validate pagination inputs.
+ * @returns A page of rows whose probabilities use analyzed games as denominator.
+ */
 export function buildKingHeightLeaderboard({
   data,
   query,

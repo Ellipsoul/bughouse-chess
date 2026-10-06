@@ -2,6 +2,9 @@
 import { Chess } from "chess.js";
 import type { BughouseGameState } from "@/app/types/bughouse";
 
+/**
+ * Render one board using ImageResponse-compatible flex styles and supplied data-URL sprites.
+ */
 function Board({ fen, flipped, top, bottom, sprites }: {
   fen: string; flipped: boolean; top: string; bottom: string; sprites: Record<string, string>;
 }) {
@@ -18,6 +21,10 @@ function Board({ fen, flipped, top, bottom, sprites }: {
   </div>;
 }
 
+/**
+ * Compose both logical boards with A White and B Black at the bottom.
+ * The static preview does not carry the viewer's temporary flip/swap state.
+ */
 export function PreviewImage({ state, caption, sprites }: { state: BughouseGameState; caption: string; sprites: Record<string, string> }) {
   return <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "#142c3c", color: "#f5f7fa", padding: "24px 64px", fontFamily: "sans-serif" }}>
     <div style={{ display: "flex", justifyContent: "space-between", height: 54, alignItems: "center", marginBottom: 12 }}>

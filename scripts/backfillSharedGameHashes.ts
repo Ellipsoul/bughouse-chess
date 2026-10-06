@@ -3,7 +3,8 @@
  *
  * Computes deterministic hashes for existing shared games and stores them in
  * users/{userId}/sharedGames/{sharedId}. This prevents future duplicate shares
- * while tolerating any historical duplicates.
+ * while tolerating any historical duplicates. Existing index hashes are also
+ * overwritten when writes are enabled; this script does not compare old hashes.
  *
  * Prerequisites:
  * Environment variables in .env.local (loaded automatically):

@@ -412,6 +412,10 @@ function reducer(state: InternalState, action: Action): InternalState {
   }
 }
 
+/**
+ * Public analysis hook contract: derived position/navigation state plus commands
+ * that validate moves and dispatch tree edits. Consumers should not mutate the tree.
+ */
 export interface UseAnalysisStateResult {
   state: AnalysisState;
   currentNode: AnalysisNode;

@@ -18,6 +18,9 @@ import admin from "firebase-admin";
  * - `FIREBASE_CLIENT_EMAIL`
  * - `FIREBASE_PRIVATE_KEY`
  *
+ * Exception: `FIRESTORE_EMULATOR_HOST` plus a `demo-` project ID initializes
+ * without service-account credentials for local tests.
+ *
  * Notes:
  * - When storing `FIREBASE_PRIVATE_KEY` in `.env.local`, multiline keys are typically
  *   represented with `\\n`. We normalize those to actual newlines before initializing.

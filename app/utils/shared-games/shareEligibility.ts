@@ -6,6 +6,9 @@
  */
 import type { MatchDiscoveryStatus } from "@/app/types/match";
 
+/**
+ * Viewer/authentication facts used for UI gating; these are not authorization checks.
+ */
 export interface ShareEligibilityInput {
   /**
    * Whether the user is fully authenticated (signed in + username set).
@@ -42,6 +45,9 @@ export interface ShareEligibilityInput {
   authMessage?: string | null;
 }
 
+/**
+ * Share-button availability and optional user-facing explanation.
+ */
 export interface ShareEligibilityResult {
   canShare: boolean;
   disabledReason?: string;

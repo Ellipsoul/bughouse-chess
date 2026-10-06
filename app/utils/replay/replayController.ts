@@ -36,6 +36,9 @@ import {
 } from "@/app/utils/analysis/captureMaterial";
 import type { BughousePieceType } from "@/app/types/analysis";
 
+/**
+ * Undo snapshot for both boards, reserves, promoted markers, and capture totals.
+ */
 interface BughouseHistoryState {
   /** FEN of board A before the most recently applied global move. */
   fenA: string;
