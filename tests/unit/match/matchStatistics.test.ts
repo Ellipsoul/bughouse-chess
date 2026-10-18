@@ -35,9 +35,9 @@ describe("match statistics cache", () => {
   it("uses persisted Firestore values and rejects stale versions/content", async () => {
     const { getMatchStatistics, seedMatchStatistics, matchStatisticsKey } = await import("@/app/utils/match/matchStatistics");
     const games = [fixture];
-    const stored = { version: 1, fingerprint: matchStatisticsKey(games), gameCount: 1,
+    const stored = { version: 2, fingerprint: matchStatisticsKey(games), gameCount: 1,
       moves: { A: 100, B: 90 }, material: { bughouse: { alice: 5 }, standard: { alice: 7 } } };
-    expect(seedMatchStatistics(games, { ...stored, version: 0 })).toBe(false);
+    expect(seedMatchStatistics(games, { ...stored, version: 1 })).toBe(false);
     expect(seedMatchStatistics(games, stored)).toBe(true);
     expect(await getMatchStatistics(games)).toBe(stored);
     expect(material).not.toHaveBeenCalled();

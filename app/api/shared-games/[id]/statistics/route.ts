@@ -3,8 +3,7 @@ import { getAdminFirestore } from "@/app/utils/platform/firebaseAdmin";
 import { fromMatchGameData, type SharedGameDocument, type SharedGameSubDocument } from "@/app/types/sharedGame";
 import { getMatchStatistics, isMatchStatistics, matchStatisticsKey } from "@/app/utils/match/matchStatistics";
 
-export const runtime = "nodejs";
-
+// Node.js is the default runtime; cacheComponents disallows an explicit runtime export.
 /** Public repair of derived data only. Never accept client-provided statistics or game payloads. */
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;

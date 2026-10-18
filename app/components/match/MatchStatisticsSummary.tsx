@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { APP_TOOLTIP_ID } from "@/app/utils/platform/tooltips";
 import { Info } from "lucide-react";
 import type { MatchGame, PartnerPair } from "@/app/types/match";
 import type { ReferenceTeams } from "./MatchNavigation";
 import { getMatchStatistics, type MatchStatistics } from "@/app/utils/match/matchStatistics";
 import { formatSignedCaptureMaterial } from "@/app/utils/analysis/captureMaterial";
+import { matchMoveRows } from "@/app/utils/match/matchMoveRows";
 import { usePieceValuePreset } from "@/app/utils/preferences/usePieceValuePreset";
 
 /** Compact, static full-match totals. Work is yielded between games to keep navigation responsive. */
@@ -31,16 +32,17 @@ export default function MatchStatisticsSummary({ games, teams, selectedPair }: {
   const current = result?.games === games ? result : null;
   const totals = current?.stats?.material[preset];
   const moves = current?.stats?.moves;
+  const moveRows = useMemo(() => matchMoveRows(games, selectedPair), [games, selectedPair]);
   const description = tab === "material"
     ? `Net capture material across all ${games.length} games, using ${preset} piece values. Captures add points; losses subtract points; drops do not change the total.`
-    : `Moves across all ${games.length} games on source boards A and B. Each player action counts as one move, including drops. Totals stay fixed during replay.`;
+    : `Moves across all ${games.length} games, grouped by ${selectedPair ? "each selected partner’s board (including their opponents)" : "player matchup"}. Each player action counts as one move, including drops. Totals stay fixed during replay.`;
 
   const valueFor = (name: string) => selectedPair && name === "Random opponents"
     ? Object.entries(totals ?? {}).reduce((sum, [player, value]) => sum + (selectedPair.usernames.some(n => n.toLowerCase() === player) ? 0 : value), 0)
     : totals?.[name.toLowerCase()] ?? 0;
 
   return (
-    <section aria-label="Match statistics" className="h-32 border-t border-gray-600 px-2 py-2 text-[10px]" data-testid="match-statistics-summary">
+    <section aria-label="Match statistics" className="border-t border-gray-600 px-2 py-2 text-[10px]" data-testid="match-statistics-summary">
       <div className="mb-2 flex gap-1">
         <div role="tablist" aria-label="Match statistics" className="flex flex-1 gap-1">
           {(["material", "moves"] as const).map((name, index, tabs) => (
@@ -94,8 +96,12 @@ export default function MatchStatisticsSummary({ games, teams, selectedPair }: {
       <div role="tabpanel" id={`${id}-moves-panel`} aria-labelledby={`${id}-moves-tab`} hidden={tab !== "moves"} tabIndex={0} className="space-y-1 rounded tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mariner-400">
         {moves ? (
           <>
-            <div className="flex justify-between"><span className="text-gray-300">Board A</span><span className="font-semibold">{moves.A.toLocaleString("en-US")}</span></div>
-            <div className="flex justify-between"><span className="text-gray-300">Board B</span><span className="font-semibold">{moves.B.toLocaleString("en-US")}</span></div>
+            {moveRows.map(row => (
+              <div key={row.label} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate text-gray-300" title={row.label}>{row.label}</span>
+                <span className="shrink-0 font-semibold">{row.count.toLocaleString("en-US")}</span>
+              </div>
+            ))}
             <div className="flex justify-between gap-2 border-t border-gray-700 pt-1"><span className="text-gray-400">Both boards · {games.length} games</span><span className="font-semibold">{(moves.A + moves.B).toLocaleString("en-US")}</span></div>
           </>
         ) : <p role="status" className="text-gray-400">{current ? "Move totals unavailable for this match." : "Calculating match totals…"}</p>}

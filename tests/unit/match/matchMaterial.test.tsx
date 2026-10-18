@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ChessGame } from "@/app/actions";
 import type { MatchGame } from "@/app/types/match";
+import recordedDrops from "../../fixtures/recorded-drop-match.json";
+import { reorderSimultaneousCheckmateMove } from "@/app/utils/analysis/reorderRecordedMoves";
+import { matchMoveRows } from "@/app/utils/match/matchMoveRows";
 import original from "../../fixtures/chesscom/161531824441.json";
 import partner from "../../fixtures/chesscom/161531824439.json";
 import { getMatchStatistics } from "@/app/utils/match/matchStatistics";
@@ -13,6 +16,35 @@ import MatchNavigation from "@/app/components/match/MatchNavigation";
 const game: MatchGame = { gameId: String(original.game.id), partnerGameId: String(partner.game.id), original: original as ChessGame, partner: partner as ChessGame, endTime: 0 };
 
 describe("match material", () => {
+  it("replays recorded drops with delayed partner captures without losing material totals", () => {
+    for (const recorded of recordedDrops) {
+      const game = recorded as unknown as MatchGame;
+      const processed = processGameData(game.original, game.partner);
+      const corrected = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+      expect(corrected).not.toEqual(processed.combinedMoves);
+      const controller = new BughouseReplayController({ ...processed, combinedMoves: corrected });
+      while (controller.canMoveForward()) expect(controller.moveForward()).toBe(true);
+      const totals = computeGameMaterial(game, "bughouse");
+      expect(totals).not.toBeNull();
+      expect(computeGameMaterial(game, "standard")).not.toBeNull();
+      for (const [board, source] of [["A", game.original], ["B", game.partner]] as const) {
+        expect(totals?.[source.game.pgnHeaders.White.toLowerCase()]).toBe(controller.getCurrentGameState().captureMaterial[board].white);
+        expect(totals?.[source.game.pgnHeaders.Black.toLowerCase()]).toBe(controller.getCurrentGameState().captureMaterial[board].black);
+      }
+    }
+  });
+
+  it("groups moves by players across board swaps and changing partner opponents", () => {
+    const swapped = structuredClone(game);
+    [swapped.original, swapped.partner] = [swapped.partner, swapped.original];
+    expect(matchMoveRows([game, swapped])).toEqual(matchMoveRows([game]).map(row => ({ ...row, count: row.count * 2 })));
+    const pair = { usernames: [game.original.game.pgnHeaders.White, game.partner.game.pgnHeaders.Black] as [string, string], displayNames: [game.original.game.pgnHeaders.White, game.partner.game.pgnHeaders.Black] as [string, string] };
+    swapped.original.game.pgnHeaders.White = "OtherOpponent";
+    swapped.partner.game.pgnHeaders.Black = "AnotherOpponent";
+    const rows = matchMoveRows([game, swapped], pair);
+    expect(rows.map(row => row.label)).toEqual(pair.displayNames);
+    expect(rows.map(row => row.count)).toEqual([original.game.moveList.length, partner.game.moveList.length]);
+  });
   it("matches the final replay ledger for a recorded game on both boards", () => {
     const controller = new BughouseReplayController(processGameData(game.original, game.partner));
     while (controller.canMoveForward()) expect(controller.moveForward()).toBe(true);
@@ -24,6 +56,14 @@ describe("match material", () => {
     }
     expect(Object.values(totals!).reduce((a, b) => a + b, 0)).toBe(0);
     expect(computeGameMaterial(game, "standard")).not.toEqual(totals);
+  });
+
+  it("rejects a drop when no supplying capture exists", () => {
+    const broken = structuredClone(recordedDrops[0]) as unknown as MatchGame;
+    broken.partner.game.moveList = "";
+    broken.partner.game.moveTimestamps = "";
+    expect(computeGameMaterial(broken, "bughouse")).toBeNull();
+    expect(computeGameMaterial(broken, "standard")).toBeNull();
   });
 
   it("attributes balances by username when boards swap and name casing changes", () => {
@@ -84,10 +124,10 @@ describe("match material", () => {
     expect(moves).toHaveFocus();
     expect(moves).toHaveAttribute("aria-selected", "true");
     expect(material).toHaveAttribute("tabindex", "-1");
-    await waitFor(() => expect(screen.getByRole("tabpanel", { name: "Moves" })).toHaveTextContent("Board A"));
+    await waitFor(() => expect(screen.getByRole("tabpanel", { name: "Moves" })).toHaveTextContent(matchMoveRows(games)[0].label));
     const panel = screen.getByRole("tabpanel", { name: "Moves" });
-    expect(within(panel).getByText("Board A").parentElement).toHaveTextContent(original.game.moveList.length.toLocaleString("en-US"));
-    expect(within(panel).getByText("Board B").parentElement).toHaveTextContent(partner.game.moveList.length.toLocaleString("en-US"));
+    expect(within(panel).getByText(matchMoveRows(games)[0].label).parentElement).toHaveTextContent(original.game.moveList.length.toLocaleString("en-US"));
+    expect(within(panel).getByText(matchMoveRows(games)[1].label).parentElement).toHaveTextContent(partner.game.moveList.length.toLocaleString("en-US"));
     expect(panel).toHaveTextContent((original.game.moveList.length + partner.game.moveList.length).toLocaleString("en-US"));
     const text = panel.textContent;
     rerender(<MatchNavigation {...props} currentIndex={1} />);

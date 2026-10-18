@@ -1,6 +1,7 @@
 import type { MatchGame } from "@/app/types/match";
 import { processGameData } from "@/app/utils/board/moveOrdering";
 import { createInitialPositionSnapshot, validateAndApplyMoveFromNotation } from "@/app/utils/analysis/applyMove";
+import { reorderSimultaneousCheckmateMove } from "@/app/utils/analysis/reorderRecordedMoves";
 import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";
 
 const cache = new WeakMap<MatchGame, Partial<Record<PieceValuePreset, Record<string, number> | null>>>();
@@ -17,7 +18,7 @@ export function computeGameMaterial(game: MatchGame, preset: PieceValuePreset): 
       throw new Error("Incomplete move timeline");
     }
     let position = createInitialPositionSnapshot();
-    for (const move of processed.combinedMoves) {
+    for (const move of reorderSimultaneousCheckmateMove(processed.combinedMoves)) {
       const applied = validateAndApplyMoveFromNotation(position, move, {
         pieceValuePreset: preset,
         bypassCheckmateCheck: true,

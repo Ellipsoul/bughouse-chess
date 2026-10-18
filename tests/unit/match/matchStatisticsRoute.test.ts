@@ -53,3 +53,14 @@ it("validates IDs before accessing Firestore and reports service failure", async
   mocks.runTransaction.mockRejectedValueOnce(new Error("offline"));
   expect((await call()).status).toBe(503);
 });
+
+it("replaces version 1 unavailable material automatically", async () => {
+  const current = await getMatchStatistics([game]);
+  const stale = { ...current, version: 1, material: { bughouse: null, standard: null } };
+  mocks.get.mockResolvedValueOnce({ exists: true, data: () => ({ type: "match", metadata: { gameCount: 1 }, matchStatistics: stale }) })
+    .mockResolvedValueOnce({ docs: [{ data: () => ({ index: 0, type: "match", data: game }) }] });
+  const response = await call();
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(current);
+  expect(mocks.update).toHaveBeenCalledWith(expect.anything(), { matchStatistics: current });
+});

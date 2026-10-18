@@ -5,7 +5,7 @@ import { computeGameMaterial } from "./matchMaterial";
 
 /** Increment when replay/scoring semantics change. Board counts are player actions, including drops. */
 export interface MatchStatistics {
-  version: 1;
+  version: 2;
   fingerprint: string;
   gameCount: number;
   moves: { A: number; B: number };
@@ -13,7 +13,7 @@ export interface MatchStatistics {
 }
 const pending = new Map<string, Promise<MatchStatistics>>();
 const keys = new WeakMap<MatchGame[], string>();
-const PREFIX = "bughouse:match-statistics:v1:";
+const PREFIX = "bughouse:match-statistics:v2:";
 
 /** Include replay inputs, not just IDs: incomplete or changed games must not reuse old totals. */
 export function matchStatisticsKey(games: MatchGame[]): string {
@@ -29,7 +29,7 @@ export function matchStatisticsKey(games: MatchGame[]): string {
 /** Validate persisted data before letting it bypass replay. */
 export function isMatchStatistics(value: unknown, fingerprint: string, count: number): value is MatchStatistics {
   const s = value as MatchStatistics | null;
-  return !!s && s.version === 1 && s.fingerprint === fingerprint && s.gameCount === count
+  return !!s && s.version === 2 && s.fingerprint === fingerprint && s.gameCount === count
     && !!s.moves && [s.moves.A, s.moves.B].every(n => Number.isSafeInteger(n) && n >= 0)
     && !!s.material && ["bughouse", "standard"].every(p => {
       const totals = s.material[p as PieceValuePreset];
@@ -72,7 +72,7 @@ export function getMatchStatistics(games: MatchGame[]): Promise<MatchStatistics>
 }
 
 async function calculate(games: MatchGame[], fingerprint: string): Promise<MatchStatistics> {
-  const stats: MatchStatistics = { version: 1, fingerprint, gameCount: games.length,
+  const stats: MatchStatistics = { version: 2, fingerprint, gameCount: games.length,
     moves: { A: 0, B: 0 }, material: { bughouse: {}, standard: {} } };
   for (const game of games) {
     // Yield between games; closing a dropdown does not cancel shared work.

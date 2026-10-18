@@ -3,7 +3,11 @@
  *
  * Validates match/partner-series navigation, score chips, and game list UX using
  * synthetic {@link MatchGame} fixtures.
+ *
+ * App CSS is required so layout assertions (content-sized statistics footer) see
+ * the same Tailwind utilities as production, including padding and borders.
  */
+import "../../app/globals.css";
 import MatchNavigation from "../../app/components/match/MatchNavigation";
 import type { MatchGame, PartnerPair } from "../../app/types/match";
 import type { ChessGame } from "../../app/actions";
@@ -588,24 +592,28 @@ describe("MatchNavigation", () => {
 
 /** Real layout measurement: changing statistics must not move the game list. */
 describe("Match statistics tabs", () => {
-  it("keeps the footer height and game-list position fixed across tabs", () => {
+  it("fits the active panel without extra bottom space and keeps the game list in place", () => {
     const games = createMockMatchGames(3);
     cy.mount(<MatchNavigation hasGameLoaded discoveryStatus="complete" totalGames={3} currentIndex={0} matchGames={games} onFindMatchGames={() => {}} onPreviousGame={() => {}} onNextGame={() => {}} />);
     cy.get('button[aria-label="Select game from match"]').click();
     cy.get('[role="tab"]').contains("Material").should("have.attr", "aria-selected", "true");
     cy.get('[data-testid="match-statistics-summary"]').then($footer => {
-      const height = $footer[0].getBoundingClientRect().height;
+      expect($footer[0].scrollHeight).to.be.at.most($footer[0].clientHeight);
       cy.get('[role="listbox"]').then($list => {
         const top = $list[0].getBoundingClientRect().top;
         cy.get('[role="tab"]').contains("Moves").click();
-        cy.get('[role="tabpanel"]:visible').should("contain", "Board A").and("contain", "Board B").and("contain", "Both boards · 3 games");
+        cy.get('[role="tabpanel"]:visible').should("contain", "Both boards · 3 games");
         cy.get('[data-testid="match-statistics-summary"]').should($current => {
-          expect($current[0].getBoundingClientRect().height).to.equal(height);
+          const panel = $current[0].querySelector('[role="tabpanel"]:not([hidden])')!;
+          expect($current[0].getBoundingClientRect().bottom - panel.getBoundingClientRect().bottom).to.be.within(7, 9);
           expect($current[0].scrollHeight).to.be.at.most($current[0].clientHeight);
         });
         cy.get('[role="listbox"]').should($current => expect($current[0].getBoundingClientRect().top).to.equal(top));
         cy.get('[role="tab"]').contains("Material").click();
-        cy.get('[data-testid="match-statistics-summary"]').should($current => expect($current[0].getBoundingClientRect().height).to.equal(height));
+        cy.get('[data-testid="match-statistics-summary"]').should($current => {
+          const panel = $current[0].querySelector('[role="tabpanel"]:not([hidden])')!;
+          expect($current[0].getBoundingClientRect().bottom - panel.getBoundingClientRect().bottom).to.be.within(7, 9);
+        });
       });
     });
   });
