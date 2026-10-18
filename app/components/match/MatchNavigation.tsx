@@ -6,6 +6,7 @@
  * Match replay controls: discover related games, step prev/next, and pick games
  * from a dropdown with stable team/pair positioning and running scores.
  */
+import MatchMaterialSummary from "./MatchMaterialSummary";
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
@@ -699,11 +700,9 @@ function MatchDropdown({
   return (
     <div
       className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 w-74 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
-      role="listbox"
-      aria-label="Select a game"
     >
       {/* Scrollable game list with custom thin scrollbar */}
-      <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500">
+      <div role="listbox" aria-label="Select a game" className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500">
         {games.map((game, index) => {
           const isCurrentGame = index === currentIndex;
 
@@ -889,7 +888,10 @@ function MatchDropdown({
           currentIndex={currentIndex}
         />
       ) : (
-        <MatchScoreSummary games={games} refTeams={refTeams} currentIndex={currentIndex} />
+        <>
+          <MatchScoreSummary games={games} refTeams={refTeams} currentIndex={currentIndex} />
+          <MatchMaterialSummary games={games} teams={refTeams} />
+        </>
       )}
     </div>
   );
