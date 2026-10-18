@@ -62,3 +62,42 @@ describe("match statistics cache", () => {
     await expect(getMatchStatistics([broken])).rejects.toThrow("Invalid move data");
   });
 });
+
+describe("background statistics", () => {
+  it("coalesces repair with dropdown consumers and falls back after a server failure", async () => {
+    const { prepareMatchStatistics, getMatchStatistics } = await import("@/app/utils/match/matchStatistics");
+    let fail!: (error: Error) => void;
+    const load = vi.fn(() => new Promise<unknown>((_, reject) => { fail = reject; }));
+    prepareMatchStatistics([fixture], load);
+    prepareMatchStatistics(structuredClone([fixture]), load);
+    const result = getMatchStatistics([fixture]);
+    expect(load).not.toHaveBeenCalled();
+    expect(material).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    expect(material).not.toHaveBeenCalled();
+    fail(new Error("offline"));
+    expect((await result).material.bughouse).toEqual({ alice: 4, bob: -4 });
+  });
+
+  it("runs browser calculation in a worker and terminates it on completion", async () => {
+    const terminate = vi.fn();
+    const worker = {
+      onmessage: vi.fn<(event: { data: unknown }) => void>(),
+      postMessage: vi.fn(),
+      terminate,
+    };
+    vi.stubGlobal("Worker", class {
+      constructor() { return worker; }
+    });
+    try {
+      const { getMatchStatistics, matchStatisticsKey } = await import("@/app/utils/match/matchStatistics");
+      const result = getMatchStatistics([fixture]);
+      expect(worker.postMessage).toHaveBeenCalledWith({ games: [fixture], key: matchStatisticsKey([fixture]) });
+      expect(material).not.toHaveBeenCalled();
+      const stats = { version: 2, fingerprint: matchStatisticsKey([fixture]), gameCount: 1, moves: { A: 1, B: 2 }, material: { bughouse: { alice: 4 }, standard: { alice: 5 } } };
+      worker.onmessage({ data: stats });
+      expect(await result).toEqual(stats);
+      expect(terminate).toHaveBeenCalledOnce();
+    } finally { vi.unstubAllGlobals(); }
+  });
+});

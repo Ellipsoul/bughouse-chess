@@ -27,7 +27,7 @@ import {
   where,
   documentId,
 } from "firebase/firestore";
-import { getMatchStatistics, seedMatchStatistics } from "@/app/utils/match/matchStatistics";
+import { getMatchStatistics, seedMatchStatistics, prepareMatchStatistics } from "@/app/utils/match/matchStatistics";
 import { fromMatchGameData } from "@/app/types/sharedGame";
 import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "@/app/utils/platform/firebaseClient";
@@ -790,14 +790,15 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
     if (gameData.type !== "game" && gameData.games.length === data.metadata.gameCount) {
       const games = fromMatchGameData(gameData.games);
       if (!seedMatchStatistics(games, data.matchStatistics)) {
-        // The server derives values from stored games; no client totals are trusted.
-        try {
-          const response = await fetch(`/api/shared-games/${encodeURIComponent(sharedId)}/statistics`, { method: "POST" });
-          if (!response.ok || !seedMatchStatistics(games, await response.json())) throw new Error("Backfill unavailable");
-        } catch {
-          // Offline/unconfigured Admin: still provide cached local totals, retry persistence on next load.
-          await getMatchStatistics(games).catch(() => undefined);
-        }
+        prepareMatchStatistics(games, async () => {
+          // Derived data is repaired independently of the board-loading promise.
+          const response = await fetch(`/api/shared-games/${encodeURIComponent(sharedId)}/statistics`, {
+            method: "POST",
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!response.ok) throw new Error("Backfill unavailable");
+          return response.json();
+        });
       }
     }
 

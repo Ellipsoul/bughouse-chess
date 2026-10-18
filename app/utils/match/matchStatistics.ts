@@ -1,7 +1,7 @@
 import { sha256 } from "js-sha256";
 import type { MatchGame } from "@/app/types/match";
 import type { PieceValuePreset } from "@/app/utils/analysis/captureMaterial";
-import { computeGameMaterial } from "./matchMaterial";
+import { calculateMatchStatistics } from "./calculateMatchStatistics";
 
 /** Increment when replay/scoring semantics change. Board counts are player actions, including drops. */
 export interface MatchStatistics {
@@ -12,6 +12,7 @@ export interface MatchStatistics {
   material: Record<PieceValuePreset, Record<string, number> | null>;
 }
 const pending = new Map<string, Promise<MatchStatistics>>();
+const repairs = new Map<string, Promise<MatchStatistics>>();
 const keys = new WeakMap<MatchGame[], string>();
 const PREFIX = "bughouse:match-statistics:v2:";
 
@@ -59,11 +60,8 @@ export function getMatchStatistics(games: MatchGame[]): Promise<MatchStatistics>
   const key = matchStatisticsKey(games);
   const existing = pending.get(key);
   if (existing) return existing;
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(PREFIX + key) ?? "null");
-    if (seedMatchStatistics(games, stored)) return pending.get(key)!;
-  } catch { /* Server rendering or unavailable storage. */ }
-  const work = calculate(games, key).then(stats => {
+  if (restoreStoredStatistics(games, key)) return pending.get(key)!;
+  const work = calculateInBackground(games, key).then(stats => {
     seedMatchStatistics(games, stats);
     return stats;
   }).catch(error => { pending.delete(key); throw error; });
@@ -71,25 +69,49 @@ export function getMatchStatistics(games: MatchGame[]): Promise<MatchStatistics>
   return work;
 }
 
-async function calculate(games: MatchGame[], fingerprint: string): Promise<MatchStatistics> {
-  const stats: MatchStatistics = { version: 2, fingerprint, gameCount: games.length,
-    moves: { A: 0, B: 0 }, material: { bughouse: {}, standard: {} } };
-  for (const game of games) {
-    // Yield between games; closing a dropdown does not cancel shared work.
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
-    for (const [board, source] of [["A", game.original], ["B", game.partner]] as const) {
-      const count = source?.game.moveList.length / 2;
-      if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid move data");
-      stats.moves[board] += count;
-    }
-    for (const preset of ["bughouse", "standard"] as const) {
-      const values = computeGameMaterial(game, preset);
-      const totals = stats.material[preset];
-      if (!values) stats.material[preset] = null;
-      else if (totals) for (const [name, value] of Object.entries(values)) {
-        Object.defineProperty(totals, name, { value: (Object.hasOwn(totals, name) ? totals[name] : 0) + value, enumerable: true, configurable: true });
-      }
-    }
-  }
-  return stats;
+function restoreStoredStatistics(games: MatchGame[], key: string): boolean {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(PREFIX + key) ?? "null");
+    return seedMatchStatistics(games, stored);
+  } catch { return false; /* Server rendering or unavailable storage. */ }
+}
+
+/** Start repair after the loader returns; dropdown consumers share this work. */
+export function prepareMatchStatistics(games: MatchGame[], load: () => Promise<unknown>): void {
+  const key = matchStatisticsKey(games);
+  if (repairs.has(key)) return;
+  if (!pending.has(key)) restoreStoredStatistics(games, key);
+  const existing = pending.get(key);
+  const work = new Promise<void>(resolve => setTimeout(resolve, 0))
+    .then(load)
+    .then(stats => {
+      if (!isMatchStatistics(stats, key, games.length)) throw new Error("Invalid statistics response");
+      return stats;
+    })
+    .catch(() => existing ?? calculateInBackground(games, key))
+    .then(stats => { seedMatchStatistics(games, stats); return stats; });
+  repairs.set(key, work);
+  if (!existing) pending.set(key, work);
+  void work.finally(() => repairs.delete(key)).catch(() => undefined);
+  // A failed background job must neither reject the game load nor become unhandled.
+  void work.catch(() => { if (pending.get(key) === work) pending.delete(key); });
+}
+
+/** Browser replay stays off the UI thread. Servers and unsupported browsers yield between games. */
+function calculateInBackground(games: MatchGame[], key: string): Promise<MatchStatistics> {
+  if (typeof window === "undefined" || typeof Worker === "undefined") return calculateMatchStatistics(games, key);
+  return new Promise<MatchStatistics>((resolve, reject) => {
+    const worker = new Worker(new URL("./matchStatistics.worker.ts", import.meta.url), { type: "module" });
+    const finish = () => { clearTimeout(timeout); worker.terminate(); };
+    const timeout = setTimeout(() => { finish(); reject(new Error("Statistics worker timed out")); }, 120_000);
+    worker.onmessage = event => {
+      finish();
+      if (isMatchStatistics(event.data, key, games.length)) resolve(event.data);
+      else reject(new Error("Statistics calculation failed"));
+    };
+    worker.onerror = () => { finish(); reject(new Error("Statistics worker failed")); };
+    worker.onmessageerror = () => { finish(); reject(new Error("Invalid statistics worker response")); };
+    try { worker.postMessage({ games, key }); }
+    catch (error) { finish(); reject(error); }
+  });
 }

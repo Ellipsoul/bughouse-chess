@@ -8,6 +8,7 @@
  * the same Tailwind utilities as production, including padding and borders.
  */
 import "../../app/globals.css";
+import recordedDropGames from "../../tests/fixtures/recorded-drop-match.json";
 import MatchNavigation from "../../app/components/match/MatchNavigation";
 import type { MatchGame, PartnerPair } from "../../app/types/match";
 import type { ChessGame } from "../../app/actions";
@@ -616,5 +617,20 @@ describe("Match statistics tabs", () => {
         });
       });
     });
+  });
+});
+
+describe("Background match material", () => {
+  it("calculates recorded games in a real worker while navigation remains usable", () => {
+    const games = recordedDropGames as unknown as MatchGame[];
+    const next = cy.stub().as("nextGame");
+    cy.mount(<MatchNavigation hasGameLoaded discoveryStatus="complete" totalGames={games.length} currentIndex={0} matchGames={games} onFindMatchGames={() => {}} onPreviousGame={() => {}} onNextGame={next} />);
+    cy.get('button[aria-label="Select game from match"]').click();
+    cy.get('button[aria-label="Next game"]').click();
+    cy.get("@nextGame").should("have.been.calledOnce");
+    cy.get('button[aria-label="Select game from match"]').click();
+    cy.get('[data-testid="match-statistics-summary"]', { timeout: 15000 }).should("contain", "Team total");
+    cy.get('[role="tab"]').contains("Moves").click();
+    cy.get('[role="tabpanel"]:visible').should("contain", "Both boards · 2 games");
   });
 });

@@ -757,6 +757,28 @@ describe("loading stored match statistics", () => {
     } finally { fetchSpy.mockRestore(); }
   });
 
+  it("returns playable match data while a statistics request is still unresolved", async () => {
+    const game = makeGame();
+    game.gameId = "background-loading-regression";
+    const expected = await getMatchStatistics([{ ...game, gameId: "expected-background-stats" }]);
+    firestoreMocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ id: "slow", type: "match", metadata: { gameCount: 1 }, sharedAt: { toDate: () => new Date() }, gameDate: { toDate: () => new Date() } }) });
+    firestoreMocks.getDocs.mockResolvedValue({ empty: false, docs: [{ data: () => ({ type: "match", index: 0, data: game }) }] });
+    let finish!: (response: Response) => void;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      const loaded = await getSharedGame("slow");
+      expect(loaded?.gameData.type).toBe("match");
+      // The loader has returned before even starting the deferred repair request.
+      expect(fetchSpy).not.toHaveBeenCalled();
+      let settled = false;
+      const statistics = getMatchStatistics([game]).then(stats => { settled = true; return stats; });
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(settled).toBe(false);
+      finish(new Response(JSON.stringify({ ...expected, fingerprint: matchStatisticsKey([game]) })));
+      expect((await statistics).material).toEqual(expected.material);
+    } finally { fetchSpy.mockRestore(); }
+  });
+
   it("backfills legacy partner matches and tolerates offline persistence", async () => {
     const game = makeGame();
     const stats = await getMatchStatistics([game]);
@@ -765,9 +787,10 @@ describe("loading stored match statistics", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(stats))).mockRejectedValueOnce(new Error("offline"));
     try {
       expect((await getSharedGame("legacy"))?.gameData.type).toBe("partnerGames");
-      expect(fetchSpy).toHaveBeenCalledWith("/api/shared-games/legacy/statistics", { method: "POST" });
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/shared-games/legacy/statistics", { method: "POST", signal: expect.any(AbortSignal) }));
       expect((await getSharedGame("legacy"))?.gameData.type).toBe("partnerGames");
       expect(await getMatchStatistics([game])).toEqual(stats);
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
     } finally { fetchSpy.mockRestore(); }
   });
 });
