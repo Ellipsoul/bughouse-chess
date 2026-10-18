@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ChessGame } from "@/app/actions";
 import type { MatchGame } from "@/app/types/match";
+import recordedDrops from "../../fixtures/recorded-drop-match.json";
+import { reorderSimultaneousCheckmateMove } from "@/app/utils/analysis/reorderRecordedMoves";
+import { matchMoveRows } from "@/app/utils/match/matchMoveRows";
 import original from "../../fixtures/chesscom/161531824441.json";
 import partner from "../../fixtures/chesscom/161531824439.json";
+import { getMatchStatistics } from "@/app/utils/match/matchStatistics";
 import { computeGameMaterial } from "@/app/utils/match/matchMaterial";
 import { BughouseReplayController } from "@/app/utils/replay/replayController";
 import { processGameData } from "@/app/utils/board/moveOrdering";
@@ -12,6 +16,35 @@ import MatchNavigation from "@/app/components/match/MatchNavigation";
 const game: MatchGame = { gameId: String(original.game.id), partnerGameId: String(partner.game.id), original: original as ChessGame, partner: partner as ChessGame, endTime: 0 };
 
 describe("match material", () => {
+  it("replays recorded drops with delayed partner captures without losing material totals", () => {
+    for (const recorded of recordedDrops) {
+      const game = recorded as unknown as MatchGame;
+      const processed = processGameData(game.original, game.partner);
+      const corrected = reorderSimultaneousCheckmateMove(processed.combinedMoves);
+      expect(corrected).not.toEqual(processed.combinedMoves);
+      const controller = new BughouseReplayController({ ...processed, combinedMoves: corrected });
+      while (controller.canMoveForward()) expect(controller.moveForward()).toBe(true);
+      const totals = computeGameMaterial(game, "bughouse");
+      expect(totals).not.toBeNull();
+      expect(computeGameMaterial(game, "standard")).not.toBeNull();
+      for (const [board, source] of [["A", game.original], ["B", game.partner]] as const) {
+        expect(totals?.[source.game.pgnHeaders.White.toLowerCase()]).toBe(controller.getCurrentGameState().captureMaterial[board].white);
+        expect(totals?.[source.game.pgnHeaders.Black.toLowerCase()]).toBe(controller.getCurrentGameState().captureMaterial[board].black);
+      }
+    }
+  });
+
+  it("groups moves by players across board swaps and changing partner opponents", () => {
+    const swapped = structuredClone(game);
+    [swapped.original, swapped.partner] = [swapped.partner, swapped.original];
+    expect(matchMoveRows([game, swapped])).toEqual(matchMoveRows([game]).map(row => ({ ...row, count: row.count * 2 })));
+    const pair = { usernames: [game.original.game.pgnHeaders.White, game.partner.game.pgnHeaders.Black] as [string, string], displayNames: [game.original.game.pgnHeaders.White, game.partner.game.pgnHeaders.Black] as [string, string] };
+    swapped.original.game.pgnHeaders.White = "OtherOpponent";
+    swapped.partner.game.pgnHeaders.Black = "AnotherOpponent";
+    const rows = matchMoveRows([game, swapped], pair);
+    expect(rows.map(row => row.label)).toEqual(pair.displayNames);
+    expect(rows.map(row => row.count)).toEqual([original.game.moveList.length, partner.game.moveList.length]);
+  });
   it("matches the final replay ledger for a recorded game on both boards", () => {
     const controller = new BughouseReplayController(processGameData(game.original, game.partner));
     while (controller.canMoveForward()) expect(controller.moveForward()).toBe(true);
@@ -23,6 +56,14 @@ describe("match material", () => {
     }
     expect(Object.values(totals!).reduce((a, b) => a + b, 0)).toBe(0);
     expect(computeGameMaterial(game, "standard")).not.toEqual(totals);
+  });
+
+  it("rejects a drop when no supplying capture exists", () => {
+    const broken = structuredClone(recordedDrops[0]) as unknown as MatchGame;
+    broken.partner.game.moveList = "";
+    broken.partner.game.moveTimestamps = "";
+    expect(computeGameMaterial(broken, "bughouse")).toBeNull();
+    expect(computeGameMaterial(broken, "standard")).toBeNull();
   });
 
   it("attributes balances by username when boards swap and name casing changes", () => {
@@ -43,11 +84,60 @@ describe("match material", () => {
     const props = { hasGameLoaded: true, discoveryStatus: "complete" as const, totalGames: 2, currentIndex: 0, matchGames: games, onFindMatchGames() {}, onPreviousGame() {}, onNextGame() {} };
     const { rerender } = render(<MatchNavigation {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Select game from match" }));
-    await waitFor(() => expect(within(screen.getByTestId("match-material-summary")).getAllByText("Team total")).toHaveLength(2));
-    const text = screen.getByTestId("match-material-summary").textContent;
+    await waitFor(() => expect(within(screen.getByTestId("match-statistics-summary")).getAllByText("Team total")).toHaveLength(2));
+    const text = screen.getByTestId("match-statistics-summary").textContent;
     rerender(<MatchNavigation {...props} currentIndex={1} />);
-    expect(screen.getByTestId("match-material-summary").textContent).toBe(text);
+    expect(screen.getByTestId("match-statistics-summary").textContent).toBe(text);
     rerender(<MatchNavigation {...props} totalGames={1} matchGames={[game]} />);
-    expect(screen.queryByTestId("match-material-summary")).toBeNull();
+    expect(screen.queryByTestId("match-statistics-summary")).toBeNull();
   });
+  it("includes changing opponents in partner adventure totals", async () => {
+    const second = structuredClone(game);
+    second.gameId = "new-opponents";
+    second.original.game.pgnHeaders.Black = "NewOpponentA";
+    second.partner.game.pgnHeaders.White = "NewOpponentB";
+    const selectedPair = { usernames: [game.original.game.pgnHeaders.White.toLowerCase(), game.partner.game.pgnHeaders.Black.toLowerCase()] as [string, string], displayNames: [game.original.game.pgnHeaders.White, game.partner.game.pgnHeaders.Black] as [string, string] };
+    const games = [game, second];
+    render(<MatchNavigation hasGameLoaded discoveryStatus="complete" totalGames={2} currentIndex={0} matchGames={games} selectedPair={selectedPair} onFindMatchGames={() => {}} onPreviousGame={() => {}} onNextGame={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select game from match" }));
+    await waitFor(() => expect(screen.getByText("Random opponents")).toBeInTheDocument());
+    const stats = await getMatchStatistics(games);
+    const opponents = Object.entries(stats.material.bughouse!).reduce((sum, [name, value]) => sum + (selectedPair.usernames.includes(name) ? 0 : value), 0);
+    const row = screen.getByText("Random opponents").parentElement!;
+    expect(row.textContent).toContain(String(opponents));
+    // Closing and reopening retains the same cached aggregate.
+    fireEvent.click(screen.getByRole("button", { name: "Select game from match" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select game from match" }));
+    await waitFor(() => expect(screen.getByText("Random opponents")).toBeInTheDocument());
+    expect(await getMatchStatistics(games)).toBe(stats);
+  });
+
+  it("switches statistics tabs with keyboard controls and keeps full-match move totals during navigation", async () => {
+    const games = [game, { ...game, gameId: "move-count-second" }];
+    const props = { hasGameLoaded: true, discoveryStatus: "complete" as const, totalGames: 2, currentIndex: 0, matchGames: games, onFindMatchGames() {}, onPreviousGame() {}, onNextGame() {} };
+    const { rerender } = render(<MatchNavigation {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select game from match" }));
+    const material = screen.getByRole("tab", { name: "Material" });
+    const moves = screen.getByRole("tab", { name: "Moves" });
+    expect(material).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(material, { key: "ArrowRight" });
+    expect(moves).toHaveFocus();
+    expect(moves).toHaveAttribute("aria-selected", "true");
+    expect(material).toHaveAttribute("tabindex", "-1");
+    await waitFor(() => expect(screen.getByRole("tabpanel", { name: "Moves" })).toHaveTextContent(matchMoveRows(games)[0].label));
+    const panel = screen.getByRole("tabpanel", { name: "Moves" });
+    expect(within(panel).getByText(matchMoveRows(games)[0].label).parentElement).toHaveTextContent(original.game.moveList.length.toLocaleString("en-US"));
+    expect(within(panel).getByText(matchMoveRows(games)[1].label).parentElement).toHaveTextContent(partner.game.moveList.length.toLocaleString("en-US"));
+    expect(panel).toHaveTextContent((original.game.moveList.length + partner.game.moveList.length).toLocaleString("en-US"));
+    const text = panel.textContent;
+    rerender(<MatchNavigation {...props} currentIndex={1} />);
+    expect(screen.getByRole("tabpanel", { name: "Moves" }).textContent).toBe(text);
+    fireEvent.keyDown(moves, { key: "Home" });
+    expect(material).toHaveFocus();
+    expect(screen.getByRole("tabpanel", { name: "Material" })).toBeVisible();
+    expect(screen.queryByRole("tabpanel", { name: "Moves" })).toBeNull();
+    fireEvent.keyDown(material, { key: "End" });
+    expect(moves).toHaveFocus();
+  });
+
 });

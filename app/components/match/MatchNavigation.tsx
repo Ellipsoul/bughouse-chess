@@ -6,7 +6,7 @@
  * Match replay controls: discover related games, step prev/next, and pick games
  * from a dropdown with stable team/pair positioning and running scores.
  */
-import MatchMaterialSummary from "./MatchMaterialSummary";
+import MatchStatisticsSummary from "./MatchStatisticsSummary";
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { APP_TOOLTIP_ID } from "../../utils/platform/tooltips";
@@ -888,11 +888,9 @@ function MatchDropdown({
           currentIndex={currentIndex}
         />
       ) : (
-        <>
-          <MatchScoreSummary games={games} refTeams={refTeams} currentIndex={currentIndex} />
-          <MatchMaterialSummary games={games} teams={refTeams} />
-        </>
+        <MatchScoreSummary games={games} refTeams={refTeams} currentIndex={currentIndex} />
       )}
+      <MatchStatisticsSummary games={games} teams={refTeams} selectedPair={selectedPair} />
     </div>
   );
 }

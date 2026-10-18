@@ -27,6 +27,8 @@ import {
   where,
   documentId,
 } from "firebase/firestore";
+import { getMatchStatistics, seedMatchStatistics } from "@/app/utils/match/matchStatistics";
+import { fromMatchGameData } from "@/app/types/sharedGame";
 import { v4 as uuidv4 } from "uuid";
 import { getFirestoreDb } from "@/app/utils/platform/firebaseClient";
 import type { ChessGame } from "@/app/actions";
@@ -614,6 +616,7 @@ export async function shareMatch(
       sharedAt: serverTimestamp(),
       gameDate,
       metadata,
+      matchStatistics: await getMatchStatistics(matchGames),
     };
 
     // User reference document
@@ -784,6 +787,19 @@ export async function getSharedGame(sharedId: string): Promise<SharedGame | null
 
     // Fetch game data from subcollection
     const gameData = await fetchGameData(sharedId, data);
+    if (gameData.type !== "game" && gameData.games.length === data.metadata.gameCount) {
+      const games = fromMatchGameData(gameData.games);
+      if (!seedMatchStatistics(games, data.matchStatistics)) {
+        // The server derives values from stored games; no client totals are trusted.
+        try {
+          const response = await fetch(`/api/shared-games/${encodeURIComponent(sharedId)}/statistics`, { method: "POST" });
+          if (!response.ok || !seedMatchStatistics(games, await response.json())) throw new Error("Backfill unavailable");
+        } catch {
+          // Offline/unconfigured Admin: still provide cached local totals, retry persistence on next load.
+          await getMatchStatistics(games).catch(() => undefined);
+        }
+      }
+    }
 
     return {
       id: data.id,

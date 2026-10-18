@@ -13,8 +13,10 @@ import {
   buildMatchMetadata,
   reconstructPartnerPairFromMetadata,
   shareMatch,
+  getSharedGame,
 } from "@/app/utils/shared-games/sharedGamesService";
 import { computeMatchScore, computePartnerPairScore } from "@/app/components/match/MatchNavigation";
+import { getMatchStatistics, seedMatchStatistics, matchStatisticsKey } from "@/app/utils/match/matchStatistics";
 import { extractPartnerPairs } from "@/app/types/match";
 
 const firestoreMocks = vi.hoisted(() => ({
@@ -154,6 +156,9 @@ describe("sharedGamesService", () => {
 
     it("uploads long matches in 100-game batches and reports progress", async () => {
       const matchGames = createLargeMatchGames(250, originalGame, partnerGame);
+      // Exercise upload serialization/cache reuse without replaying 250 synthetic duplicates.
+      const seed = await getMatchStatistics([matchGames[0]]);
+      seedMatchStatistics(matchGames, { ...seed, fingerprint: matchStatisticsKey(matchGames), gameCount: matchGames.length });
       const onBatchProgress = vi.fn();
 
       firestoreMocks.getDocs.mockResolvedValueOnce({ empty: true });
@@ -182,6 +187,7 @@ describe("sharedGamesService", () => {
       expect(result).toEqual({ success: true, sharedId: expect.any(String) });
       expect(firestoreMocks.writeBatch).toHaveBeenCalledTimes(4);
       expect(setupBatch.set).toHaveBeenCalledTimes(2);
+      expect(setupBatch.set.mock.calls[0][1].matchStatistics).toEqual(await getMatchStatistics(matchGames));
       expect(chunkBatch1.set).toHaveBeenCalledTimes(100);
       expect(chunkBatch2.set).toHaveBeenCalledTimes(100);
       expect(chunkBatch3.set).toHaveBeenCalledTimes(50);
@@ -207,6 +213,9 @@ describe("sharedGamesService", () => {
 
     it("returns partial progress context when a later batch fails", async () => {
       const matchGames = createLargeMatchGames(220, originalGame, partnerGame);
+      // Exercise upload serialization/cache reuse without replaying 250 synthetic duplicates.
+      const seed = await getMatchStatistics([matchGames[0]]);
+      seedMatchStatistics(matchGames, { ...seed, fingerprint: matchStatisticsKey(matchGames), gameCount: matchGames.length });
       const onBatchProgress = vi.fn();
 
       firestoreMocks.getDocs.mockResolvedValueOnce({ empty: true });
@@ -729,5 +738,36 @@ describe("sharedGamesService", () => {
       expect(firestoreMocks.where).toHaveBeenCalledWith("__name__", "in", sharedIds.slice(0, 10));
       expect(firestoreMocks.where).toHaveBeenCalledWith("__name__", "in", sharedIds.slice(10));
     });
+  });
+});
+
+describe("loading stored match statistics", () => {
+  const makeGame = () => createMatchGameWithResult(loadFixture("161531824441.json"), loadFixture("161531824439.json"), "1-0");
+  beforeEach(() => { firestoreMocks.getDoc.mockReset(); firestoreMocks.getDocs.mockReset(); });
+
+  it("hydrates saved statistics without invoking the backfill endpoint", async () => {
+    const game = makeGame();
+    const stats = await getMatchStatistics([game]);
+    firestoreMocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ id: "saved", type: "match", metadata: { gameCount: 1 }, matchStatistics: stats, sharedAt: { toDate: () => new Date() }, gameDate: { toDate: () => new Date() } }) });
+    firestoreMocks.getDocs.mockResolvedValue({ empty: false, docs: [{ data: () => ({ type: "match", index: 0, data: game }) }] });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      expect((await getSharedGame("saved"))?.gameData.type).toBe("match");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it("backfills legacy partner matches and tolerates offline persistence", async () => {
+    const game = makeGame();
+    const stats = await getMatchStatistics([game]);
+    firestoreMocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ id: "legacy", type: "partnerGames", metadata: { gameCount: 1 }, sharedAt: { toDate: () => new Date() }, gameDate: { toDate: () => new Date() } }) });
+    firestoreMocks.getDocs.mockResolvedValue({ empty: false, docs: [{ data: () => ({ type: "match", index: 0, data: game }) }] });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(stats))).mockRejectedValueOnce(new Error("offline"));
+    try {
+      expect((await getSharedGame("legacy"))?.gameData.type).toBe("partnerGames");
+      expect(fetchSpy).toHaveBeenCalledWith("/api/shared-games/legacy/statistics", { method: "POST" });
+      expect((await getSharedGame("legacy"))?.gameData.type).toBe("partnerGames");
+      expect(await getMatchStatistics([game])).toEqual(stats);
+    } finally { fetchSpy.mockRestore(); }
   });
 });

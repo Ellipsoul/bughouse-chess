@@ -179,6 +179,7 @@ export type SharedGameSubDocument =
  * Game data is stored in the `games` subcollection.
  */
 export interface SharedGameDocument {
+  matchStatistics?: import("@/app/utils/match/matchStatistics").MatchStatistics;
   /**
    * Unique identifier for this shared game (UUID).
    * Same as the document ID.
