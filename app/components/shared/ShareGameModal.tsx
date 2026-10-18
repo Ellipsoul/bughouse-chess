@@ -14,7 +14,7 @@ import { revalidateSharedGamesPage, type ChessGame } from "../../actions";
 import type { MatchGame } from "../../types/match";
 import type { SharedContentType, SingleGameData } from "../../types/sharedGame";
 import { SHARED_GAME_DESCRIPTION_MAX_LENGTH } from "../../types/sharedGame";
-import { shareGame, shareMatch } from "../../utils/shared-games/sharedGamesService";
+import { MATCH_UPLOAD_BATCH_SIZE, shareGame, shareMatch } from "../../utils/shared-games/sharedGamesService";
 import { ChessTitleBadge } from "../badges/ChessTitleBadge";
 import { computeMatchScore, computePartnerPairScore, establishReferenceTeams } from "../match/MatchNavigation";
 import { useFirebaseAnalytics, logAnalyticsEvent } from "../../utils/platform/useFirebaseAnalytics";
@@ -506,54 +506,62 @@ export default function ShareGameModal({
     }
 
     setIsSharing(true);
-    let progressToastId: string | undefined;
+    const progressToastId = `share-upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const showUploadProgress = resolvedContentType !== "game"
+      && (matchGames?.length ?? 0) > MATCH_UPLOAD_BATCH_SIZE;
+    const successMessage = `${contentTypeLabel} shared successfully!`;
 
     try {
-      let result;
+      // Convert service failures into rejections so toast.promise handles both
+      // returned failures (including partial uploads) and thrown errors.
+      const upload = async () => {
+        let result;
+        if (resolvedContentType === "game" && singleGameData) {
+          result = await shareGame(userId, username, singleGameData, description);
+        } else if (
+          (resolvedContentType === "match" || resolvedContentType === "partnerGames")
+          && matchGames
+          && matchGames.length > 0
+        ) {
+          result = await shareMatch(
+            userId,
+            username,
+            matchGames,
+            resolvedContentType,
+            description,
+            selectedPair ?? null,
+            {
+              onBatchProgress: ({ uploadedGames, totalGames }) => {
+                if (showUploadProgress) {
+                  toast.loading(
+                    `Uploading ${contentTypeLabel.toLowerCase()}: ${uploadedGames}/${totalGames} games`,
+                    { id: progressToastId, duration: Infinity },
+                  );
+                }
+              },
+            },
+          );
+        } else {
+          throw new Error("No valid content to share");
+        }
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result;
+      };
 
-      if (resolvedContentType === "game" && singleGameData) {
-        result = await shareGame(userId, username, singleGameData, description);
-      } else if (
-        (resolvedContentType === "match" || resolvedContentType === "partnerGames")
-        && matchGames
-        && matchGames.length > 0
-      ) {
-        const label = resolvedContentType === "partnerGames" ? "partner series" : "match";
-        progressToastId = `share-upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        toast.loading(`Uploading ${label}: 0/${matchGames.length} games`, {
+      const result = await toast.promise(upload, {
+          loading: `Uploading ${contentTypeLabel.toLowerCase()}...`,
+          success: successMessage,
+          error: (err: unknown) => err instanceof Error ? err.message : "Failed to share",
+        }, {
           id: progressToastId,
+          loading: { duration: Infinity },
+          success: { duration: 4000 },
+          error: { duration: 5500 },
         });
 
-        result = await shareMatch(
-          userId,
-          username,
-          matchGames,
-          resolvedContentType,
-          description,
-          selectedPair ?? null,
-          {
-            onBatchProgress: ({ uploadedGames, totalGames, completedBatches, totalBatches }) => {
-              toast.loading(
-                `Uploading ${label}: ${uploadedGames}/${totalGames} games (batch ${completedBatches}/${totalBatches})`,
-                {
-                  id: progressToastId,
-                },
-              );
-            },
-          },
-        );
-      } else {
-        toast.error("No valid content to share");
-        setIsSharing(false);
-        return;
-      }
-
       if (result.success) {
-        if (progressToastId) {
-          toast.success("Game shared successfully!", { id: progressToastId });
-        } else {
-          toast.success("Game shared successfully!");
-        }
         if (resolvedContentHash) {
           addSharedGameHash(resolvedContentHash);
         }
@@ -576,17 +584,6 @@ export default function ShareGameModal({
 
         onSuccess?.(result.sharedId);
         onClose();
-      } else {
-        // Log analytics for share failure
-        logAnalyticsEvent(analytics, "game_shared_error", {
-          content_type: resolvedContentType,
-          error: result.error,
-        });
-        if (progressToastId) {
-          toast.error(result.error, { id: progressToastId });
-        } else {
-          toast.error(result.error);
-        }
       }
     } catch (err) {
       console.error("[ShareGameModal] Share failed:", err);
@@ -597,15 +594,11 @@ export default function ShareGameModal({
         content_type: resolvedContentType,
         error: message,
       });
-      if (progressToastId) {
-        toast.error(message, { id: progressToastId });
-      } else {
-        toast.error(message);
-      }
     } finally {
       setIsSharing(false);
     }
   }, [
+    contentTypeLabel,
     resolvedContentType,
     singleGameData,
     matchGames,

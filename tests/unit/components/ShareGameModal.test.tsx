@@ -4,7 +4,7 @@
  * Mocks Firestore services and hash store to verify single-game/match/partner
  * share UX, duplicate detection, payload size guards, and post-share cache updates.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { readFileSync } from "fs";
@@ -21,7 +21,7 @@ import {
   createShareHashInputFromSingleGame,
 } from "../../../app/utils/shared-games/sharedGameHash";
 import React from "react";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 
 const sharedGameHashesState = vi.hoisted(() => ({
   hashes: new Set<string>(),
@@ -30,6 +30,7 @@ const sharedGameHashesState = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../app/utils/shared-games/sharedGamesService", () => ({
+  MATCH_UPLOAD_BATCH_SIZE: 100,
   shareGame: vi.fn(),
   shareMatch: vi.fn(),
 }));
@@ -43,13 +44,18 @@ vi.mock("@/app/utils/platform/useFirebaseAnalytics", () => ({
   logAnalyticsEvent: vi.fn(),
 }));
 
-vi.mock("react-hot-toast", () => ({
-  default: {
-    loading: vi.fn(),
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+vi.mock("react-hot-toast", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-hot-toast")>();
+  return {
+    ...actual,
+    default: Object.assign((...args: Parameters<typeof toast>) => actual.default(...args), actual.default, {
+      loading: vi.fn(actual.default.loading),
+      success: vi.fn(actual.default.success),
+      error: vi.fn(actual.default.error),
+      promise: vi.fn(actual.default.promise),
+    }),
+  };
+});
 
 vi.mock("@/app/utils/shared-games/sharedGameHashesStore", () => ({
   useSharedGameHashes: () => ({
@@ -130,12 +136,16 @@ function createLargeMatchGames(seedGame: MatchGame, gameCount: number): MatchGam
 
 describe("ShareGameModal", () => {
   beforeEach(() => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+    toast.remove();
     vi.clearAllMocks();
     vi.mocked(shareGame).mockResolvedValue({ success: true, sharedId: "shared-game-1" });
     vi.mocked(shareMatch).mockResolvedValue({ success: true, sharedId: "shared-match-1" });
     vi.mocked(revalidateSharedGamesPage).mockResolvedValue(undefined);
     sharedGameHashesState.hashes = new Set();
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("defaults to sharing the match series", () => {
     const index = loadIndex<MatchIndex>("match-index.json");
@@ -313,62 +323,74 @@ describe("ShareGameModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
 
+    render(<Toaster />);
     await waitFor(() => {
-      expect(toast.loading).toHaveBeenCalledWith(
-        expect.stringContaining("Uploading match: 0/250 games"),
-        expect.objectContaining({ id: expect.any(String) }),
-      );
+      expect(screen.getByText("Match shared successfully!")).toBeInTheDocument();
     });
+    const options = vi.mocked(toast.promise).mock.calls[0]![2]!;
+    expect(options).toMatchObject({ loading: { duration: Infinity } });
     expect(toast.loading).toHaveBeenCalledWith(
-      "Uploading match: 100/250 games (batch 1/3)",
-      expect.objectContaining({ id: expect.any(String) }),
+      "Uploading match: 100/250 games",
+      { id: options.id, duration: Infinity },
     );
     expect(toast.loading).toHaveBeenCalledWith(
-      "Uploading match: 250/250 games (batch 3/3)",
-      expect.objectContaining({ id: expect.any(String) }),
+      "Uploading match: 250/250 games",
+      { id: options.id, duration: Infinity },
     );
-    expect(toast.success).toHaveBeenCalledWith(
-      "Game shared successfully!",
-      expect.objectContaining({ id: expect.any(String) }),
-    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.promise).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses the progress toast id when batched upload fails partially", async () => {
+  it.each([false, true])("shows one failure toast for a long upload (throws: %s)", async (throws) => {
     const index = loadIndex<MatchIndex>("match-index.json");
-    const seedGames = loadMatchGames(index.games);
-    const largeMatch = createLargeMatchGames(seedGames[0]!, 220);
-
-    vi.mocked(shareMatch).mockImplementation(async (_userId, _username, _games, _type, _description, _selectedPair, options) => {
-      options?.onBatchProgress?.({
-        uploadedGames: 100,
-        totalGames: 220,
-        completedBatches: 1,
-        totalBatches: 3,
-      });
-      return { success: false, error: "Uploaded 100/220 games before upload failed." };
+    const largeMatch = createLargeMatchGames(loadMatchGames(index.games)[0]!, 236);
+    const message = "Uploaded 100/236 games before upload failed.";
+    vi.mocked(shareMatch).mockImplementation(async (_uid, _name, _games, _type, _desc, _pair, options) => {
+      options?.onBatchProgress?.({ uploadedGames: 100, totalGames: 236, completedBatches: 1, totalBatches: 3 });
+      if (throws) throw new Error(message);
+      return { success: false, error: message };
     });
-
-    render(
-      <ShareGameModal
-        open={true}
-        userId="user-123"
-        username="ellipsoul"
-        singleGameData={toSingleGameData(largeMatch[0]!)}
-        matchGames={largeMatch}
-        contentType="match"
-        selectedPair={null}
-        onClose={vi.fn()}
-      />,
-    );
-
+    const onClose = vi.fn();
+    render(<><Toaster /><ShareGameModal open userId="user-123" username="ellipsoul"
+      matchGames={largeMatch} contentType="match" onClose={onClose} /></>);
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    await waitFor(() => expect(screen.getByText(message)).toBeInTheDocument());
+    expect(toast.promise).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(sharedGameHashesState.addHash).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
+  });
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        "Uploaded 100/220 games before upload failed.",
-        expect.objectContaining({ id: expect.any(String) }),
-      );
+  it.each([1, 20, 100])("transitions one simple promise toast for a %i-game upload", async (count) => {
+    const index = loadIndex<MatchIndex>("match-index.json");
+    const games = createLargeMatchGames(loadMatchGames(index.games)[0]!, count);
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => { finish = resolve; });
+    vi.mocked(shareMatch).mockImplementation(async (_uid, _name, _games, _type, _desc, _pair, options) => {
+      await pending;
+      options?.onBatchProgress?.({ uploadedGames: count, totalGames: count, completedBatches: 1, totalBatches: 1 });
+      return { success: true, sharedId: "shared" };
     });
+    vi.mocked(shareGame).mockImplementation(async () => {
+      await pending;
+      return { success: true, sharedId: "shared" };
+    });
+    render(<Toaster />);
+    render(<ShareGameModal open userId="user-123" username="ellipsoul"
+      singleGameData={toSingleGameData(games[0]!)} matchGames={games}
+      contentType={count === 1 ? "game" : "match"} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    expect(screen.getByRole("button", { name: "Sharing..." })).toBeDisabled();
+    expect(toast.loading).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    const label = count === 1 ? "Game" : "Match";
+    expect(screen.getByText(`Uploading ${label.toLowerCase()}...`)).toBeInTheDocument();
+    expect(toast.promise).toHaveBeenCalledTimes(1);
+    finish();
+    await waitFor(() => expect(screen.getByText(`${label} shared successfully!`)).toBeInTheDocument());
+    expect(screen.queryByText(`Uploading ${label.toLowerCase()}...`)).not.toBeInTheDocument();
+    expect(toast.loading).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
   });
 

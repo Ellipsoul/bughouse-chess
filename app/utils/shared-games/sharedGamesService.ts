@@ -67,7 +67,7 @@ const SHARED_GAMES_COLLECTION = "sharedGames";
 const USERS_COLLECTION = "users";
 const USER_SHARED_GAMES_SUBCOLLECTION = "sharedGames";
 const IN_QUERY_BATCH_SIZE = 10;
-const MATCH_UPLOAD_BATCH_SIZE = 100;
+export const MATCH_UPLOAD_BATCH_SIZE = 100;
 
 /**
  * Progress payload emitted while match games are uploaded in chunks.
