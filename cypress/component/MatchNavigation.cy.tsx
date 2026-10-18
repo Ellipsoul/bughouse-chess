@@ -585,3 +585,28 @@ describe("MatchNavigation", () => {
     });
   });
 });
+
+/** Real layout measurement: changing statistics must not move the game list. */
+describe("Match statistics tabs", () => {
+  it("keeps the footer height and game-list position fixed across tabs", () => {
+    const games = createMockMatchGames(3);
+    cy.mount(<MatchNavigation hasGameLoaded discoveryStatus="complete" totalGames={3} currentIndex={0} matchGames={games} onFindMatchGames={() => {}} onPreviousGame={() => {}} onNextGame={() => {}} />);
+    cy.get('button[aria-label="Select game from match"]').click();
+    cy.get('[role="tab"]').contains("Material").should("have.attr", "aria-selected", "true");
+    cy.get('[data-testid="match-statistics-summary"]').then($footer => {
+      const height = $footer[0].getBoundingClientRect().height;
+      cy.get('[role="listbox"]').then($list => {
+        const top = $list[0].getBoundingClientRect().top;
+        cy.get('[role="tab"]').contains("Moves").click();
+        cy.get('[role="tabpanel"]:visible').should("contain", "Board A").and("contain", "Board B").and("contain", "Both boards · 3 games");
+        cy.get('[data-testid="match-statistics-summary"]').should($current => {
+          expect($current[0].getBoundingClientRect().height).to.equal(height);
+          expect($current[0].scrollHeight).to.be.at.most($current[0].clientHeight);
+        });
+        cy.get('[role="listbox"]').should($current => expect($current[0].getBoundingClientRect().top).to.equal(top));
+        cy.get('[role="tab"]').contains("Material").click();
+        cy.get('[data-testid="match-statistics-summary"]').should($current => expect($current[0].getBoundingClientRect().height).to.equal(height));
+      });
+    });
+  });
+});
