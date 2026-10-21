@@ -54,9 +54,9 @@ it("validates IDs before accessing Firestore and reports service failure", async
   expect((await call()).status).toBe(503);
 });
 
-it("replaces version 1 unavailable material automatically", async () => {
+it.each([1, 2])("replaces version %i statistics automatically", async version => {
   const current = await getMatchStatistics([game]);
-  const stale = { ...current, version: 1, material: { bughouse: null, standard: null } };
+  const stale = { ...current, version, material: { bughouse: null, standard: null } };
   mocks.get.mockResolvedValueOnce({ exists: true, data: () => ({ type: "match", metadata: { gameCount: 1 }, matchStatistics: stale }) })
     .mockResolvedValueOnce({ docs: [{ data: () => ({ index: 0, type: "match", data: game }) }] });
   const response = await call();

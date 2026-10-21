@@ -3,7 +3,7 @@ import type { MatchStatistics } from "./matchStatistics";
 import { computeGameMaterial } from "./matchMaterial";
 
 export async function calculateMatchStatistics(games: MatchGame[], fingerprint: string): Promise<MatchStatistics> {
-  const stats: MatchStatistics = { version: 2, fingerprint, gameCount: games.length,
+  const stats: MatchStatistics = { version: 3, fingerprint, gameCount: games.length,
     moves: { A: 0, B: 0 }, material: { bughouse: {}, standard: {} } };
   for (const game of games) {
     // Yield between games; closing a dropdown does not cancel shared work.

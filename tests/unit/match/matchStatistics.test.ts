@@ -35,15 +35,53 @@ describe("match statistics cache", () => {
   it("uses persisted Firestore values and rejects stale versions/content", async () => {
     const { getMatchStatistics, seedMatchStatistics, matchStatisticsKey } = await import("@/app/utils/match/matchStatistics");
     const games = [fixture];
-    const stored = { version: 2, fingerprint: matchStatisticsKey(games), gameCount: 1,
+    const stored = { version: 3, fingerprint: matchStatisticsKey(games), gameCount: 1,
       moves: { A: 100, B: 90 }, material: { bughouse: { alice: 5 }, standard: { alice: 7 } } };
-    expect(seedMatchStatistics(games, { ...stored, version: 1 })).toBe(false);
+    expect(seedMatchStatistics(games, { ...stored, version: 2 })).toBe(false);
     expect(seedMatchStatistics(games, stored)).toBe(true);
     expect(await getMatchStatistics(games)).toBe(stored);
     expect(material).not.toHaveBeenCalled();
     const changed = structuredClone(games); changed[0].original.game.moveList += "ab";
     expect(seedMatchStatistics(changed, stored)).toBe(false);
     expect((await getMatchStatistics(changed)).moves.A).toBe(original.game.moveList.length / 2 + 1);
+  });
+
+  it("accepts Firestore statistics across header field ordering and browser reloads", async () => {
+    let api = await import("@/app/utils/match/matchStatistics");
+    const serverGames = [structuredClone(fixture)];
+    const browserGames = structuredClone(serverGames);
+    for (const game of browserGames) {
+      for (const source of [game.original, game.partner]) {
+        source.game.pgnHeaders = Object.fromEntries(Object.entries(source.game.pgnHeaders).reverse()) as typeof source.game.pgnHeaders;
+      }
+    }
+    const stats = await api.getMatchStatistics(serverGames);
+    vi.resetModules(); localStorage.clear(); material.mockClear();
+    api = await import("@/app/utils/match/matchStatistics");
+    expect(api.matchStatisticsKey(browserGames)).toBe(stats.fingerprint);
+    expect(api.seedMatchStatistics(browserGames, stats)).toBe(true);
+    expect(await api.getMatchStatistics(browserGames)).toEqual(stats);
+    vi.resetModules();
+    api = await import("@/app/utils/match/matchStatistics");
+    expect(await api.getMatchStatistics(serverGames)).toEqual(stats);
+    expect(material).not.toHaveBeenCalled();
+    const renamed = structuredClone(browserGames);
+    renamed[0].original.game.pgnHeaders.White = "different-player";
+    expect(api.seedMatchStatistics(renamed, stats)).toBe(false);
+  });
+
+  it("accepts a server repair with reordered headers without local fallback", async () => {
+    let api = await import("@/app/utils/match/matchStatistics");
+    const stats = await api.getMatchStatistics([fixture]);
+    const browserGames = [structuredClone(fixture)];
+    for (const source of [browserGames[0].original, browserGames[0].partner]) {
+      source.game.pgnHeaders = Object.fromEntries(Object.entries(source.game.pgnHeaders).reverse()) as typeof source.game.pgnHeaders;
+    }
+    vi.resetModules(); localStorage.clear(); material.mockClear();
+    api = await import("@/app/utils/match/matchStatistics");
+    api.prepareMatchStatistics(browserGames, async () => stats);
+    expect(await api.getMatchStatistics(browserGames)).toEqual(stats);
+    expect(material).not.toHaveBeenCalled();
   });
 
   it("retains move totals but never publishes partial material", async () => {
@@ -94,7 +132,7 @@ describe("background statistics", () => {
       const result = getMatchStatistics([fixture]);
       expect(worker.postMessage).toHaveBeenCalledWith({ games: [fixture], key: matchStatisticsKey([fixture]) });
       expect(material).not.toHaveBeenCalled();
-      const stats = { version: 2, fingerprint: matchStatisticsKey([fixture]), gameCount: 1, moves: { A: 1, B: 2 }, material: { bughouse: { alice: 4 }, standard: { alice: 5 } } };
+      const stats = { version: 3, fingerprint: matchStatisticsKey([fixture]), gameCount: 1, moves: { A: 1, B: 2 }, material: { bughouse: { alice: 4 }, standard: { alice: 5 } } };
       worker.onmessage({ data: stats });
       expect(await result).toEqual(stats);
       expect(terminate).toHaveBeenCalledOnce();

@@ -5,7 +5,7 @@ import { calculateMatchStatistics } from "./calculateMatchStatistics";
 
 /** Increment when replay/scoring semantics change. Board counts are player actions, including drops. */
 export interface MatchStatistics {
-  version: 2;
+  version: 3;
   fingerprint: string;
   gameCount: number;
   moves: { A: number; B: number };
@@ -14,14 +14,17 @@ export interface MatchStatistics {
 const pending = new Map<string, Promise<MatchStatistics>>();
 const repairs = new Map<string, Promise<MatchStatistics>>();
 const keys = new WeakMap<MatchGame[], string>();
-const PREFIX = "bughouse:match-statistics:v2:";
+const PREFIX = "bughouse:match-statistics:v3:";
 
 /** Include replay inputs, not just IDs: incomplete or changed games must not reuse old totals. */
 export function matchStatisticsKey(games: MatchGame[]): string {
   let key = keys.get(games);
   if (!key) {
     key = sha256(JSON.stringify(games.map(g => [g.gameId, g.partnerGameId,
-      ...[g.original, g.partner].map(b => b ? [b.game.moveList, b.game.moveTimestamps, b.game.baseTime1, b.game.timeIncrement1, b.game.pgnHeaders] : null)])));
+      ...[g.original, g.partner].map(b => b ? [b.game.moveList, b.game.moveTimestamps, b.game.baseTime1, b.game.timeIncrement1,
+        // Firestore Admin and Web SDKs can return map fields in different orders.
+        Object.entries(b.game.pgnHeaders).filter(([, value]) => value !== undefined)
+          .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)] : null)])));
     keys.set(games, key);
   }
   return key;
@@ -30,7 +33,7 @@ export function matchStatisticsKey(games: MatchGame[]): string {
 /** Validate persisted data before letting it bypass replay. */
 export function isMatchStatistics(value: unknown, fingerprint: string, count: number): value is MatchStatistics {
   const s = value as MatchStatistics | null;
-  return !!s && s.version === 2 && s.fingerprint === fingerprint && s.gameCount === count
+  return !!s && s.version === 3 && s.fingerprint === fingerprint && s.gameCount === count
     && !!s.moves && [s.moves.A, s.moves.B].every(n => Number.isSafeInteger(n) && n >= 0)
     && !!s.material && ["bughouse", "standard"].every(p => {
       const totals = s.material[p as PieceValuePreset];
