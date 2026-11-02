@@ -237,14 +237,17 @@ unavailable upstream services return a bounded `503` response.
 
 Production metadata checked on 3 October 2026 reports the August position graph:
 6,747,980 games, dataset `68a97678c3df093d243473e0844b373d669ac335`, in
-`packed-position-graph-v2` format. The validated local September candidate contains
-6,899,477 games, dataset `137962bc5eace0f0c5ce4e50c2889d459a66087e`, and
-3,463,810,827 bytes including its v2 manifest. Its actual August-to-September
-incremental export matches both independent full references byte-for-byte.
-Migration and release evidence are recorded in
-[`OPENING_INCREMENTAL_RESULT_2026-10-03.md`](https://github.com/Ellipsoul/bughouse-opening-explorer/blob/main/docs/OPENING_INCREMENTAL_RESULT_2026-10-03.md).
+`packed-position-graph-v2` format; that dated production observation was not
+rechecked during this local update. The validated local October-only incremental
+candidate contains 7,019,712 games, dataset
+`dbcc296735e87541e82e1f2cdac06a5c17e61174`, and 3,526,334,311 bytes including
+its v2 manifest. It passed the routine incremental integrity/delta/regression and
+local behavior gates. Independent full A/B comparisons were intentionally
+cancelled under the revised workflow; no full-rebuild parity is claimed.
+Current evidence is recorded in
+[`OPENING_INCREMENTAL_RESULT_2026-11-02.md`](https://github.com/Ellipsoul/bughouse-opening-explorer/blob/main/docs/OPENING_INCREMENTAL_RESULT_2026-11-02.md).
 The page now emits low-cardinality browser performance marks and the proxy adds
-its upstream duration to `Server-Timing`. A September local candidate does not
+its upstream duration to `Server-Timing`. A local candidate does not
 change the served dataset; upload, protected Preview and Production cutover remain
 separate approval gates. The server-side proxy defaults to 45 seconds, with a
 60-second maximum; an explicit deployment override may be shorter.
@@ -352,10 +355,10 @@ and the URL fragment. A missing or unknown value falls back to Net Material.
 The route remains statically prerendered and no insight data is fetched again.
 
 The route imports `app/data/player-material-insights.json` at build time. The
-current 1,137-player file is 217,427 bytes uncompressed and 59,354 bytes with
-deterministic `gzip -9 -n`. The lazy-loaded projections are 858,039 bytes raw /
-150,342 bytes gzipped for king height, 2,032,360 / 633,948 bytes for drop heat
-maps, and 2,475,103 / 433,944 bytes for material game highs. None is part of the
+current 1,170-player file is 223,633 bytes uncompressed and 60,427 bytes with
+deterministic `gzip -9 -n`. The lazy-loaded projections are 875,320 bytes raw /
+152,968 bytes gzipped for king height, 2,087,933 / 648,779 bytes for drop heat
+maps, and 2,543,982 / 445,266 bytes for material game highs. None is part of the
 initial material view. The browser needs no
 SQLite reader, runtime database, route handler, or opening-explorer service
 request. Material rows use a full desktop table and compact five-piece ledgers

@@ -1,0 +1,24 @@
+- main [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - complementary "App sidebar" [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - link "Open analysis board" [ref=f3e7] [cursor=pointer]:
+          - /url: /
+        - link "Opening explorer" [ref=f3e12] [cursor=pointer]:
+          - /url: /opening-explorer
+        - link "Player Insights" [ref=f3e19] [cursor=pointer]:
+          - /url: /player-insights
+        - link "Browse shared games" [ref=f3e23] [cursor=pointer]:
+          - /url: /shared-games
+        - link "Donate to support the project" [ref=f3e29] [cursor=pointer]:
+          - /url: https://buymeacoffee.com/aronteh
+        - link "View source code on GitHub" [ref=f3e33] [cursor=pointer]:
+          - /url: https://github.com/Ellipsoul/bughouse-chess
+        - link "Play bughouse on Chess.com" [ref=f3e37] [cursor=pointer]:
+          - /url: https://www.chess.com/play/online/doubles-bughouse
+        - button "Settings" [ref=f3e46] [cursor=pointer]
+        - link "Open profile" [ref=f3e51] [cursor=pointer]:
+          - /url: /profile
+    - status [ref=f3e56]:
+      - generic [ref=f3e57]: Loading opening dataset…
+      - paragraph [ref=f3e61]: Cold starts can take about 30 seconds. Please be patient.

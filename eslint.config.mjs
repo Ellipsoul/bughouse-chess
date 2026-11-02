@@ -7,7 +7,8 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: [".next/**", ".vercel/**", "node_modules/**"],
+    // Generated browser-verification artifacts are also excluded from Git.
+    ignores: [".next/**", ".vercel/**", "node_modules/**", "output/playwright/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

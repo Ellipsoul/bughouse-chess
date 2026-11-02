@@ -1,0 +1,700 @@
+- generic [ref=f3e1]:
+  - main [ref=f3e2]:
+    - generic [ref=f3e3]:
+      - complementary "App sidebar" [ref=f3e4]:
+        - generic [ref=f3e5]:
+          - link "Open analysis board" [ref=f3e7] [cursor=pointer]:
+            - /url: /
+          - link "Opening explorer" [ref=f3e12] [cursor=pointer]:
+            - /url: /opening-explorer
+          - link "Player Insights" [ref=f3e19] [cursor=pointer]:
+            - /url: /player-insights
+          - link "Browse shared games" [ref=f3e23] [cursor=pointer]:
+            - /url: /shared-games
+          - link "Donate to support the project" [ref=f3e29] [cursor=pointer]:
+            - /url: https://buymeacoffee.com/aronteh
+          - link "View source code on GitHub" [ref=f3e33] [cursor=pointer]:
+            - /url: https://github.com/Ellipsoul/bughouse-chess
+          - link "Play bughouse on Chess.com" [ref=f3e37] [cursor=pointer]:
+            - /url: https://www.chess.com/play/online/doubles-bughouse
+          - button "Settings" [ref=f3e46] [cursor=pointer]
+          - link "Open profile" [ref=f3e51] [cursor=pointer]:
+            - /url: /profile
+      - generic [ref=f3e62]:
+        - generic [ref=f3e64]:
+          - generic [ref=f3e65]:
+            - heading "Opening explorer" [level=1] [ref=f3e70]
+            - generic [ref=f3e71]: HOSTED EXPERIMENT
+          - paragraph [ref=f3e72]: Dataset dbcc296735 · 7,019,712 accepted games · opening-adapter-v2-short-non-checkmate
+        - generic [ref=f3e73]:
+          - region "Opening board" [ref=f3e74]:
+            - generic [ref=f3e80]:
+              - generic [ref=f3e81]: "8"
+              - generic [ref=f3e91]: "7"
+              - generic [ref=f3e101]: "6"
+              - generic [ref=f3e111]: "5"
+              - generic [ref=f3e121]: "4"
+              - generic [ref=f3e131]: "3"
+              - generic [ref=f3e141]: "2"
+              - generic [ref=f3e151]:
+                - generic [ref=f3e152]:
+                  - generic [ref=f3e153]: a
+                  - generic [ref=f3e154]: "1"
+                - generic [ref=f3e155]: b
+                - generic [ref=f3e157]: c
+                - generic [ref=f3e159]: d
+                - generic [ref=f3e161]: e
+                - generic [ref=f3e163]: f
+                - generic [ref=f3e165]: g
+                - generic [ref=f3e167]: h
+          - complementary "Played moves" [ref=f3e169]:
+            - region "Move list" [ref=f3e170]:
+              - generic [ref=f3e171]:
+                - heading "Move list" [level=2] [ref=f3e172]
+                - generic [ref=f3e173]: 0 plies
+              - paragraph [ref=f3e175]: No moves yet
+            - group [ref=f3e176]:
+              - generic "Prototype instrumentation" [ref=f3e177] [cursor=pointer]
+          - complementary "Explorer controls" [ref=f3e178]:
+            - generic [ref=f3e179]:
+              - heading "Player filter" [level=2] [ref=f3e180]
+              - generic [ref=f3e181]:
+                - generic [ref=f3e182]:
+                  - text: Player
+                  - combobox "Player" [expanded] [ref=f3e183] [cursor=pointer]:
+                    - generic [ref=f3e184]: Search for a player
+                  - generic [ref=f3e965]:
+                    - generic [ref=f3e966]:
+                      - generic [ref=f3e967]: Search players
+                      - searchbox "Search players" [active] [ref=f3e968]
+                    - listbox "Player suggestions" [ref=f3e969]:
+                      - paragraph [ref=f3e970]: Type to search players.
+                - button "Apply filter" [disabled] [ref=f3e188]
+                - button "Clear" [ref=f3e189] [cursor=pointer]
+              - group "Player seat" [ref=f3e190]:
+                - button "White" [pressed] [ref=f3e191] [cursor=pointer]
+                - button "Black" [ref=f3e192] [cursor=pointer]
+            - region "Opening Tree" [ref=f3e193]:
+              - generic [ref=f3e194]:
+                - heading "Opening Tree" [level=2] [ref=f3e195]
+                - generic [ref=f3e196]: 7019712 games
+              - generic "Candidate move choices" [ref=f3e197]:
+                - button "e4, 4230390 games" [ref=f3e198] [cursor=pointer]:
+                  - generic [ref=f3e199]: e4
+                  - strong [ref=f3e201]: "4230390"
+                  - generic [ref=f3e202]:
+                    - img "White wins 50%, draws 1%, Black wins 49%" [ref=f3e203]
+                    - generic [aria-hidden] [ref=f3e207]:
+                      - generic [ref=f3e208]: W 2097867
+                      - generic [ref=f3e209]: D 23090
+                      - generic [ref=f3e210]: B 2109433
+                - button "d4, 1623081 games" [ref=f3e211] [cursor=pointer]:
+                  - generic [ref=f3e212]: d4
+                  - strong [ref=f3e214]: "1623081"
+                  - generic [ref=f3e215]:
+                    - img "White wins 51%, draws 1%, Black wins 48%" [ref=f3e216]
+                    - generic [aria-hidden] [ref=f3e220]:
+                      - generic [ref=f3e221]: W 829457
+                      - generic [ref=f3e222]: D 10795
+                      - generic [ref=f3e223]: B 782829
+                - button "Nf3, 516549 games" [ref=f3e224] [cursor=pointer]:
+                  - generic [ref=f3e225]: Nf3
+                  - strong [ref=f3e227]: "516549"
+                  - generic [ref=f3e228]:
+                    - img "White wins 48%, draws 1%, Black wins 51%" [ref=f3e229]
+                    - generic [aria-hidden] [ref=f3e233]:
+                      - generic [ref=f3e234]: W 249337
+                      - generic [ref=f3e235]: D 3215
+                      - generic [ref=f3e236]: B 263997
+                - button "Nc3, 229008 games" [ref=f3e237] [cursor=pointer]:
+                  - generic [ref=f3e238]: Nc3
+                  - strong [ref=f3e240]: "229008"
+                  - generic [ref=f3e241]:
+                    - img "White wins 50%, draws 1%, Black wins 49%" [ref=f3e242]
+                    - generic [aria-hidden] [ref=f3e246]:
+                      - generic [ref=f3e247]: W 114251
+                      - generic [ref=f3e248]: D 1422
+                      - generic [ref=f3e249]: B 113335
+                - button "e3, 221769 games" [ref=f3e250] [cursor=pointer]:
+                  - generic [ref=f3e251]: e3
+                  - strong [ref=f3e253]: "221769"
+                  - generic [ref=f3e254]:
+                    - img "White wins 48%, draws 1%, Black wins 51%" [ref=f3e255]
+                    - generic [aria-hidden] [ref=f3e259]:
+                      - generic [ref=f3e260]: W 106154
+                      - generic [ref=f3e261]: D 1249
+                      - generic [ref=f3e262]: B 114366
+                - button "b3, 43835 games" [ref=f3e263] [cursor=pointer]:
+                  - generic [ref=f3e264]: b3
+                  - strong [ref=f3e266]: "43835"
+                  - generic [ref=f3e267]:
+                    - img "White wins 49%, draws 1%, Black wins 50%" [ref=f3e268]
+                    - generic [aria-hidden] [ref=f3e272]:
+                      - generic [ref=f3e273]: W 21557
+                      - generic [ref=f3e274]: D 244
+                      - generic [ref=f3e275]: B 22034
+                - button "d3, 40121 games" [ref=f3e276] [cursor=pointer]:
+                  - generic [ref=f3e277]: d3
+                  - strong [ref=f3e279]: "40121"
+                  - generic [ref=f3e280]:
+                    - img "White wins 44%, draws 0%, Black wins 56%" [ref=f3e281]
+                    - generic [aria-hidden] [ref=f3e285]:
+                      - generic [ref=f3e286]: W 17709
+                      - generic [ref=f3e287]: D 199
+                      - generic [ref=f3e288]: B 22213
+                - button "f4, 19558 games" [ref=f3e289] [cursor=pointer]:
+                  - generic [ref=f3e290]: f4
+                  - strong [ref=f3e292]: "19558"
+                  - generic [ref=f3e293]:
+                    - img "White wins 50%, draws 1%, Black wins 49%" [ref=f3e294]
+                    - generic [aria-hidden] [ref=f3e298]:
+                      - generic [ref=f3e299]: W 9740
+                      - generic [ref=f3e300]: D 102
+                      - generic [ref=f3e301]: B 9716
+                - button "g3, 16059 games" [ref=f3e302] [cursor=pointer]:
+                  - generic [ref=f3e303]: g3
+                  - strong [ref=f3e305]: "16059"
+                  - generic [ref=f3e306]:
+                    - img "White wins 46%, draws 1%, Black wins 53%" [ref=f3e307]
+                    - generic [aria-hidden] [ref=f3e311]:
+                      - generic [ref=f3e312]: W 7354
+                      - generic [ref=f3e313]: D 81
+                      - generic [ref=f3e314]: B 8624
+                - button "a3, 15530 games" [ref=f3e315] [cursor=pointer]:
+                  - generic [ref=f3e316]: a3
+                  - strong [ref=f3e318]: "15530"
+                  - generic [ref=f3e319]:
+                    - img "White wins 52%, draws 1%, Black wins 47%" [ref=f3e320]
+                    - generic [aria-hidden] [ref=f3e324]:
+                      - generic [ref=f3e325]: W 8125
+                      - generic [ref=f3e326]: D 104
+                      - generic [ref=f3e327]: B 7301
+                - button "b4, 13695 games" [ref=f3e328] [cursor=pointer]:
+                  - generic [ref=f3e329]: b4
+                  - strong [ref=f3e331]: "13695"
+                  - generic [ref=f3e332]:
+                    - img "White wins 47%, draws 1%, Black wins 52%" [ref=f3e333]
+                    - generic [aria-hidden] [ref=f3e337]:
+                      - generic [ref=f3e338]: W 6373
+                      - generic [ref=f3e339]: D 89
+                      - generic [ref=f3e340]: B 7233
+                - button "a4, 9812 games" [ref=f3e341] [cursor=pointer]:
+                  - generic [ref=f3e342]: a4
+                  - strong [ref=f3e344]: "9812"
+                  - generic [ref=f3e345]:
+                    - img "White wins 51%, draws 1%, Black wins 48%" [ref=f3e346]
+                    - generic [aria-hidden] [ref=f3e350]:
+                      - generic [ref=f3e351]: W 5034
+                      - generic [ref=f3e352]: D 50
+                      - generic [ref=f3e353]: B 4728
+                - button "c4, 9328 games" [ref=f3e354] [cursor=pointer]:
+                  - generic [ref=f3e355]: c4
+                  - strong [ref=f3e357]: "9328"
+                  - generic [ref=f3e358]:
+                    - img "White wins 41%, draws 1%, Black wins 58%" [ref=f3e359]
+                    - generic [aria-hidden] [ref=f3e363]:
+                      - generic [ref=f3e364]: W 3804
+                      - generic [ref=f3e365]: D 47
+                      - generic [ref=f3e366]: B 5477
+                - button "Na3, 8118 games" [ref=f3e367] [cursor=pointer]:
+                  - generic [ref=f3e368]: Na3
+                  - strong [ref=f3e370]: "8118"
+                  - generic [ref=f3e371]:
+                    - img "White wins 49%, draws 1%, Black wins 50%" [ref=f3e372]
+                    - generic [aria-hidden] [ref=f3e376]:
+                      - generic [ref=f3e377]: W 3948
+                      - generic [ref=f3e378]: D 48
+                      - generic [ref=f3e379]: B 4122
+                - button "f3, 7220 games" [ref=f3e380] [cursor=pointer]:
+                  - generic [ref=f3e381]: f3
+                  - strong [ref=f3e383]: "7220"
+                  - generic [ref=f3e384]:
+                    - img "White wins 48%, draws 0%, Black wins 52%" [ref=f3e385]
+                    - generic [aria-hidden] [ref=f3e389]:
+                      - generic [ref=f3e390]: W 3463
+                      - generic [ref=f3e391]: D 28
+                      - generic [ref=f3e392]: B 3729
+                - button "h4, 6988 games" [ref=f3e393] [cursor=pointer]:
+                  - generic [ref=f3e394]: h4
+                  - strong [ref=f3e396]: "6988"
+                  - generic [ref=f3e397]:
+                    - img "White wins 41%, draws 0%, Black wins 59%" [ref=f3e398]
+                    - generic [aria-hidden] [ref=f3e402]:
+                      - generic [ref=f3e403]: W 2851
+                      - generic [ref=f3e404]: D 30
+                      - generic [ref=f3e405]: B 4107
+                - button "c3, 2359 games" [ref=f3e406] [cursor=pointer]:
+                  - generic [ref=f3e407]: c3
+                  - strong [ref=f3e409]: "2359"
+                  - generic [ref=f3e410]:
+                    - img "White wins 43%, draws 0%, Black wins 57%" [ref=f3e411]
+                    - generic [aria-hidden] [ref=f3e415]:
+                      - generic [ref=f3e416]: W 1005
+                      - generic [ref=f3e417]: D 9
+                      - generic [ref=f3e418]: B 1345
+                - button "g4, 2184 games" [ref=f3e419] [cursor=pointer]:
+                  - generic [ref=f3e420]: g4
+                  - strong [ref=f3e422]: "2184"
+                  - generic [ref=f3e423]:
+                    - img "White wins 44%, draws 0%, Black wins 56%" [ref=f3e424]
+                    - generic [aria-hidden] [ref=f3e428]:
+                      - generic [ref=f3e429]: W 957
+                      - generic [ref=f3e430]: D 10
+                      - generic [ref=f3e431]: B 1217
+                - button "Nh3, 1945 games" [ref=f3e432] [cursor=pointer]:
+                  - generic [ref=f3e433]: Nh3
+                  - strong [ref=f3e435]: "1945"
+                  - generic [ref=f3e436]:
+                    - img "White wins 47%, draws 1%, Black wins 52%" [ref=f3e437]
+                    - generic [aria-hidden] [ref=f3e441]:
+                      - generic [ref=f3e442]: W 919
+                      - generic [ref=f3e443]: D 23
+                      - generic [ref=f3e444]: B 1003
+                - button "h3, 1404 games" [ref=f3e445] [cursor=pointer]:
+                  - generic [ref=f3e446]: h3
+                  - strong [ref=f3e448]: "1404"
+                  - generic [ref=f3e449]:
+                    - img "White wins 37%, draws 0%, Black wins 63%" [ref=f3e450]
+                    - generic [aria-hidden] [ref=f3e454]:
+                      - generic [ref=f3e455]: W 523
+                      - generic [ref=f3e456]: D 5
+                      - generic [ref=f3e457]: B 876
+                - button "P@g6, 170 games" [ref=f3e458] [cursor=pointer]:
+                  - generic [ref=f3e459]: P@g6
+                  - strong [ref=f3e461]: "170"
+                  - generic [ref=f3e462]:
+                    - img "White wins 52%, draws 0%, Black wins 48%" [ref=f3e463]
+                    - generic [aria-hidden] [ref=f3e466]:
+                      - generic [ref=f3e467]: W 88
+                      - generic [ref=f3e468]: D 0
+                      - generic [ref=f3e469]: B 82
+                - button "N@e5, 156 games" [ref=f3e470] [cursor=pointer]:
+                  - generic [ref=f3e471]: N@e5
+                  - strong [ref=f3e473]: "156"
+                  - generic [ref=f3e474]:
+                    - img "White wins 48%, draws 1%, Black wins 51%" [ref=f3e475]
+                    - generic [aria-hidden] [ref=f3e479]:
+                      - generic [ref=f3e480]: W 75
+                      - generic [ref=f3e481]: D 2
+                      - generic [ref=f3e482]: B 79
+                - button "B@b3, 130 games" [ref=f3e483] [cursor=pointer]:
+                  - generic [ref=f3e484]: B@b3
+                  - strong [ref=f3e486]: "130"
+                  - generic [ref=f3e487]:
+                    - img "White wins 48%, draws 0%, Black wins 52%" [ref=f3e488]
+                    - generic [aria-hidden] [ref=f3e491]:
+                      - generic [ref=f3e492]: W 62
+                      - generic [ref=f3e493]: D 0
+                      - generic [ref=f3e494]: B 68
+                - button "P@e6, 97 games" [ref=f3e495] [cursor=pointer]:
+                  - generic [ref=f3e496]: P@e6
+                  - strong [ref=f3e498]: "97"
+                  - generic [ref=f3e499]:
+                    - img "White wins 51%, draws 0%, Black wins 49%" [ref=f3e500]
+                    - generic [aria-hidden] [ref=f3e503]:
+                      - generic [ref=f3e504]: W 49
+                      - generic [ref=f3e505]: D 0
+                      - generic [ref=f3e506]: B 48
+                - button "P@e5, 35 games" [ref=f3e507] [cursor=pointer]:
+                  - generic [ref=f3e508]: P@e5
+                  - strong [ref=f3e510]: "35"
+                  - generic [ref=f3e511]:
+                    - img "White wins 43%, draws 0%, Black wins 57%" [ref=f3e512]
+                    - generic [aria-hidden] [ref=f3e515]:
+                      - generic [ref=f3e516]: W 15
+                      - generic [ref=f3e517]: D 0
+                      - generic [ref=f3e518]: B 20
+                - button "P@h5, 19 games" [ref=f3e519] [cursor=pointer]:
+                  - generic [ref=f3e520]: P@h5
+                  - strong [ref=f3e522]: "19"
+                  - generic [ref=f3e523]:
+                    - img "White wins 37%, draws 0%, Black wins 63%" [ref=f3e524]
+                    - generic [aria-hidden] [ref=f3e527]:
+                      - generic [ref=f3e528]: W 7
+                      - generic [ref=f3e529]: D 0
+                      - generic [ref=f3e530]: B 12
+                - button "N@g5, 16 games" [ref=f3e531] [cursor=pointer]:
+                  - generic [ref=f3e532]: N@g5
+                  - strong [ref=f3e534]: "16"
+                  - generic [ref=f3e535]:
+                    - img "White wins 38%, draws 0%, Black wins 62%" [ref=f3e536]
+                    - generic [aria-hidden] [ref=f3e539]:
+                      - generic [ref=f3e540]: W 6
+                      - generic [ref=f3e541]: D 0
+                      - generic [ref=f3e542]: B 10
+                - button "P@d5, 13 games" [ref=f3e543] [cursor=pointer]:
+                  - generic [ref=f3e544]: P@d5
+                  - strong [ref=f3e546]: "13"
+                  - generic [ref=f3e547]:
+                    - img "White wins 8%, draws 0%, Black wins 92%" [ref=f3e548]
+                    - generic [aria-hidden] [ref=f3e551]:
+                      - generic [ref=f3e552]: W 1
+                      - generic [ref=f3e553]: D 0
+                      - generic [ref=f3e554]: B 12
+                - button "P@e4, 12 games" [ref=f3e555] [cursor=pointer]:
+                  - generic [ref=f3e556]: P@e4
+                  - strong [ref=f3e558]: "12"
+                  - generic [ref=f3e559]:
+                    - img "White wins 25%, draws 0%, Black wins 75%" [ref=f3e560]
+                    - generic [aria-hidden] [ref=f3e563]:
+                      - generic [ref=f3e564]: W 3
+                      - generic [ref=f3e565]: D 0
+                      - generic [ref=f3e566]: B 9
+                - button "B@h4, 11 games" [ref=f3e567] [cursor=pointer]:
+                  - generic [ref=f3e568]: B@h4
+                  - strong [ref=f3e570]: "11"
+                  - generic [ref=f3e571]:
+                    - img "White wins 55%, draws 0%, Black wins 45%" [ref=f3e572]
+                    - generic [aria-hidden] [ref=f3e575]:
+                      - generic [ref=f3e576]: W 6
+                      - generic [ref=f3e577]: D 0
+                      - generic [ref=f3e578]: B 5
+                - button "P@f3, 10 games" [ref=f3e579] [cursor=pointer]:
+                  - generic [ref=f3e580]: P@f3
+                  - strong [ref=f3e582]: "10"
+                  - generic [ref=f3e583]:
+                    - img "White wins 40%, draws 0%, Black wins 60%" [ref=f3e584]
+                    - generic [aria-hidden] [ref=f3e587]:
+                      - generic [ref=f3e588]: W 4
+                      - generic [ref=f3e589]: D 0
+                      - generic [ref=f3e590]: B 6
+                - button "P@g5, 10 games" [ref=f3e591] [cursor=pointer]:
+                  - generic [ref=f3e592]: P@g5
+                  - strong [ref=f3e594]: "10"
+                  - generic [ref=f3e595]:
+                    - img "White wins 20%, draws 0%, Black wins 80%" [ref=f3e596]
+                    - generic [aria-hidden] [ref=f3e599]:
+                      - generic [ref=f3e600]: W 2
+                      - generic [ref=f3e601]: D 0
+                      - generic [ref=f3e602]: B 8
+                - button "B@e6, 6 games" [ref=f3e603] [cursor=pointer]:
+                  - generic [ref=f3e604]: B@e6
+                  - strong [ref=f3e606]: "6"
+                  - generic [ref=f3e607]:
+                    - img "White wins 17%, draws 0%, Black wins 83%" [ref=f3e608]
+                    - generic [aria-hidden] [ref=f3e611]:
+                      - generic [ref=f3e612]: W 1
+                      - generic [ref=f3e613]: D 0
+                      - generic [ref=f3e614]: B 5
+                - button "P@e3, 6 games" [ref=f3e615] [cursor=pointer]:
+                  - generic [ref=f3e616]: P@e3
+                  - strong [ref=f3e618]: "6"
+                  - generic [ref=f3e619]:
+                    - img "White wins 17%, draws 0%, Black wins 83%" [ref=f3e620]
+                    - generic [aria-hidden] [ref=f3e623]:
+                      - generic [ref=f3e624]: W 1
+                      - generic [ref=f3e625]: D 0
+                      - generic [ref=f3e626]: B 5
+                - button "B@d5, 5 games" [ref=f3e627] [cursor=pointer]:
+                  - generic [ref=f3e628]: B@d5
+                  - strong [ref=f3e630]: "5"
+                  - generic [ref=f3e631]:
+                    - img "White wins 40%, draws 0%, Black wins 60%" [ref=f3e632]
+                    - generic [aria-hidden] [ref=f3e635]:
+                      - generic [ref=f3e636]: W 2
+                      - generic [ref=f3e637]: D 0
+                      - generic [ref=f3e638]: B 3
+                - button "P@d4, 5 games" [ref=f3e639] [cursor=pointer]:
+                  - generic [ref=f3e640]: P@d4
+                  - strong [ref=f3e642]: "5"
+                  - generic [ref=f3e643]:
+                    - img "White wins 0%, draws 0%, Black wins 100%" [ref=f3e644]
+                    - generic [aria-hidden] [ref=f3e646]:
+                      - generic [ref=f3e647]: W 0
+                      - generic [ref=f3e648]: D 0
+                      - generic [ref=f3e649]: B 5
+                - button "B@c4, 4 games" [ref=f3e650] [cursor=pointer]:
+                  - generic [ref=f3e651]: B@c4
+                  - strong [ref=f3e653]: "4"
+                  - generic [ref=f3e654]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e655]
+                    - generic [aria-hidden] [ref=f3e658]:
+                      - generic [ref=f3e659]: W 2
+                      - generic [ref=f3e660]: D 0
+                      - generic [ref=f3e661]: B 2
+                - button "B@h5, 4 games" [ref=f3e662] [cursor=pointer]:
+                  - generic [ref=f3e663]: B@h5
+                  - strong [ref=f3e665]: "4"
+                  - generic [ref=f3e666]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e667]
+                    - generic [aria-hidden] [ref=f3e670]:
+                      - generic [ref=f3e671]: W 2
+                      - generic [ref=f3e672]: D 0
+                      - generic [ref=f3e673]: B 2
+                - button "P@f5, 4 games" [ref=f3e674] [cursor=pointer]:
+                  - generic [ref=f3e675]: P@f5
+                  - strong [ref=f3e677]: "4"
+                  - generic [ref=f3e678]:
+                    - img "White wins 25%, draws 0%, Black wins 75%" [ref=f3e679]
+                    - generic [aria-hidden] [ref=f3e682]:
+                      - generic [ref=f3e683]: W 1
+                      - generic [ref=f3e684]: D 0
+                      - generic [ref=f3e685]: B 3
+                - button "Q@b3, 4 games" [ref=f3e686] [cursor=pointer]:
+                  - generic [ref=f3e687]: Q@b3
+                  - strong [ref=f3e689]: "4"
+                  - generic [ref=f3e690]:
+                    - img "White wins 0%, draws 0%, Black wins 100%" [ref=f3e691]
+                    - generic [aria-hidden] [ref=f3e693]:
+                      - generic [ref=f3e694]: W 0
+                      - generic [ref=f3e695]: D 0
+                      - generic [ref=f3e696]: B 4
+                - button "N@c6, 3 games" [ref=f3e697] [cursor=pointer]:
+                  - generic [ref=f3e698]: N@c6
+                  - strong [ref=f3e700]: "3"
+                  - generic [ref=f3e701]:
+                    - img "White wins 67%, draws 0%, Black wins 33%" [ref=f3e702]
+                    - generic [aria-hidden] [ref=f3e705]:
+                      - generic [ref=f3e706]: W 2
+                      - generic [ref=f3e707]: D 0
+                      - generic [ref=f3e708]: B 1
+                - button "P@g3, 3 games" [ref=f3e709] [cursor=pointer]:
+                  - generic [ref=f3e710]: P@g3
+                  - strong [ref=f3e712]: "3"
+                  - generic [ref=f3e713]:
+                    - img "White wins 0%, draws 0%, Black wins 100%" [ref=f3e714]
+                    - generic [aria-hidden] [ref=f3e716]:
+                      - generic [ref=f3e717]: W 0
+                      - generic [ref=f3e718]: D 0
+                      - generic [ref=f3e719]: B 3
+                - button "N@c3, 2 games" [ref=f3e720] [cursor=pointer]:
+                  - generic [ref=f3e721]: N@c3
+                  - strong [ref=f3e723]: "2"
+                  - generic [ref=f3e724]:
+                    - img "White wins 0%, draws 0%, Black wins 100%" [ref=f3e725]
+                    - generic [aria-hidden] [ref=f3e727]:
+                      - generic [ref=f3e728]: W 0
+                      - generic [ref=f3e729]: D 0
+                      - generic [ref=f3e730]: B 2
+                - button "N@e4, 2 games" [ref=f3e731] [cursor=pointer]:
+                  - generic [ref=f3e732]: N@e4
+                  - strong [ref=f3e734]: "2"
+                  - generic [ref=f3e735]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e736]
+                    - generic [aria-hidden] [ref=f3e739]:
+                      - generic [ref=f3e740]: W 1
+                      - generic [ref=f3e741]: D 0
+                      - generic [ref=f3e742]: B 1
+                - button "N@f3, 2 games" [ref=f3e743] [cursor=pointer]:
+                  - generic [ref=f3e744]: N@f3
+                  - strong [ref=f3e746]: "2"
+                  - generic [ref=f3e747]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e748]
+                    - generic [aria-hidden] [ref=f3e751]:
+                      - generic [ref=f3e752]: W 1
+                      - generic [ref=f3e753]: D 0
+                      - generic [ref=f3e754]: B 1
+                - button "N@h5, 2 games" [ref=f3e755] [cursor=pointer]:
+                  - generic [ref=f3e756]: N@h5
+                  - strong [ref=f3e758]: "2"
+                  - generic [ref=f3e759]:
+                    - img "White wins 100%, draws 0%, Black wins 0%" [ref=f3e760]
+                    - generic [aria-hidden] [ref=f3e762]:
+                      - generic [ref=f3e763]: W 2
+                      - generic [ref=f3e764]: D 0
+                      - generic [ref=f3e765]: B 0
+                - button "P@d3, 2 games" [ref=f3e766] [cursor=pointer]:
+                  - generic [ref=f3e767]: P@d3
+                  - strong [ref=f3e769]: "2"
+                  - generic [ref=f3e770]:
+                    - img "White wins 0%, draws 0%, Black wins 100%" [ref=f3e771]
+                    - generic [aria-hidden] [ref=f3e773]:
+                      - generic [ref=f3e774]: W 0
+                      - generic [ref=f3e775]: D 0
+                      - generic [ref=f3e776]: B 2
+                - button "P@h6, 2 games" [ref=f3e777] [cursor=pointer]:
+                  - generic [ref=f3e778]: P@h6
+                  - strong [ref=f3e780]: "2"
+                  - generic [ref=f3e781]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e782]
+                    - generic [aria-hidden] [ref=f3e785]:
+                      - generic [ref=f3e786]: W 1
+                      - generic [ref=f3e787]: D 0
+                      - generic [ref=f3e788]: B 1
+                - button "Q@f3, 2 games" [ref=f3e789] [cursor=pointer]:
+                  - generic [ref=f3e790]: Q@f3
+                  - strong [ref=f3e792]: "2"
+                  - generic [ref=f3e793]:
+                    - img "White wins 50%, draws 0%, Black wins 50%" [ref=f3e794]
+                    - generic [aria-hidden] [ref=f3e797]:
+                      - generic [ref=f3e798]: W 1
+                      - generic [ref=f3e799]: D 0
+                      - generic [ref=f3e800]: B 1
+                - link "B@a3, superatos, 0–1, archdukeshrimp; open in Bughouse analysis" [ref=f3e801] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=53645464215
+                  - generic [ref=f3e802]: B@a3
+                  - generic [ref=f3e803]:
+                    - generic [ref=f3e804]: superatos
+                    - strong [ref=f3e805]: 0–1
+                    - generic [ref=f3e806]: archdukeshrimp
+                  - generic [aria-hidden] [ref=f3e807]: ↗
+                - link "B@a4, schoolmeester, 0–1, mmichael; open in Bughouse analysis" [ref=f3e808] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=122417730241
+                  - generic [ref=f3e809]: B@a4
+                  - generic [ref=f3e810]:
+                    - generic [ref=f3e811]: schoolmeester
+                    - strong [ref=f3e812]: 0–1
+                    - generic [ref=f3e813]: mmichael
+                  - generic [aria-hidden] [ref=f3e814]: ↗
+                - link "B@c3, bestbym, 1–0, dreamsing; open in Bughouse analysis" [ref=f3e815] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=158791047031
+                  - generic [ref=f3e816]: B@c3
+                  - generic [ref=f3e817]:
+                    - generic [ref=f3e818]: bestbym
+                    - strong [ref=f3e819]: 1–0
+                    - generic [ref=f3e820]: dreamsing
+                  - generic [aria-hidden] [ref=f3e821]: ↗
+                - link "B@d6, withyrehrdnmf, 0–1, electrowas; open in Bughouse analysis" [ref=f3e822] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=5150891684
+                  - generic [ref=f3e823]: B@d6
+                  - generic [ref=f3e824]:
+                    - generic [ref=f3e825]: withyrehrdnmf
+                    - strong [ref=f3e826]: 0–1
+                    - generic [ref=f3e827]: electrowas
+                  - generic [aria-hidden] [ref=f3e828]: ↗
+                - link "B@e4, asteriya, 0–1, chickencrossroad; open in Bughouse analysis" [ref=f3e829] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=20563833213
+                  - generic [ref=f3e830]: B@e4
+                  - generic [ref=f3e831]:
+                    - generic [ref=f3e832]: asteriya
+                    - strong [ref=f3e833]: 0–1
+                    - generic [ref=f3e834]: chickencrossroad
+                  - generic [aria-hidden] [ref=f3e835]: ↗
+                - link "B@e5, liamclery2020, 0–1, grinder275; open in Bughouse analysis" [ref=f3e836] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=42674947195
+                  - generic [ref=f3e837]: B@e5
+                  - generic [ref=f3e838]:
+                    - generic [ref=f3e839]: liamclery2020
+                    - strong [ref=f3e840]: 0–1
+                    - generic [ref=f3e841]: grinder275
+                  - generic [aria-hidden] [ref=f3e842]: ↗
+                - link "B@g3, advatri, 0–1, elpancho31; open in Bughouse analysis" [ref=f3e843] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=164114988621
+                  - generic [ref=f3e844]: B@g3
+                  - generic [ref=f3e845]:
+                    - generic [ref=f3e846]: advatri
+                    - strong [ref=f3e847]: 0–1
+                    - generic [ref=f3e848]: elpancho31
+                  - generic [aria-hidden] [ref=f3e849]: ↗
+                - link "B@g6, abcdc, 0–1, chuckmoulton; open in Bughouse analysis" [ref=f3e850] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=4853751434
+                  - generic [ref=f3e851]: B@g6
+                  - generic [ref=f3e852]:
+                    - generic [ref=f3e853]: abcdc
+                    - strong [ref=f3e854]: 0–1
+                    - generic [ref=f3e855]: chuckmoulton
+                  - generic [aria-hidden] [ref=f3e856]: ↗
+                - link "N@c5, joeeggaming, 0–1, rampartcasino; open in Bughouse analysis" [ref=f3e857] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=187508295723
+                  - generic [ref=f3e858]: N@c5
+                  - generic [ref=f3e859]:
+                    - generic [ref=f3e860]: joeeggaming
+                    - strong [ref=f3e861]: 0–1
+                    - generic [ref=f3e862]: rampartcasino
+                  - generic [aria-hidden] [ref=f3e863]: ↗
+                - link "N@d3, ahjirax, 0–1, 111michael; open in Bughouse analysis" [ref=f3e864] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=17188935749
+                  - generic [ref=f3e865]: N@d3
+                  - generic [ref=f3e866]:
+                    - generic [ref=f3e867]: ahjirax
+                    - strong [ref=f3e868]: 0–1
+                    - generic [ref=f3e869]: 111michael
+                  - generic [aria-hidden] [ref=f3e870]: ↗
+                - link "N@d5, fredo78077807, 0–1, zyxon; open in Bughouse analysis" [ref=f3e871] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=30504557081
+                  - generic [ref=f3e872]: N@d5
+                  - generic [ref=f3e873]:
+                    - generic [ref=f3e874]: fredo78077807
+                    - strong [ref=f3e875]: 0–1
+                    - generic [ref=f3e876]: zyxon
+                  - generic [aria-hidden] [ref=f3e877]: ↗
+                - link "N@d6, drak0nb, ½–½, toddmarkington; open in Bughouse analysis" [ref=f3e878] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=123961890993
+                  - generic [ref=f3e879]: N@d6
+                  - generic [ref=f3e880]:
+                    - generic [ref=f3e881]: drak0nb
+                    - strong [ref=f3e882]: ½–½
+                    - generic [ref=f3e883]: toddmarkington
+                  - generic [aria-hidden] [ref=f3e884]: ↗
+                - link "N@e3, manusutha, 1–0, bitblitzers; open in Bughouse analysis" [ref=f3e885] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=140651458195
+                  - generic [ref=f3e886]: N@e3
+                  - generic [ref=f3e887]:
+                    - generic [ref=f3e888]: manusutha
+                    - strong [ref=f3e889]: 1–0
+                    - generic [ref=f3e890]: bitblitzers
+                  - generic [aria-hidden] [ref=f3e891]: ↗
+                - link "N@e6, thinkinga_head, 0–1, dominicjohnson1; open in Bughouse analysis" [ref=f3e892] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=87373230433
+                  - generic [ref=f3e893]: N@e6
+                  - generic [ref=f3e894]:
+                    - generic [ref=f3e895]: thinkinga_head
+                    - strong [ref=f3e896]: 0–1
+                    - generic [ref=f3e897]: dominicjohnson1
+                  - generic [aria-hidden] [ref=f3e898]: ↗
+                - link "N@g6, duhless, 0–1, anara32; open in Bughouse analysis" [ref=f3e899] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=4079038592
+                  - generic [ref=f3e900]: N@g6
+                  - generic [ref=f3e901]:
+                    - generic [ref=f3e902]: duhless
+                    - strong [ref=f3e903]: 0–1
+                    - generic [ref=f3e904]: anara32
+                  - generic [aria-hidden] [ref=f3e905]: ↗
+                - link "P@b3, weirdcorry, 0–1, bughousecoach; open in Bughouse analysis" [ref=f3e906] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=177759472067
+                  - generic [ref=f3e907]: P@b3
+                  - generic [ref=f3e908]:
+                    - generic [ref=f3e909]: weirdcorry
+                    - strong [ref=f3e910]: 0–1
+                    - generic [ref=f3e911]: bughousecoach
+                  - generic [aria-hidden] [ref=f3e912]: ↗
+                - link "P@c3, pionouroi, 0–1, aleko80; open in Bughouse analysis" [ref=f3e913] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=3464149357
+                  - generic [ref=f3e914]: P@c3
+                  - generic [ref=f3e915]:
+                    - generic [ref=f3e916]: pionouroi
+                    - strong [ref=f3e917]: 0–1
+                    - generic [ref=f3e918]: aleko80
+                  - generic [aria-hidden] [ref=f3e919]: ↗
+                - link "P@c4, soundlord1, 1–0, yoyo141; open in Bughouse analysis" [ref=f3e920] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=4829018027
+                  - generic [ref=f3e921]: P@c4
+                  - generic [ref=f3e922]:
+                    - generic [ref=f3e923]: soundlord1
+                    - strong [ref=f3e924]: 1–0
+                    - generic [ref=f3e925]: yoyo141
+                  - generic [aria-hidden] [ref=f3e926]: ↗
+                - link "P@c5, rumisgone, 0–1, mai; open in Bughouse analysis" [ref=f3e927] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=16405540307
+                  - generic [ref=f3e928]: P@c5
+                  - generic [ref=f3e929]:
+                    - generic [ref=f3e930]: rumisgone
+                    - strong [ref=f3e931]: 0–1
+                    - generic [ref=f3e932]: mai
+                  - generic [aria-hidden] [ref=f3e933]: ↗
+                - link "P@f6, thinkinga_head, 1–0, goldennose123; open in Bughouse analysis" [ref=f3e934] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=87373250001
+                  - generic [ref=f3e935]: P@f6
+                  - generic [ref=f3e936]:
+                    - generic [ref=f3e937]: thinkinga_head
+                    - strong [ref=f3e938]: 1–0
+                    - generic [ref=f3e939]: goldennose123
+                  - generic [aria-hidden] [ref=f3e940]: ↗
+                - link "Q@f6, 8chancellor, 0–1, dreamsing; open in Bughouse analysis" [ref=f3e941] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=103838451873
+                  - generic [ref=f3e942]: Q@f6
+                  - generic [ref=f3e943]:
+                    - generic [ref=f3e944]: 8chancellor
+                    - strong [ref=f3e945]: 0–1
+                    - generic [ref=f3e946]: dreamsing
+                  - generic [aria-hidden] [ref=f3e947]: ↗
+                - link "R@e3, somechessplayerguy, 0–1, chickencrossroad; open in Bughouse analysis" [ref=f3e948] [cursor=pointer]:
+                  - /url: https://bughouse.aronteh.com/?gameId=146694202757
+                  - generic [ref=f3e949]: R@e3
+                  - generic [ref=f3e950]:
+                    - generic [ref=f3e951]: somechessplayerguy
+                    - strong [ref=f3e952]: 0–1
+                    - generic [ref=f3e953]: chickencrossroad
+                  - generic [aria-hidden] [ref=f3e954]: ↗
+  - button "Open Next.js Dev Tools" [ref=f3e960] [cursor=pointer]
+  - alert [ref=f3e964]
